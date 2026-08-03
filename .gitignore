@@ -1,0 +1,4 @@
+out/
+tools/freerouting.jar
+__pycache__/
+*.lck

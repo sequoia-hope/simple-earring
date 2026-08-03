@@ -1,0 +1,105 @@
+# Parts database: every placeable part with LCSC number + footprint.
+# footprint: "<name>" refers to library/parts.pretty/<name>.kicad_mod
+# verified: yes = LCSC number confirmed against datasheet/prior build this project
+#           prior = proven on a previous board of ours (earring / rp2350a-compact / pendant)
+#           check = plausible but must be validated before ordering (see notes)
+
+mcu:
+  mpn: RP2354A
+  lcsc: C41378174
+  footprint: RP2350-QFN-60-1EP_7x7_P0.4mm_EP3.4x3.4mm_ThermalVias
+  verified: yes          # confirmed at LCSC, QFN-60 identical to RP2350A
+  notes: 2MB internal flash; QSPI pins NC except QSPI_SS (BOOTSEL strap)
+
+led:
+  mpn: TBA-C1010MB-J2I16
+  lcsc: C22461778
+  footprint: LED_TBA-C1010MB
+  verified: yes          # datasheet fetched; pinout 1=DI 2=VCC 3=GND 4=DO
+  notes: 4.2-5.5V spec, runs at LiR voltage; 3.3V data OK; 760uA quiescent each
+
+charger:
+  mpn: LGS4056HDA
+  lcsc: C5124109
+  footprint: DFN-8-1EP_2x2mm_P0.5mm_EP0.9x1.5mm
+  verified: prior        # earring used C5124109 with this footprint
+  notes: I_BAT=900/R_PROG (<300mA); TEMP->GND disables NTC; CE->VCC; 10uF on VCC & BAT
+
+ldo:
+  mpn: NCP730BMT330TBG
+  lcsc: C892821
+  footprint: WDFN-6-2x2
+  verified: prior        # earring
+  notes: 3.3V 150mA, ~1uA Iq
+
+load_switch:
+  mpn: TPS22913BYZVR
+  lcsc: C544698
+  footprint: YZV0004ADAD
+  verified: prior        # earring; 4-ball CSP, ON active high
+  notes: switches VBATT -> VLED
+
+usb_conn:
+  mpn: GT-USB-7055
+  lcsc: C2686963
+  footprint: USB-C-TH_GT-USB-7055
+  verified: prior        # earring; USB-C 16pin TH shell
+
+usb_esd:
+  mpn: USBLC6-2P6
+  lcsc: C2827693
+  footprint: SOT-666
+  verified: prior        # earring
+
+crystal:
+  mpn: TXM12M0004252FBCEO00T
+  lcsc: C284155
+  footprint: Crystal_SMD_2520-4Pin_2.5x2.0mm
+  verified: prior        # earring; 12MHz 12pF SMD2520-4P
+  notes: pins 1/3 = crystal, 2/4 = GND (verify pad map at board gen)
+
+vreg_inductor:
+  mpn: AOTA-B201610S3R3-101-T
+  lcsc: C42411119
+  footprint: L_pol_2016
+  verified: check        # from funvill RP2350A minimal BOM; footprint from pendant
+  notes: 3.3uH for RP2350 internal VREG
+
+battery_clip:
+  mpn: CR2032-W
+  lcsc: C70373
+  footprint: BAT_CR2032_W
+  verified: yes          # datasheet fetched, footprint generated from drawing
+  notes: clip=+ (cell can/sides), center pad=-; cell inserted + marking outward
+
+bootsel_button:
+  mpn: YZA-042-1.5
+  lcsc: C49108619
+  footprint: SW_YZA-042-1.5
+  verified: prior        # rp2350a-compact BOOTSEL
+
+chrg_led:
+  mpn: KT-0603R
+  lcsc: C2286
+  footprint: LED_0603_1608Metric
+  verified: check        # common JLC basic red 0603; validate at order time
+
+testpoint:
+  mpn: ~
+  lcsc: ~
+  footprint: TestPoint_Pad_1.5x1.5mm
+  verified: yes          # bare pad, not assembled
+
+# --- passives (0402 unless noted) ---
+r_27:    {lcsc: C138021, footprint: R_0402_1005Metric, verified: prior}   # USB series
+r_1k:    {lcsc: C11702,  footprint: R_0402_1005Metric, verified: prior}   # BOOTSEL, CHRG LED
+r_5k1:   {lcsc: C25905,  footprint: R_0402_1005Metric, verified: prior}   # USB-C CC pulldowns
+r_10k:   {lcsc: C25804,  footprint: R_0402_1005Metric, verified: prior}   # RUN pullup, SW ON pulldown
+r_22k:   {lcsc: C25768,  footprint: R_0402_1005Metric, verified: check}   # R_PROG ~41mA; CONFIRM value=22k
+r_1m:    {lcsc: C26083,  footprint: R_0402_1005Metric, verified: check}   # VBATT sense divider; CONFIRM value=1M
+c_100n:  {lcsc: C1525,   footprint: C_0402_1005Metric, verified: prior}
+c_15p:   {lcsc: C1548,   footprint: C_0402_1005Metric, verified: prior}   # crystal load
+c_1u:    {lcsc: C52923,  footprint: C_0402_1005Metric, verified: check}   # CONFIRM value=1uF 0402
+c_4u7:   {lcsc: C23733,  footprint: C_0402_1005Metric_small_pads, verified: prior}  # VREG in/out
+c_10u_0805: {lcsc: C15850, footprint: C_0805_2012Metric, verified: prior} # charger VCC/BAT
+c_10u_0603: {lcsc: C19702, footprint: C_0603_1608Metric, verified: check}  # CL10A106KP8NNNC 10uF 6.3V; CONFIRM

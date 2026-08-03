@@ -1,0 +1,46 @@
+# simple_earring — single source of truth for the generated design.
+# Edit this file, then run: python3 build.py
+#
+# High-level goals:
+#   - RP2354A (QFN-60, 2MB internal flash) on the front
+#   - Rechargeable LIR2032 coin cell + holder on the back
+#   - TBA-C1010MB-J2I16 addressable RGB LEDs around the periphery
+#   - USB-C for charging (LiPo/LiR charger) and UF2 programming
+#   - 4-layer board, JLCPCB rules, all parts sourced at LCSC
+
+board:
+  shape: circle          # circle | polygon (future: arbitrary DXF outline)
+  diameter_mm: 30.5  # 29 packs the center too tight for reliable routing convergence
+  layers: 4
+  # Layer plan:
+  #   F.Cu   - components (MCU side) + signal
+  #   In1.Cu - solid GND
+  #   In2.Cu - power (3V3 / VBATT split)
+  #   B.Cu   - battery holder side + signal
+
+leds:
+  count: 20              # bump to 24 if the ring looks sparse
+  ring_margin_mm: 2.0    # distance from board edge to LED center
+  usb_gap_half_deg: 45   # LED arc keeps this half-angle clear at the USB
+  # LEDs point pin-1/data tangentially; chain daisy-chains around the ring.
+  power_rail: VBATT      # TBA-C1010 wants 4.2-5.5V officially; runs at LiR voltage in practice
+
+power:
+  battery: LIR2032       # 3.6V nominal, 3.0-4.2V, ~40mAh usable
+  charge_current_ma: 40  # ~1C for LIR2032; sets charger Rprog
+  regulator_3v3: LDO     # battery -> 3.3V LDO for RP2354 IOVDD/VREG_VIN
+  led_load_switch: true  # high-side switch so LEDs draw zero when off
+
+usb:
+  connector: usb_c       # charging + UF2 programming
+  style: mid_or_th       # decided in bom/parts.yaml by footprint choice
+
+jlcpcb:
+  stackup: JLC04161H-7628
+  min_track_mm: 0.127
+  min_clearance_mm: 0.127
+  default_track_mm: 0.15
+  power_track_mm: 0.3
+  via_drill_mm: 0.2
+  via_diameter_mm: 0.4
+  assembly_side: both    # MCU front, holder back — JLC does 2-sided SMT
