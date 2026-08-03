@@ -220,6 +220,14 @@ def beautify_led_chain(board, rt, fps, n_leds):
     (freerouting may have parked e.g. a VLED fanout via in the corridor)."""
     import finish as fin
     obs = fin.Obstacles(board)
+    # NPTH holes (e.g. SW2's locating pegs) carry no copper, so the
+    # Obstacles model skips them — but an arc through one is a DRC error
+    npth = []
+    for fp in board.GetFootprints():
+        for p in fp.Pads():
+            if p.GetAttribute() == pcbnew.PAD_ATTRIB_NPTH:
+                px, py = rel(p.GetPosition())
+                npth.append((px, py, to_mm(p.GetDrillSize().x) / 2))
     kept = 0
     for i in range(n_leds - 1):
         net = f"LED_D{i+1}"
@@ -232,6 +240,9 @@ def beautify_led_chain(board, rt, fps, n_leds):
         for k in range(n + 1):
             x = ar[0] + (br[0] - ar[0]) * k / n
             y = ar[1] + (br[1] - ar[1]) * k / n
+            for hx, hy, hr in npth:
+                if math.hypot(hx - x, hy - y) < hr + 0.075 + 0.3:
+                    clear = False
             for it in obs.near_items(x, y):
                 inet = it[2]
                 if inet.startswith("LED_D"):
@@ -266,6 +277,45 @@ def post_routes(board, rt, fps):
     pass
 
 
+def add_ring_stubs(board, rt):
+    """Stub U1's DVDD pins into the transplanted under-chip 1V1 square and
+    the IOVDD/QSPI_IOVDD pins into the 3V3 ring. The official board feeds
+    its rings through B.Cu traces + its base pour; on this board the moat
+    between the EP and the pin ring is freerouting territory, so each stub
+    is gated against the routed copper and silently skipped when blocked
+    (the rings are redundant copper, not the primary connection)."""
+    import finish as fin
+    obs = fin.Obstacles(board)
+    u1 = None
+    for fp in board.GetFootprints():
+        if fp.GetReference() == "U1":
+            u1 = fp
+    # pad number -> stub endpoint inside the ring copper (board-frame mm)
+    STUBS = {
+        "6":  (2.05, 0.30), "23": (0.00, -2.55), "39": (-2.05, -0.10),
+        "1":  (2.50, 2.30), "11": (2.50, -1.70), "20": (1.20, -3.10),
+        "30": (-2.55, -3.05), "38": (-2.50, -0.50), "45": (-2.50, 2.30),
+        "53": (0.00, 2.10), "54": (0.40, 2.10),
+    }
+    added = skipped = 0
+    for p in u1.Pads():
+        num = p.GetNumber()
+        if num not in STUBS:
+            continue
+        px, py = rel(p.GetPosition())
+        # start just inside the pad's inner end (pads are 0.88 long)
+        sx = px - math.copysign(0.34, px) if abs(px) > 3 else px
+        sy = py - math.copysign(0.34, py) if abs(px) <= 3 else py
+        end = STUBS[num]
+        if obs.clear_seg((sx, sy), end, pcbnew.F_Cu, p.GetNetname(),
+                         0.127 + 0.10):
+            rt.track((sx, sy), end, p.GetNetname(), width=0.2)
+            added += 1
+        else:
+            skipped += 1
+    print(f"power-ring stubs: {added} added, {skipped} blocked")
+
+
 def main():
     no_freeroute = "--no-freeroute" in sys.argv
     design = load_design()
@@ -289,11 +339,15 @@ def main():
     # (bottom-center pair kept at r>4.4: inside that radius the clip's 8mm
     # back pad eats the via holes — they only survived DRC before because
     # they went unused and were dropped as dangling)
-    for pos in ((-5.9, -1.2), (6.2, 2.6), (0.9, 5.0), (-0.6, 4.5)):
+    # ((-1.2,-8.3): the crystal-pocket decaps' 3V3 feed — SW1's move to
+    # top-center displaced the corridor they used to tap)
+    for pos in ((-5.9, -1.2), (6.2, 2.6), (0.9, 5.0), (-0.6, 4.5),
+                (-1.2, -8.3)):
         rt.via(pos, "3V3")
-    # VREG single-point ground return (RP2350 ds §6.3.8): two adjacent vias
-    # beside the CIN/COUT GND pads; separate dedicated via for CFILT's GND
-    for pos in ((-3.45, 4.35), (-3.45, 4.98)):
+    # VREG single-point ground return: two vias INSIDE the transplanted
+    # local GND pour, at the official minimal design's spots (rotated);
+    # separate dedicated via for CFILT's GND
+    for pos in ((-3.10, 4.40), (-3.10, 5.00)):
         rt.via(pos, "GND")
     rt.via((-4.65, 3.20), "GND")
     # channel the HRO connector's interleaved duplicate-pad joins through
@@ -317,6 +371,55 @@ def main():
     # higher priority carves VLED back automatically
     rt.zone(pcbnew.In2_Cu, "3V3", rt.circle_poly(9.55), priority=2,
             name="p3v3_disc")
+    # NB: do NOT put a rule area over the In2 disc to stop wire crossings —
+    # freerouting treats the DSN keepout as a hard obstacle and loses the
+    # whole center region (18 unrouted vs the usual 6). Disc splits are
+    # instead healed post-route by stitch_p3v3_islands() in finish.py.
+    # C30's VLED plane access: via-in-pad (tented) — the only tip-left spot
+    # where a through-via clears SW2's back-side copper
+    rt.via(rel(pad_of(fps["C30"], 1).GetPosition()), "VLED")
+    # LED1/LED2 VCC fanout: the tip-left VLED pocket is hemmed in by the
+    # LED chain (front) and SW2 (back); freerouting strands it on most
+    # seeds. One via per LED, spot scanned against all static copper —
+    # pre-route vias can't conflict with wires (freerouting routes around
+    # them), only pads/holes/edge matter.
+    def safe_via_spot(cx, cy):
+        pads = [(p, fp) for fp in board.GetFootprints() for p in fp.Pads()]
+        for r in (0.7, 0.9, 1.1):
+            for k in range(16):
+                ang = math.pi * 2 * k / 16
+                x, y = cx + r * math.cos(ang), cy + r * math.sin(ang)
+                if math.hypot(x, y) < 4.6:
+                    continue  # battery clip back pad
+                # inside the outline with margin, and within the VLED band?
+                from outline import half_width_at
+                if abs(x) > half_width_at(load_design(), y) - 0.45:
+                    continue
+                if abs(x) < half_width_at(load_design(), y) - 4.5:
+                    continue
+                ok = True
+                for p, fp in pads:
+                    pp = p.GetPosition()
+                    d = math.hypot(to_mm(pp.x) - 100 - x,
+                                   to_mm(pp.y) - 100 - y)
+                    sz = p.GetSize(pcbnew.F_Cu)
+                    half = math.hypot(to_mm(sz.x), to_mm(sz.y)) / 2
+                    need = 0.55 if p.GetNetname() != "VLED" else 0.0
+                    if p.GetAttribute() != pcbnew.PAD_ATTRIB_SMD:
+                        need = 0.75  # hole-to-hole
+                    if d < half + need:
+                        ok = False
+                        break
+                if ok:
+                    return (x, y)
+        return None
+    for ref in ("LED1", "LED2"):
+        px, py = rel(pad_of(fps[ref], 2).GetPosition())
+        spot = safe_via_spot(px, py)
+        if spot:
+            rt.via(spot, "VLED")
+        else:
+            print(f"WARNING: no safe VLED via spot near {ref}")
     pcbnew.SaveBoard(str(PCB), board)
 
     # ---------- freerouting ----------
@@ -359,6 +462,7 @@ def main():
     # ---------- outer pours (post-route: as DSN planes they stall freerouting) ----------
     from outline import offset_polygon as _offp
     rt2 = Router(board, design)
+    add_ring_stubs(board, rt2)
 
     # RP2350 ds §6.3.8: cut copper under the inductor (F.Cu) and cut the
     # layer-2 plane under the inductor + VREG_LX node (In1). Added post-route
@@ -378,14 +482,65 @@ def main():
             ol.Append(mm(CX + x), mm(CY + y))
         board.Add(z)
 
-    pour_keepout(pcbnew.F_Cu, -3.35, 5.65, -0.65, 8.00)    # under L1 body
     pour_keepout(pcbnew.In1_Cu, -3.35, 5.65, -0.65, 8.00)  # In1 under L1
-    pour_keepout(pcbnew.In1_Cu, -2.60, 3.35, -1.80, 5.65)  # In1 under LX
+    pour_keepout(pcbnew.In1_Cu, -2.60, 2.60, -1.80, 5.65)  # In1 under LX
+    # (no F.Cu rule-area under L1 any more: the transplanted 1V1/LX pours
+    # own that area, and gnd_front is kept out by the cluster hole below)
     _pour = _offp(design, 0.3, 80)
     zf = rt2.zone(pcbnew.F_Cu, "GND", _pour, name="gnd_front")
     zb = rt2.zone(pcbnew.B_Cu, "GND", _pour, name="gnd_back")
     zf.SetPadConnection(pcbnew.ZONE_CONNECTION_FULL)
     zb.SetPadConnection(pcbnew.ZONE_CONNECTION_FULL)
+    # gnd_front stays out of the VREG cluster entirely (the official board
+    # cuts its base pour around the cluster the same way): the local GND
+    # pour + its return vias are the ONLY front-side GND there, keeping the
+    # single-point return and no GND slivers under L1 / between the pours.
+    ol = zf.Outline()
+    ol.NewHole()
+    for x, y in ((-3.75, 2.30), (-0.85, 2.30), (-0.85, 8.20), (-3.75, 8.20)):
+        ol.Append(mm(CX + x), mm(CY + y), 0, 0)
+
+    # ---------- VREG pours transplanted from the official minimal design ----
+    # Polygons lifted verbatim from RPI-RP2350A-MINIMAL_R4-S1.kicad_pcb
+    # (KiCad-10 file parsed as sexpr text; chip-frame mm, official U1 rot=0).
+    # Our U1 is the official chip rotated 180°, so map (x,y)->(-x, U1Y-y).
+    # Relative priorities preserved from the official board; all sit above
+    # gnd_front(0). The caps MUST sit at x=-2.00 (place.py) or the 0.3mm LX
+    # finger threading their pad gap pinches below the 0.15 min fill width.
+    U1Y = -0.5
+    OFFICIAL_POURS = [
+        # under-chip 3V3 ring (between the 1V1 square and the pin ring)
+        ("3V3", 1, [(2.8, 2.8), (-2.8, 2.8), (-2.8, -2.8), (2.8, -2.8)]),
+        # under-chip 1V1 square (ring around the EP once GND clears it)
+        ("VDD_CORE", 3, [(2.2, 2.2), (-2.2, 2.2), (-2.2, -2.2), (2.2, -2.2)]),
+        # local GND return: PGND pin 47 + CIN/COUT GND pads + return vias
+        ("GND", 4, [(2.3, -3.15), (2.3, -4.85), (2.45, -4.85), (2.45, -5.3),
+                    (2.3, -5.3), (2.3, -5.8), (3.1, -5.8), (3.4, -5.5),
+                    (3.4, -4.75), (2.5, -3.85), (2.5, -3.15)]),
+        # LX: pin 48 -> 0.3mm finger between the cap pad columns -> wide
+        # column into L1 pad 2
+        ("VREG_LX", 5, [(1.9, -3.15), (1.9, -3.95), (1.85, -4.0),
+                        (1.85, -6.15), (2.35, -6.65), (2.35, -8.05),
+                        (3.05, -8.05), (3.05, -6.35), (2.75, -6.05),
+                        (2.3, -6.05), (2.15, -5.9), (2.15, -4.0),
+                        (2.1, -3.95), (2.1, -3.15)]),
+        # 1V1 switcher pour: L1 pad 1 + COUT hot pad + FB landing lobe
+        ("VDD_CORE", 6, [(1.65, -5.3), (1.65, -6.675), (1.65, -8.05),
+                         (0.95, -8.05), (0.95, -6.2), (1.25, -5.9),
+                         (1.25, -5.75), (1.05, -5.75), (0.7, -6.1),
+                         (0.5, -6.1), (0.2, -5.8), (0.2, -5.2), (0.5, -4.9),
+                         (1.0, -4.9), (1.0, -5.1), (1.55, -5.1),
+                         (1.55, -5.3)]),
+        # 3V3 feed finger: VREG_VIN pin 49 -> CIN hot pad (also merges with
+        # the under-chip 3V3 ring at its tip)
+        ("3V3", 7, [(1.5, -2.7), (1.5, -4.05), (1.25, -4.3), (1.25, -4.85),
+                    (1.7, -4.85), (1.7, -2.7)]),
+    ]
+    for netname, prio, poly in OFFICIAL_POURS:
+        pts = [(-x, U1Y - y) for x, y in poly]
+        z = rt2.zone(pcbnew.F_Cu, netname, pts, priority=prio,
+                     name=f"vreg_{netname.lower()}_{prio}")
+        z.SetPadConnection(pcbnew.ZONE_CONNECTION_FULL)  # official: solid
 
     # ---------- fill + report ----------
     filler = pcbnew.ZONE_FILLER(board)

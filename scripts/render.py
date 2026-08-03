@@ -18,8 +18,12 @@ LAYOUT_VIEWS = {
 
 def main():
     ok = True
+    # --placement: quick post-place preview (no routing yet) -> separate
+    # files so the routed renders aren't clobbered mid-build
+    placement = "--placement" in sys.argv
+    prefix = "render_place_" if placement else "render_"
     for side in ("top", "bottom"):
-        out = ROOT / "out" / f"render_{side}.png"
+        out = ROOT / "out" / f"{prefix}{side}.png"
         r = subprocess.run(
             ["kicad-cli", "pcb", "render", "--side", side,
              "--quality", "high", "--zoom", "0.9",
@@ -30,6 +34,8 @@ def main():
             ok = False
         else:
             print(f"wrote {out}")
+    if placement:
+        sys.exit(0 if ok else 1)
     for side, (layers, mirror) in LAYOUT_VIEWS.items():
         out = ROOT / "out" / f"layout_{side}.svg"
         cmd = ["kicad-cli", "pcb", "export", "svg", "--mode-single",

@@ -13,10 +13,12 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).parent
-STAGES = ["board", "place", "route", "finish", "drc", "render", "export"]
+STAGES = ["board", "place", "preview", "route", "finish", "drc", "render",
+          "export"]
 SCRIPTS = {
     "board": "gen_board.py",
     "place": "place.py",
+    "preview": "render.py --placement",   # unrouted render, before routing
     "route": "route.py",
     "finish": "finish.py",
     "drc": "drc.py",
@@ -26,13 +28,14 @@ SCRIPTS = {
 
 
 def run_stage(name: str) -> bool:
-    script = ROOT / "scripts" / SCRIPTS[name]
+    parts = SCRIPTS[name].split()
+    script = ROOT / "scripts" / parts[0]
     if not script.exists():
         print(f"[{name}] SKIP — {script.name} not written yet")
         return True
-    print(f"\n=== [{name}] {script.name} ===")
+    print(f"\n=== [{name}] {SCRIPTS[name]} ===")
     t0 = time.time()
-    r = subprocess.run([sys.executable, str(script)], cwd=ROOT)
+    r = subprocess.run([sys.executable, str(script)] + parts[1:], cwd=ROOT)
     dt = time.time() - t0
     status = "ok" if r.returncode == 0 else f"FAILED ({r.returncode})"
     print(f"=== [{name}] {status} in {dt:.1f}s ===")

@@ -74,9 +74,26 @@ def main():
     end_y = design["leds"].get("path_end_y", -13.2)
     path = led_path(design, margin, end_y)
     n = design["leds"]["count"]
-    S = [i * path.length / (n - 1) for i in range(n)]
+    n_ring = design["leds"].get("ring_count", n)
+    S = [i * path.length / (n_ring - 1) for i in range(n_ring)]
     pts = [path.point(si) for si in S]
     tangs = [path.tangent(si) for si in S]
+    # tip closure (front): 3 LEDs continuing the chain from the right
+    # straight across the tip, middle one higher (closer to the tip edge).
+    # Coordinates clear the USB shell THT legs (±4.33, -14.88/-19.06) by
+    # >2.1mm — the margin the existing path-end LEDs already prove out.
+    TIP_PTS = [(2.45, -17.85), (0.0, -18.6), (-2.45, -17.85)]
+    if n > n_ring:
+        assert n - n_ring == len(TIP_PTS), "tip closure expects 3 LEDs"
+        pts += TIP_PTS
+        # tangents by finite difference along the extended chain
+        # (neighbors: LED22 -> tip -> LED1, travelling right to left)
+        ext = [pts[n_ring - 1]] + TIP_PTS + [pts[0]]
+        for i in range(1, len(ext) - 1):
+            dx = ext[i + 1][0] - ext[i - 1][0]
+            dy = ext[i + 1][1] - ext[i - 1][1]
+            L = math.hypot(dx, dy)
+            tangs.append((dx / L, dy / L))
     # pseudo polar angle matching the old circular convention
     pthetas = [math.degrees(math.atan2(t[1], t[0])) - 90 for t in tangs]
 
@@ -97,17 +114,29 @@ def main():
     print(f"LED path: len={path.length:.1f}mm, orientation k={k}, "
           f"chain gap total {best[1]/1e6:.2f}mm")
 
-    # bypass caps at every-2nd chain midpoint, shifted inward
-    for i in range(n):
+    # bypass caps at every-2nd chain midpoint, shifted inward; slide along
+    # the path if the spot lands on a USB shell THT leg (tip straights)
+    J1_LEGS = [(sx * 4.33, sy) for sx in (-1, 1) for sy in (-14.88, -19.06)]
+    for i in range(n_ring):
         ref = f"C{30+i}"
         if ref not in fps:
             continue
-        sm = min(S[i] + path.length / (n - 1) / 2, path.length - 1)
-        x, y = path.point(sm)
-        nx, ny = path.normal_in(sm, design)
-        t = path.tangent(sm)
-        rot = -(math.degrees(math.atan2(t[1], t[0]))) 
-        place(fps[ref], x + nx * 1.9, y + ny * 1.9, rot=rot)
+        sm = min(S[i] + path.length / (n_ring - 1) / 2, path.length - 1)
+        for slide in (0, 1.3, -1.3, 2.0, -2.0):
+            smt = min(max(sm + slide, 0.5), path.length - 0.5)
+            x, y = path.point(smt)
+            nx, ny = path.normal_in(smt, design)
+            px, py = x + nx * 1.9, y + ny * 1.9
+            if all(math.hypot(px - lx, py - ly) > 2.3 for lx, ly in J1_LEGS):
+                break
+        t = path.tangent(smt)
+        rot = -(math.degrees(math.atan2(t[1], t[0])))
+        place(fps[ref], px, py, rot=rot)
+    # tip-closure bypass caps (i=22,24 -> C52/C54): inboard of the chevron,
+    # between the D+/D- channel vias (y>=-15.0) and the tip LEDs' courtyards
+    for ref, x in (("C52", 1.30), ("C54", -1.30)):
+        if ref in fps:
+            place(fps[ref], x, -16.30, rot=0)
 
     # ---------------- MCU + core cluster (front) ----------------
     place(fps["U1"], 0, -0.5, rot=180)  # USB pins (51/52) toward bottom
@@ -118,21 +147,27 @@ def main():
     place(fps["C14"], 2.4, -6.7, rot=90)   # XIN load cap, right
     place(fps["C15"], -4.05, -6.9, rot=90) # XTAL_R load cap, left
     place(fps["R1"], -2.4, -6.7, rot=90)   # XOUT series R beside crystal
-    # VREG cluster per RP2350 ds §6.3.8 Fig 23 (reference layout rotated
-    # 180° to match U1): pins 46-50 sit at y=+2.94, x -2.8..-1.2. CIN/COUT
-    # straddle the LX pin column — hot pads land over VREG_VIN, GND pads
-    # toward VREG_PGND — and VREG_LX threads the gap between their pads up
-    # into L1. L1 pad 1 (polarity dot) = VOUT side, per the figure. The AVDD
-    # RC filter (R13/C22) columns to the left near pin 46. GND-return and
-    # CFILT vias are pre-placed in route.py; pour/In1 keepouts under L1 too.
-    # (stack sits 0.25 lower than the raw reference spacing: U1's courtyard
-    # extends 0.68 beyond its pad row and courtyard overlaps are DRC errors)
-    place(fps["C11"], -2.20, 4.15, rot=180)  # CIN  (pad1 3V3 -> right)
-    place(fps["C12"], -2.20, 5.20, rot=180)  # COUT (pad1 VDD_CORE -> right)
+    # VREG cluster mirrors the official RPI-RP2350A-MINIMAL R4 layout
+    # (rotated 180° to match U1): pins 46-50 sit at y=+2.94, x -2.8..-1.2.
+    # CIN/COUT are CENTERED on the LX pin column at x=-2.00 exactly like the
+    # official board — route.py transplants the official F.Cu pours (1V1,
+    # LX, local GND, 3V3 finger) and the 0.3mm LX pour finger threads the
+    # 0.56mm gap between the cap pad columns only at this x (at the old
+    # -2.20 the hot pads pinch it below the 0.15 min fill width). Hot pads
+    # land right/inboard, GND pads left into the local GND pour. L1 pad 1
+    # (polarity dot) = VOUT side, per the official board. The AVDD RC
+    # filter (R13/C22) columns to the left near pin 46. GND-return and
+    # CFILT vias are pre-placed in route.py.
+    # (y sits 0.04-0.15 lower than official: U1's courtyard extends 0.68
+    # beyond its pad row and courtyard overlaps are DRC errors)
+    place(fps["C11"], -2.00, 4.15, rot=180)  # CIN  (pad1 3V3 -> right)
+    place(fps["C12"], -2.00, 5.20, rot=180)  # COUT (pad1 VDD_CORE -> right)
     place(fps["L1"], -2.00, 6.82, rot=180)   # pad2 LX left, pad1 dot right
     place(fps["R13"], -4.08, 6.30, rot=90)   # RFILT (pad1 3V3 far end)
     place(fps["C22"], -4.65, 4.37, rot=90)   # CFILT (pad1 AVDD far end)
-    place(fps["C13"], 3.1, -5.2, rot=0)      # 2nd VOUT cap, nearest DVDD 23
+    # 2nd VOUT cap near DVDD 23; low enough that the top-right pin row
+    # keeps a >=0.5mm lateral escape channel above its courtyard
+    place(fps["C13"], 3.9, -5.45, rot=0)
     # IOVDD decoupling: explicit pockets around the QFN courtyard (its
     # corners reach r≈6.2, so a uniform ring does not fit)
     DECAP = [(-4.8, -4.0, 90), (4.8, -3.9, 90),
@@ -157,10 +192,14 @@ def main():
     place(fps["J1"], 0, j1_y, rot=0, back=True)  # rot0: pads inboard, mouth out
     # USB series Rs shifted right of the VREG cluster and the 3V3 access
     # vias (keep the FB channel at x~-1.15 and the L1 area clear)
-    place(fps["R6"], 2.1, 4.30, rot=0)    # DP series R right of pin 52
-    place(fps["R7"], 2.1, 5.45, rot=0)    # DM series R below it
-    # ESD chip beside the connector on the back
-    place(fps["U5"], 5.7, -11.7, rot=0, back=True)
+    # (0.45 lower than the pin row allows: their pads pinched the pin-row
+    # escape channel to 0.35mm — traces need 0.404)
+    place(fps["R6"], 2.1, 4.75, rot=0)    # DP series R right of pin 52
+    place(fps["R7"], 2.1, 5.90, rot=0)    # DM series R below it
+    # ESD chip on-axis right behind the connector (back top-center freed
+    # by the hanger removal) — also clears the right-edge annulus band the
+    # tip ring caps need for their VLED plane vias
+    place(fps["U5"], 0, -11.5, rot=0, back=True)
     # CC pulldowns: pulled down-board from the tip strip — LED21/LED22 now
     # live on the tip straights behind the USB connector
     place(fps["R4"], -2.0, -14.6, rot=90)
@@ -186,12 +225,16 @@ def main():
     # above the battery. Left edge runs corner(-4.7,-20.5)->tangency
     # (-12.70,-8.44); outward normal (-0.833,-0.553). The footprint's two
     # 0.9mm THT locating holes punch through — verify against front LEDs.
-    # (position solves three constraints: courtyard clear of the cell disc
-    # (r>10.45), body inside the board edge, locating holes >=1.5mm from
-    # the front LEDs)
-    ex, ey = -9.07, -13.92              # edge point at y=-13.92
-    nx_, ny_ = 0.833, 0.553             # inward normal
-    place(fps["SW2"], ex + 1.95 * nx_, ey + 1.95 * ny_, rot=123.6, back=True)
+    # rot=56.4: the back-side flip NEGATES the rotation sense (scan-found).
+    # Anchored to LED3: the two NPTH locating holes (3.0mm apart vs 3.82mm
+    # LED pitch) only clear the front LEDs by bracketing one LED at
+    # +-1.5mm, so the hole-pair midpoint sits on LED3, 0.25mm outboard of
+    # the LED line. Center lands 2.30mm inboard: knob-side mounting pads
+    # stay 0.25 inside the edge, interior courtyard face stays off the
+    # cell disc (r 10.49 > 10.45), knob overhangs 1.23mm.
+    nx_, ny_ = 0.833, 0.553             # inward normal of the left straight
+    l3x, l3y = pts[2]                   # LED3 (path-derived, margin 2.0)
+    place(fps["SW2"], l3x + 0.30 * nx_, l3y + 0.30 * ny_, rot=56.4, back=True)
 
     # ---------------- back side ----------------
     # feet at ±x; rot=180 points the spring-finger mouth toward +y (the

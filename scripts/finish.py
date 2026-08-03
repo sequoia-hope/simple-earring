@@ -84,25 +84,36 @@ class Obstacles:
                 x, y = to_rel(p.GetPosition())
                 sz = p.GetSize(pcbnew.F_Cu)
                 w, h = sz.x / 1e6, sz.y / 1e6
-                # elongated pads: capsule along the long axis (corner error
-                # ~0.04mm). square-ish pads: bounding circle — the inscribed
-                # capsule misses corners by up to 0.3*short (0.7mm on the EP)
+                # elongated pads: one capsule along the long axis (corner
+                # error ~0.04mm). square-ish pads: capsule STRIPS across the
+                # short axis — the old bounding circle inflated the QFN EP
+                # from 1.7 to 2.4mm, sealing the 1mm routing cavity inside
+                # the pin ring, and fattened every square LED pad by 41%
                 ang = math.radians(p.GetOrientationDegrees())
-                if max(w, h) / max(min(w, h), 1e-6) < 2.0:
-                    hl, hw = 0.0, math.hypot(w, h) / 2
-                    ux, uy = 1.0, 0.0
-                elif w >= h:
-                    hl, hw = (w - h) / 2, h / 2
+                if w >= h:
                     ux, uy = math.cos(-ang), math.sin(-ang)
+                    long_, short = w, h
                 else:
-                    hl, hw = (h - w) / 2, w / 2
                     ux, uy = math.sin(ang), math.cos(ang)
-                a = (x - hl * ux, y - hl * uy)
-                b = (x + hl * ux, y + hl * uy)
+                    long_, short = h, w
+                pxu, pyu = -uy, ux
+                if long_ / max(short, 1e-6) >= 2.0:
+                    strips = [(0.0, short / 2)]
+                else:
+                    ns = max(1, int(math.ceil(short / 0.5)))
+                    sh = short / ns
+                    strips = [(-short / 2 + (i + 0.5) * sh, sh / 2 * 1.25)
+                              for i in range(ns)]
                 layers = [ly for ly in (pcbnew.F_Cu, pcbnew.B_Cu)
                           if p.IsOnLayer(ly)]
                 th = p.GetAttribute() == pcbnew.PAD_ATTRIB_PTH
-                self.items.append(("padc", layers, p.GetNetname(), a, b, hw, th))
+                for off, hw in strips:
+                    hl = max(0.0, long_ / 2 - hw)
+                    cx0, cy0 = x + off * pxu, y + off * pyu
+                    a = (cx0 - hl * ux, cy0 - hl * uy)
+                    b = (cx0 + hl * ux, cy0 + hl * uy)
+                    self.items.append(
+                        ("padc", layers, p.GetNetname(), a, b, hw, th))
         # 1mm spatial bins over item bboxes inflated by 0.7mm
         self.bins = {}
         for idx, it in enumerate(self.items):
@@ -415,7 +426,9 @@ def drop_dangling_vias():
     board = pcbnew.LoadBoard(str(PCB))
     n = 0
     for t in list(board.GetTracks()):
-        if isinstance(t, pcbnew.PCB_VIA):
+        if isinstance(t, pcbnew.PCB_VIA) and not t.IsLocked():
+            # locked = deliberately pre-placed (plane access); a dangling
+            # one just hasn't been picked up by the finisher yet
             x, y = to_rel(t.GetPosition())
             if any(abs(x - sx) < 0.05 and abs(y - sy) < 0.05 for sx, sy in spots):
                 board.Delete(t)
@@ -426,13 +439,99 @@ def drop_dangling_vias():
         print(f"dropped {n} dangling vias")
 
 
-# Canonical VREG_LX path (matches the place.py cluster): pin 48 up, dogleg
-# past pin 47's pad corner (which pins the trace to x>=-2.15 below y~3.6),
-# onto the corridor centerline between the CIN/COUT pad columns, up, then
-# left into L1's LX pad. Centering lets it carry 0.20mm at the 0.127
-# clearance rule (0.25 leaves a +/-13um window — not worth the fragility).
-LX_PATH = [(-2.00, 2.94), (-2.00, 3.35), (-2.15, 3.60),
-           (-2.215, 3.90), (-2.215, 6.82), (-2.70, 6.82)]
+# Canonical VREG_LX path (matches the place.py cluster): pin 48 straight up
+# x=-2.00 — the caps are centered on the LX pin column like the official
+# minimal design, so the path threads their pad gap with 0.18mm to spare on
+# both sides — then left into L1's LX pad. It rides inside the transplanted
+# official LX pour (route.py) for the lower run; the pour is the primary
+# copper, this spine guarantees connectivity if a fill hiccups.
+LX_PATH = [(-2.00, 2.94), (-2.00, 6.82), (-2.70, 6.82)]
+
+
+def synth_zone_edges(board, net="3V3"):
+    """A split In2 3V3 disc reports a degenerate zone<->zone unconnected
+    edge that A* can't act on. Synthesize real edges instead: from each
+    same-net via inside a minority fragment to the nearest same-net
+    via/pad inside the largest fragment — both are actual F/B copper the
+    normal candidate machinery can bridge."""
+    z = None
+    for zz in board.Zones():
+        if zz.GetZoneName() == "p3v3_disc":
+            z = zz
+    if z is None:
+        return []
+    polys = z.GetFilledPolysList(pcbnew.In2_Cu)
+    nf = polys.OutlineCount()
+    if nf < 2:
+        return []
+    frags = []
+    for i in range(nf):
+        sp = pcbnew.SHAPE_POLY_SET()
+        sp.AddOutline(polys.Outline(i))
+        frags.append(sp)
+    main = max(range(nf), key=lambda i: abs(polys.Outline(i).Area()))
+    code = board.FindNet(net).GetNetCode()
+    vias = [t for t in board.GetTracks() if isinstance(t, pcbnew.PCB_VIA)
+            and t.GetNetCode() == code]
+    anchors_main = []   # (x, y) of items in the main fragment
+    minority = []       # (x, y) of vias in minority fragments
+    for v in vias:
+        pos = v.GetPosition()
+        for i, sp in enumerate(frags):
+            if sp.Contains(pos):
+                (minority, anchors_main)[i == main].append(to_rel(pos))
+                break
+    for fp in board.GetFootprints():
+        for p in fp.Pads():
+            if p.GetNetCode() == code:
+                anchors_main.append(to_rel(p.GetPosition()))
+    out = []
+    for a in minority:
+        srt = sorted(anchors_main,
+                     key=lambda m: (m[0] - a[0]) ** 2 + (m[1] - a[1]) ** 2)
+        for b in srt[:3]:   # gate rejects useless bridges; try a few
+            out.append((net, a, b))
+    if out:
+        print(f"zone-split: {nf} fragments, synthesized {len(out)} edges")
+    return out
+
+
+def drop_stub_vias():
+    """Delete unlocked 3V3/VLED plane-fanout vias that touch no same-net
+    track end or pad: they connect nothing but a zone fragment, and a lone
+    via pins an isolated In2 disc island alive — which reads as a
+    permanent zone-to-zone unconnected edge."""
+    board = pcbnew.LoadBoard(str(PCB))
+    vias = [t for t in board.GetTracks() if isinstance(t, pcbnew.PCB_VIA)
+            and not t.IsLocked() and t.GetNetname() in ("3V3", "VLED")]
+    if not vias:
+        return
+    ends = {}
+    for t in board.GetTracks():
+        if isinstance(t, pcbnew.PCB_VIA):
+            continue
+        for p in (t.GetStart(), t.GetEnd()):
+            ends.setdefault(t.GetNetname(), []).append((p.x, p.y))
+    pads = {}
+    for fp in board.GetFootprints():
+        for p in fp.Pads():
+            pads.setdefault(p.GetNetname(), []).append(p)
+    n = 0
+    for v in vias:
+        pos = v.GetPosition()
+        net = v.GetNetname()
+        r = v.GetWidth(pcbnew.F_Cu) // 2 + pcbnew.FromMM(0.05)
+        if any((ex - pos.x) ** 2 + (ey - pos.y) ** 2 <= r * r
+               for ex, ey in ends.get(net, ())):
+            continue
+        if any(p.HitTest(pos) for p in pads.get(net, ())):
+            continue
+        board.Delete(v)
+        n += 1
+    if n:
+        pcbnew.ZONE_FILLER(board).Fill(board.Zones())
+        pcbnew.SaveBoard(str(PCB), board)
+        print(f"dropped {n} stub plane vias")
 
 
 def widen_lx():
@@ -492,18 +591,37 @@ def main():
         board = pcbnew.LoadBoard(str(PCB))
         rt = Router(board, design)
         obs = Obstacles(board)
+        # degenerate zone<->zone edges (split In2 disc) -> real copper pairs
+        todo2 = []
+        for net, a, b in todo:
+            if abs(a[0] - b[0]) < 0.01 and abs(a[1] - b[1]) < 0.01:
+                todo2.extend(synth_zone_edges(board, net))
+            else:
+                todo2.append((net, a, b))
+        todo = todo2
         progress = False
         for net, a, b in todo:
             fixed = False
             def anchors(p):
-                out = [p]
+                # 4.6mm radius: an endpoint's fragment can extend well past
+                # 2mm (e.g. LED2's VCC reaches the plane only via LED1's
+                # fanout, one LED pitch + pad offset away). Dedupe: padc
+                # strips of one pad share near-identical centers.
+                cands = []
                 for it in obs.items:
                     if it[0] == "padc" and it[2] == net:
                         c = ((it[3][0] + it[4][0]) / 2,
                              (it[3][1] + it[4][1]) / 2)
-                        if math.hypot(c[0] - p[0], c[1] - p[1]) < 2.0:
-                            out.append(c)
-                return out[:3]
+                        d = math.hypot(c[0] - p[0], c[1] - p[1])
+                        if d < 4.6:
+                            cands.append((d, c))
+                cands.sort()
+                out = [p]
+                for d, c in cands:
+                    if all(math.hypot(c[0] - o[0], c[1] - o[1]) > 0.6
+                           for o in out):
+                        out.append(c)
+                return out[:4]
 
             def all_cands():
                 yield from candidates(obs, net, a, b)
@@ -538,7 +656,8 @@ def main():
         pcbnew.SaveBoard(str(PCB), board)
         if not progress:
             break
-    # final: widen the LX node, refill zones, report
+    # final: drop dead plane stubs, widen the LX node, refill zones, report
+    drop_stub_vias()
     widen_lx()
     board = pcbnew.LoadBoard(str(PCB))
     filler = pcbnew.ZONE_FILLER(board)
