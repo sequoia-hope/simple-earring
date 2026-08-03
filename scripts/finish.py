@@ -177,7 +177,7 @@ def back_zone_ok(x, y):
         return False
     if abs(y) < 3.4 and 10.1 < abs(x) < 14.4:
         return False
-    if abs(x) < 3.4 and -14.6 < y < -10.2:
+    if -9.7 < x < -3.5 and -14.3 < y < -8.5:  # SW1 at 240 deg
         return False
     return True
 

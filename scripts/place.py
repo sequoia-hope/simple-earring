@@ -63,10 +63,23 @@ def pad_pos(fp, num):
 def led_arc_angles(design):
     n = design["leds"]["count"]
     gap_half = design["leds"].get("usb_gap_half_deg", 27.0)
+    hang = design.get("hanger", {})
+    hg = hang.get("gap_half_deg", 0.0)
+    ha = hang.get("angle_deg", 270.0)
     start = 90.0 + gap_half
-    span = 360.0 - 2 * gap_half
-    step = span / (n - 1) if n > 1 else 0
-    return [start + i * step for i in range(n)]
+    # walkable spans (degrees along the ring, skipping the hanger gap)
+    span1 = (ha - hg) - start            # e.g. 135 -> 258
+    span2 = (450.0 - gap_half) - (ha + hg)  # e.g. 282 -> 405
+    total = span1 + span2
+    step = total / (n - 1) if n > 1 else 0
+    out = []
+    for i in range(n):
+        t = i * step
+        if t <= span1 + 1e-9:
+            out.append(start + t)
+        else:
+            out.append(ha + hg + (t - span1))
+    return out
 
 
 def main():
@@ -118,9 +131,12 @@ def main():
                 vx, vy = polar(r_cap + 0.75, t)
                 feet = abs(vy) < 3.4 and 10.2 < abs(vx) < 14.3
                 ends = not (angles[0] + 4 <= t <= angles[-1] - 4)
-                return not feet and not ends
-            cand = [th + k * step for k in range(0, 4)] + \
-                   [th - k * step for k in range(1, 4)]
+                hangb = abs((t % 360) - 270) < 16
+                return not feet and not ends and not hangb
+            cand = [th + k * step for k in range(0, 7)] + \
+                   [th - k * step for k in range(1, 7)] + \
+                   [th + k * step / 2 for k in range(1, 7)] + \
+                   [th - k * step / 2 for k in range(1, 7)]
             th2 = next((t for t in cand if via_safe(t) and
                         all(abs(t - u) > 7 for u in used_cap_angles)), None)
             assert th2 is not None, f"no safe angle found for bypass cap {ref}"
@@ -186,15 +202,23 @@ def main():
     place(fps["R10"], 8.55, -2.0, rot=90)
     place(fps["C20"], 6.3, -3.8, rot=90)  # tight to U4 output
 
+    # ---------------- hanger ----------------
+    hang = design.get("hanger", {})
+    hx, hy = polar(r_board - 1.9, hang.get("angle_deg", 270.0))
+    place(fps["H1"], hx, hy, rot=0)
+
     # ---------------- back side ----------------
     place(fps["BT1"], 0, 0, rot=0, back=True)  # feet at ±x, clear of USB TH pads
-    place(fps["SW1"], 0, -12.7, rot=0, back=True)
+    sw_th = 240.0
+    sx, sy = polar(r_board - 2.25, sw_th)
+    place(fps["SW1"], sx, sy, rot=-(sw_th - 270.0), back=True)
     # testpoints at LED-midpoint angles (the gaps between LED via drops),
     # avoiding SW1 (270°) and the clip feet (0/180°)
     mids = [angles[i] + step / 2 for i in range(n - 1)]
     good = [th for th in mids
             if min(abs((th % 360) - a) for a in (0, 180, 360)) > 25
-            and abs((th % 360) - 270) > 14 and 190 < (th % 360) < 350]
+            and abs((th % 360) - 240) > 18
+            and abs((th % 360) - 270) > 18 and 190 < (th % 360) < 350]
     picks = [good[0], good[len(good) // 2], good[-1]] if len(good) >= 3 else good
     for i, th in enumerate(picks):
         x, y = polar(12.9, th)

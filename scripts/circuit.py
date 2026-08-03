@@ -184,6 +184,9 @@ def build_circuit(design=None):
     c.add("R9", "r_1k", "1k", {1: "VBUS", 2: "CHRG_A"})
     c.add("D1", "chrg_led", "RED", {2: "CHRG_A", 1: "CHRG"})  # 2=A, 1=K per 0603 LED fp
 
+    # --- ear-wire loop (mechanical) ---
+    c.add("H1", "hanger", "HANGER", {})
+
     # --- battery ---
     c.add("BT1", "battery_clip", "LIR2032", {1: "VBATT", 2: "GND"})
 

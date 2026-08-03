@@ -84,6 +84,12 @@ chrg_led:
   footprint: LED_0603_1608Metric
   verified: check        # common JLC basic red 0603; validate at order time
 
+hanger:
+  mpn: ~
+  lcsc: ~
+  footprint: HANGER_LOOP
+  verified: yes          # mechanical only, not assembled
+
 testpoint:
   mpn: ~
   lcsc: ~

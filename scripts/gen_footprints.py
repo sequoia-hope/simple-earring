@@ -136,6 +136,30 @@ def bat_cr2032_w():
     print("wrote BAT_CR2032_W.kicad_mod")
 
 
+def hanger_loop(hole=1.5, pad=2.7):
+    """Plated ear-wire loop hole; annular copper both sides for strength."""
+    content = "\n".join([
+        '(footprint "HANGER_LOOP"',
+        "  (version 20240108) (generator gen_footprints)",
+        '  (layer "F.Cu")',
+        '  (descr "Ear-wire loop: plated hole, no net, not assembled")',
+        '  (tags "mechanical hanger")',
+        "  (attr through_hole exclude_from_pos_files exclude_from_bom)",
+        '  (fp_text reference "REF**" (at 0 -2.2) (layer "F.SilkS") hide'
+        " (effects (font (size 0.5 0.5) (thickness 0.08))))",
+        '  (fp_text value "HANGER" (at 0 2.2) (layer "F.Fab") hide'
+        " (effects (font (size 0.5 0.5) (thickness 0.08))))",
+        f'  (fp_circle (center 0 0) (end {pad / 2 + 0.25} 0)'
+        ' (stroke (width 0.05) (type default)) (fill none) (layer "F.CrtYd"))',
+        f'  (pad "1" thru_hole circle (at 0 0) (size {pad} {pad})'
+        f' (drill {hole}) (layers "*.Cu" "*.Mask"))',
+        ")",
+    ])
+    (LIB / "HANGER_LOOP.kicad_mod").write_text(content)
+    print("wrote HANGER_LOOP.kicad_mod")
+
+
 if __name__ == "__main__":
     led_tba_c1010()
     bat_cr2032_w()
+    hanger_loop()

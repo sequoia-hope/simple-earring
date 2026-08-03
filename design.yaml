@@ -31,6 +31,12 @@ power:
   regulator_3v3: LDO     # battery -> 3.3V LDO for RP2354 IOVDD/VREG_VIN
   led_load_switch: true  # high-side switch so LEDs draw zero when off
 
+hanger:
+  hole_mm: 1.5           # ear-wire hole (plated for strength, no net)
+  pad_mm: 2.7
+  angle_deg: 270         # top of the board
+  gap_half_deg: 12       # LED ring leaves this half-angle free around it
+
 usb:
   connector: usb_c       # charging + UF2 programming
   style: mid_or_th       # decided in bom/parts.yaml by footprint choice

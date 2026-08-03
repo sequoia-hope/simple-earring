@@ -151,7 +151,7 @@ class Router:
         - BOOTSEL button SW1 at the top: |x| < 3.3, y -14.5..-10.3"""
         if abs(y) < 3.3 and 10.2 < abs(x) < 14.3:
             return True
-        if abs(x) < 3.3 and -14.5 < y < -10.3:
+        if -9.6 < x < -3.6 and -14.2 < y < -8.6:  # SW1 at 240 deg
             return True
         return False
 
@@ -200,7 +200,7 @@ def pad_of(fp, num):
 def add_keepouts(board, rt):
     """No-via rule areas where the battery clip feet and BOOTSEL button sit."""
     rects = [(-14.3, -3.3, -10.2, 3.3), (10.2, -3.3, 14.3, 3.3),  # clip feet
-             (-3.3, -14.5, 3.3, -10.3)]                            # SW1
+             (-9.6, -14.2, -3.6, -8.6)]                            # SW1 at 240
     for x0, y0, x1, y1 in rects:
         z = pcbnew.ZONE(board)
         z.SetIsRuleArea(True)
@@ -244,6 +244,11 @@ def beautify_led_chain(board, rt, fps, n_leds):
                         clear = False
                 elif it[0] == "seg" and it[1] == pcbnew.F_Cu:
                     if fin.seg_pt_dist(it[3], it[4], (x, y)) < 0.13 + 0.075 + it[5]:
+                        clear = False
+                elif it[0] == "padc":
+                    th_pad = it[6]
+                    if (th_pad or pcbnew.F_Cu in it[1]) and \
+                            fin.seg_pt_dist(it[3], it[4], (x, y)) < 0.13 + 0.075 + it[5]:
                         clear = False
             if not clear:
                 break
