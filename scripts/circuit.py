@@ -147,12 +147,13 @@ def build_circuit(design=None):
 
     # --- USB-C ---
     c.add("J1", "usb_conn", "USB-C", {
-        "A1": "GND", "A12": "GND", "B1": "GND", "B12": "GND", "S1": "GND",
-        "A4": "VBUS", "A9": "VBUS", "B4": "VBUS", "B9": "VBUS",
+        "A1B12": "GND", "B1A12": "GND",
+        "A4B9": "VBUS", "B4A9": "VBUS",
         "A5": "CC1", "B5": "CC2",
         "A6": "USB_DP_C", "B6": "USB_DP_C",
         "A7": "USB_DM_C", "B7": "USB_DM_C",
         "A8": "", "B8": "",
+        1: "GND", 2: "GND", 3: "GND", 4: "GND",  # shell legs
     })
     c.add("R4", "r_5k1", "5.1k", {1: "CC1", 2: "GND"})
     c.add("R5", "r_5k1", "5.1k", {1: "CC2", 2: "GND"})

@@ -177,8 +177,6 @@ def back_zone_ok(x, y):
         return False
     if abs(y) < 3.4 and 10.1 < abs(x) < 14.4:
         return False
-    if -9.7 < x < -3.5 and -14.3 < y < -8.5:  # SW1 at 240 deg
-        return False
     return True
 
 
@@ -398,8 +396,39 @@ def astar_route(obs, net, a, b, r_board=14.4):
     return merged
 
 
+def drop_dangling_vias():
+    """Unused speculative pre-vias leave dangling-via warnings and can pin
+    isolated zone islands alive; delete them and refill."""
+    r = subprocess.run(
+        ["kicad-cli", "pcb", "drc", "--format", "json", "--severity-all",
+         "-o", "/tmp/fin_all.json", str(PCB)], capture_output=True, text=True)
+    if r.returncode not in (0, 5):
+        return
+    d = json.loads(Path("/tmp/fin_all.json").read_text())
+    spots = []
+    for v in d["violations"]:
+        if v["type"] == "via_dangling":
+            for i in v["items"]:
+                spots.append((i["pos"]["x"] - 100.0, i["pos"]["y"] - 100.0))
+    if not spots:
+        return
+    board = pcbnew.LoadBoard(str(PCB))
+    n = 0
+    for t in list(board.GetTracks()):
+        if isinstance(t, pcbnew.PCB_VIA):
+            x, y = to_rel(t.GetPosition())
+            if any(abs(x - sx) < 0.05 and abs(y - sy) < 0.05 for sx, sy in spots):
+                board.Delete(t)
+                n += 1
+    if n:
+        pcbnew.ZONE_FILLER(board).Fill(board.Zones())
+        pcbnew.SaveBoard(str(PCB), board)
+        print(f"dropped {n} dangling vias")
+
+
 def main():
     design = load_design()
+    drop_dangling_vias()
     for rnd in range(6):
         errs0, unc0, d0 = drc_counts(PCB)
         todo = edges(d0)

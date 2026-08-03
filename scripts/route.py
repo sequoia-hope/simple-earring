@@ -151,8 +151,6 @@ class Router:
         - BOOTSEL button SW1 at the top: |x| < 3.3, y -14.5..-10.3"""
         if abs(y) < 3.3 and 10.2 < abs(x) < 14.3:
             return True
-        if -9.6 < x < -3.6 and -14.2 < y < -8.6:  # SW1 at 240 deg
-            return True
         return False
 
     def zone(self, layer, netname, poly, priority=0, name=""):
@@ -199,8 +197,7 @@ def pad_of(fp, num):
 
 def add_keepouts(board, rt):
     """No-via rule areas where the battery clip feet and BOOTSEL button sit."""
-    rects = [(-14.3, -3.3, -10.2, 3.3), (10.2, -3.3, 14.3, 3.3),  # clip feet
-             (-9.6, -14.2, -3.6, -8.6)]                            # SW1 at 240
+    rects = [(-14.3, -3.3, -10.2, 3.3), (10.2, -3.3, 14.3, 3.3)]  # clip feet
     for x0, y0, x1, y1 in rects:
         z = pcbnew.ZONE(board)
         z.SetIsRuleArea(True)
@@ -264,8 +261,8 @@ def beautify_led_chain(board, rt, fps, n_leds):
 
 
 def post_routes(board, rt, fps):
-    """Deterministic finishing links (currently none — freerouting handles
-    the USB row joins itself at 0.127mm clearance)."""
+    """No deterministic wiring: freerouting owns all wires. Topology for the
+    tricky spots is channeled via pre-placed vias in main()."""
     pass
 
 
@@ -289,18 +286,28 @@ def main():
     # left/right clusters.
     # NB: no through vias possible for r<4.4 — the battery clip's 8mm GND
     # contact pad covers the back there.
-    for pos in ((-5.9, -1.2), (6.2, 2.6), (0.9, 4.1)):
+    for pos in ((-5.9, -1.2), (6.2, 2.6), (0.9, 4.1), (0.05, 3.95)):
         rt.via(pos, "3V3")
-    r_split = r_led - 3.0
-    rt.zone(pcbnew.In1_Cu, "GND", rt.circle_poly(r_board), name="gnd_plane")
-    outer = rt.circle_poly(r_board)
+    # channel the HRO connector's interleaved duplicate-pad joins through
+    # the front layer: DM hops inboard of the pad row, DP outboard
+    for pos in ((-0.75, -13.55), (0.25, -13.55)):
+        rt.via(pos, "USB_DM_C")
+    for pos in ((-0.25, -15.0), (0.75, -15.0)):
+        rt.via(pos, "USB_DP_C")
+    from outline import outline_points, offset_polygon
+    margin = design["leds"]["ring_margin_mm"]
+    outer = outline_points(design, 100)
+    zp = rt.zone(pcbnew.In1_Cu, "GND", outer, name="gnd_plane")
+    zp.SetPadConnection(pcbnew.ZONE_CONNECTION_FULL)
     z = rt.zone(pcbnew.In2_Cu, "VLED", outer, priority=1, name="vled_annulus")
-    hole = rt.circle_poly(r_split, n=72)
+    hole = offset_polygon(design, margin + 3.0, 80)
     ol = z.Outline()
     ol.NewHole()
     for x, y in hole:
         ol.Append(mm(CX + x), mm(CY + y), 0, 0)
-    rt.zone(pcbnew.In2_Cu, "3V3", rt.circle_poly(r_split - 0.7), priority=2,
+    # circle disc; overlaps the narrow tip part of the VLED hole, where its
+    # higher priority carves VLED back automatically
+    rt.zone(pcbnew.In2_Cu, "3V3", rt.circle_poly(9.55), priority=2,
             name="p3v3_disc")
     pcbnew.SaveBoard(str(PCB), board)
 
@@ -342,9 +349,11 @@ def main():
         post_routes(board, rt, fps)
 
     # ---------- outer pours (post-route: as DSN planes they stall freerouting) ----------
+    from outline import offset_polygon as _offp
     rt2 = Router(board, design)
-    zf = rt2.zone(pcbnew.F_Cu, "GND", rt2.circle_poly(r_board - 0.3), name="gnd_front")
-    zb = rt2.zone(pcbnew.B_Cu, "GND", rt2.circle_poly(r_board - 0.3), name="gnd_back")
+    _pour = _offp(design, 0.3, 80)
+    zf = rt2.zone(pcbnew.F_Cu, "GND", _pour, name="gnd_front")
+    zb = rt2.zone(pcbnew.B_Cu, "GND", _pour, name="gnd_back")
     zf.SetPadConnection(pcbnew.ZONE_CONNECTION_FULL)
     zb.SetPadConnection(pcbnew.ZONE_CONNECTION_FULL)
 

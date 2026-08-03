@@ -40,10 +40,10 @@ load_switch:
   notes: switches VBATT -> VLED
 
 usb_conn:
-  mpn: GT-USB-7055
-  lcsc: C2686963
-  footprint: USB-C-TH_GT-USB-7055
-  verified: prior        # earring; USB-C 16pin TH shell
+  mpn: TYPE-C-31-M-12
+  lcsc: C165948
+  footprint: USB-C_SMD-TYPE-C-31-M-12_1
+  verified: yes          # HRO right-angle 16p SMD, EasyEDA footprint+3D
 
 usb_esd:
   mpn: USBLC6-2P6
@@ -73,10 +73,10 @@ battery_clip:
   notes: clip=+ (cell can/sides), center pad=-; cell inserted + marking outward
 
 bootsel_button:
-  mpn: YZA-042-1.5
-  lcsc: C49108619
-  footprint: SW_YZA-042-1.5
-  verified: prior        # rp2350a-compact BOOTSEL
+  mpn: TS-1101-C-W
+  lcsc: C318938
+  footprint: SW-SMD_L6.0-W3.3-LS8.0_TS-1101-C-W
+  verified: yes          # small top-actuated tact, proven on prior earring
 
 chrg_led:
   mpn: KT-0603R

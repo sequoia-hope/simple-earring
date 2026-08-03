@@ -112,6 +112,8 @@ def bat_cr2032_w():
         # center contact: bare copper, no paste
         '  (pad "2" smd circle (at 0 0) (size 8 8) (layers "F.Cu" "F.Mask"))',
     ]
+    model = ['  (model "${KIPRJMOD}/../library/3d/ee.3dshapes/BAT-SMD_CR2032_C70373.wrl"',
+             "    (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))"]
     texts = [
         '  (fp_text reference "REF**" (at 0 -13.2) (layer "F.SilkS")'
         " (effects (font (size 1 1) (thickness 0.15))))",
@@ -130,6 +132,7 @@ def bat_cr2032_w():
         + texts
         + lines
         + pads
+        + model
         + [")"]
     )
     (LIB / "BAT_CR2032_W.kicad_mod").write_text(content)

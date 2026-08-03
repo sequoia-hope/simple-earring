@@ -53,15 +53,37 @@ def main():
     board.SetCopperLayerCount(design["board"]["layers"])
     setup_rules(board, design)
 
-    # --- outline ---
-    r = design["board"]["diameter_mm"] / 2
-    circle = pcbnew.PCB_SHAPE(board)
-    circle.SetShape(pcbnew.SHAPE_T_CIRCLE)
-    circle.SetCenter(pcbnew.VECTOR2I(mm(CENTER[0]), mm(CENTER[1])))
-    circle.SetEnd(pcbnew.VECTOR2I(mm(CENTER[0] + r), mm(CENTER[1])))
-    circle.SetLayer(pcbnew.Edge_Cuts)
-    circle.SetWidth(mm(0.1))
-    board.Add(circle)
+    # --- outline: teardrop (arc + two tangents + truncated tip) ---
+    import math
+    from outline import geometry
+    og = geometry(design)
+
+    def V(x, y):
+        return pcbnew.VECTOR2I(mm(CENTER[0] + x), mm(CENTER[1] + y))
+
+    arc = pcbnew.PCB_SHAPE(board)
+    arc.SetShape(pcbnew.SHAPE_T_ARC)
+    a0, a1 = og["ang_r"], og["ang_l"]
+    while a1 < a0:
+        a1 += 2 * math.pi
+    amid = (a0 + a1) / 2
+    R = og["R"]
+    arc.SetArcGeometry(V(*og["tang_r"]),
+                       V(R * math.cos(amid), R * math.sin(amid)),
+                       V(*og["tang_l"]))
+    arc.SetLayer(pcbnew.Edge_Cuts)
+    arc.SetWidth(mm(0.1))
+    board.Add(arc)
+    for p0, p1 in ((og["tang_l"], og["corner_l"]),
+                   (og["corner_l"], og["corner_r"]),
+                   (og["corner_r"], og["tang_r"])):
+        ln = pcbnew.PCB_SHAPE(board)
+        ln.SetShape(pcbnew.SHAPE_T_SEGMENT)
+        ln.SetStart(V(*p0))
+        ln.SetEnd(V(*p1))
+        ln.SetLayer(pcbnew.Edge_Cuts)
+        ln.SetWidth(mm(0.1))
+        board.Add(ln)
 
     # --- nets ---
     nets = {}

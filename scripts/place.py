@@ -22,6 +22,7 @@ import pcbnew
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from circuit import build_circuit, load_design  # noqa: E402
+from outline import led_path, geometry  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 PCB = ROOT / "out" / "earring.kicad_pcb"
@@ -60,28 +61,6 @@ def pad_pos(fp, num):
     raise KeyError(num)
 
 
-def led_arc_angles(design):
-    n = design["leds"]["count"]
-    gap_half = design["leds"].get("usb_gap_half_deg", 27.0)
-    hang = design.get("hanger", {})
-    hg = hang.get("gap_half_deg", 0.0)
-    ha = hang.get("angle_deg", 270.0)
-    start = 90.0 + gap_half
-    # walkable spans (degrees along the ring, skipping the hanger gap)
-    span1 = (ha - hg) - start            # e.g. 135 -> 258
-    span2 = (450.0 - gap_half) - (ha + hg)  # e.g. 282 -> 405
-    total = span1 + span2
-    step = total / (n - 1) if n > 1 else 0
-    out = []
-    for i in range(n):
-        t = i * step
-        if t <= span1 + 1e-9:
-            out.append(start + t)
-        else:
-            out.append(ha + hg + (t - span1))
-    return out
-
-
 def main():
     design = load_design()
     cir = build_circuit(design)
@@ -90,59 +69,45 @@ def main():
     r_board = design["board"]["diameter_mm"] / 2
     r_led = r_board - design["leds"]["ring_margin_mm"]
 
-    # ---------------- LED ring ----------------
-    angles = led_arc_angles(design)
-    n = len(angles)
-    # Determine the footprint-orientation offset that puts DO "leading"
-    # (toward increasing θ) and DI "trailing", both at radius ~r_led.
-    # Try the 4 diamond orientations, score on chain-gap distance.
-    led0 = fps["LED1"]
+    # ---------------- LED chain along the teardrop perimeter ----------------
+    margin = design["leds"]["ring_margin_mm"]
+    end_y = design["leds"].get("path_end_y", -13.2)
+    path = led_path(design, margin, end_y)
+    n = design["leds"]["count"]
+    S = [i * path.length / (n - 1) for i in range(n)]
+    pts = [path.point(si) for si in S]
+    tangs = [path.tangent(si) for si in S]
+    # pseudo polar angle matching the old circular convention
+    pthetas = [math.degrees(math.atan2(t[1], t[0])) - 90 for t in tangs]
+
     best = None
     for k in range(4):
+        for i in range(n):
+            place(fps[f"LED{i+1}"], *pts[i], rot=(45.0 + 90.0 * k - pthetas[i]))
         total = 0.0
-        for i, th in enumerate(angles):
-            x, y = polar(r_led, th)
-            place(fps[f"LED{i+1}"], x, y, rot=(45.0 + 90.0 * k - th))
         for i in range(n - 1):
-            a = pad_pos(fps[f"LED{i+1}"], 4)   # DO
-            b = pad_pos(fps[f"LED{i+2}"], 1)   # DI
+            a = pad_pos(fps[f"LED{i+1}"], 4)
+            b = pad_pos(fps[f"LED{i+2}"], 1)
             total += math.hypot(a.x - b.x, a.y - b.y)
         if best is None or total < best[1]:
             best = (k, total)
     k = best[0]
-    for i, th in enumerate(angles):
-        x, y = polar(r_led, th)
-        place(fps[f"LED{i+1}"], x, y, rot=(45.0 + 90.0 * k - th))
-    print(f"LED ring: r={r_led}mm, orientation k={k}, "
+    for i in range(n):
+        place(fps[f"LED{i+1}"], *pts[i], rot=(45.0 + 90.0 * k - pthetas[i]))
+    print(f"LED path: len={path.length:.1f}mm, orientation k={k}, "
           f"chain gap total {best[1]/1e6:.2f}mm")
 
-    # bypass caps: midway between LED pairs, inboard. Skip positions near the
-    # battery clip feet (θ≈0/180): their VLED vias would land on the feet pads.
-    r_cap = r_led - 1.9
-    step = angles[1] - angles[0]
-    used_cap_angles = []
+    # bypass caps at every-2nd chain midpoint, shifted inward
     for i in range(n):
         ref = f"C{30+i}"
-        if ref in fps:
-            th = angles[i] + step / 2 if i < n - 1 else angles[i]
-            # keep the cap's outward VLED via clear of the clip feet rect
-            # (|y|<3.4, 10.2<|x|<14.3) and out of the USB gap end zones
-            def via_safe(t):
-                vx, vy = polar(r_cap + 0.75, t)
-                feet = abs(vy) < 3.4 and 10.2 < abs(vx) < 14.3
-                ends = not (angles[0] + 4 <= t <= angles[-1] - 4)
-                hangb = abs((t % 360) - 270) < 16
-                return not feet and not ends and not hangb
-            cand = [th + k * step for k in range(0, 7)] + \
-                   [th - k * step for k in range(1, 7)] + \
-                   [th + k * step / 2 for k in range(1, 7)] + \
-                   [th - k * step / 2 for k in range(1, 7)]
-            th2 = next((t for t in cand if via_safe(t) and
-                        all(abs(t - u) > 7 for u in used_cap_angles)), None)
-            assert th2 is not None, f"no safe angle found for bypass cap {ref}"
-            used_cap_angles.append(th2)
-            x, y = polar(r_cap, th2)
-            place(fps[ref], x, y, rot=-th2 + 90)  # long axis tangential
+        if ref not in fps:
+            continue
+        sm = min(S[i] + path.length / (n - 1) / 2, path.length - 1)
+        x, y = path.point(sm)
+        nx, ny = path.normal_in(sm, design)
+        t = path.tangent(sm)
+        rot = -(math.degrees(math.atan2(t[1], t[0]))) 
+        place(fps[ref], x + nx * 1.9, y + ny * 1.9, rot=rot)
 
     # ---------------- MCU + core cluster (front) ----------------
     place(fps["U1"], 0, -0.5, rot=180)  # USB pins (51/52) toward bottom
@@ -151,8 +116,8 @@ def main():
     # unrotated, XIN/XOUT arrive crossed and jam the crystal channel
     place(fps["Y1"], 0, -6.7, rot=180)
     place(fps["C14"], 2.4, -6.7, rot=90)   # XIN load cap, right
-    place(fps["C15"], -2.4, -6.7, rot=90)  # XTAL_R load cap, left
-    place(fps["R1"], -4.9, -6.4, rot=90)   # XOUT series R, left
+    place(fps["C15"], -4.05, -6.9, rot=90) # XTAL_R load cap, left
+    place(fps["R1"], -2.4, -6.7, rot=90)   # XOUT series R beside crystal
     # VREG cluster bottom-left (VDD_CORE caps split: C12 near L1, C13 at
     # the DVDD pin on the other side of the QFN)
     place(fps["L1"], -3.9, 6.75, rot=0)
@@ -165,7 +130,7 @@ def main():
              (-4.8, -2.0, 90), (4.8, -1.9, 90),
              (-4.8, 0.0, 90), (4.8, 0.1, 90),
              (4.8, 2.1, 90), (0, -9.3, 0),
-             (-4.2, -7.0, 90), (-6.3, 5.7, 90)]
+             (-2.0, -9.6, 0), (-6.3, 5.7, 90)]
     for i, (x, y, rot) in enumerate(DECAP):
         place(fps[f"C{i+1}"], x, y, rot=rot)
     # RUN pullup + divider near left
@@ -176,23 +141,24 @@ def main():
     # BOOTSEL series R
     place(fps["R3"], 6.3, -6.1, rot=0)
 
-    # ---------------- USB + charger (front bottom) ----------------
-    # J1 courtyard spans x ±4.6, y ≈7.0..16.7 — keep parts clear of it.
-    place(fps["J1"], 0, 11.2, rot=0)
+    # ---------------- USB (back, at the teardrop tip) + charger ----------------
+    og = geometry(design)
+    overhang = design.get("usb", {}).get("overhang_mm", 1.3)
+    j1_y = -og["tip_y"] + (5.21 - overhang)  # footprint +y extent = 5.21
+    place(fps["J1"], 0, j1_y, rot=0, back=True)  # rot0: pads inboard, mouth out
     place(fps["R6"], -0.6, 4.6, rot=0)    # DP series R under pin 52
     place(fps["R7"], -1.0, 5.8, rot=0)    # DM series R below it
-    # ESD chip on the BACK in the USB gap sector: the front channel
-    # under the connector was structurally overloaded
-    place(fps["U5"], 5.9, 10.9, rot=0, back=True)
-    place(fps["R4"], -6.0, 8.8, rot=120)
-    place(fps["R5"], 6.0, 8.8, rot=60)
+    # ESD chip beside the connector on the back
+    place(fps["U5"], 5.7, -11.7, rot=0, back=True)
+    place(fps["R4"], -2.5, -17.5, rot=90)  # CC pulldowns at the tip
+    place(fps["R5"], 2.5, -17.5, rot=90)
     place(fps["U2"], 5.5, 5.0, rot=0)
     place(fps["R8"], 9.0, -0.9, rot=90)
     place(fps["C16"], 8.3, 3.9, rot=90)
     place(fps["C17"], 7.9, 0.7, rot=90)
-    # charge LED + resistor on the back, in the USB gap sector
-    place(fps["R9"], -5.0, 12.0, rot=-21, back=True)
-    place(fps["D1"], -6.9, 10.2, rot=-30, back=True)
+    # charge LED + resistor: front upper-left interior
+    place(fps["R9"], -7.7, -6.9, rot=90)
+    place(fps["D1"], -6.2, -6.6, rot=90)
 
     # ---------------- power left/right (front) ----------------
     place(fps["U3"], -6.0, 3.2, rot=0)
@@ -203,25 +169,17 @@ def main():
     place(fps["C20"], 6.3, -3.8, rot=90)  # tight to U4 output
 
     # ---------------- hanger ----------------
-    hang = design.get("hanger", {})
-    hx, hy = polar(r_board - 1.9, hang.get("angle_deg", 270.0))
+    hx, hy = design.get("hanger", {}).get("pos", [0, -12.0])
     place(fps["H1"], hx, hy, rot=0)
 
     # ---------------- back side ----------------
-    place(fps["BT1"], 0, 0, rot=0, back=True)  # feet at ±x, clear of USB TH pads
-    sw_th = 240.0
-    sx, sy = polar(r_board - 2.25, sw_th)
-    place(fps["SW1"], sx, sy, rot=-(sw_th - 270.0), back=True)
-    # testpoints at LED-midpoint angles (the gaps between LED via drops),
-    # avoiding SW1 (270°) and the clip feet (0/180°)
-    mids = [angles[i] + step / 2 for i in range(n - 1)]
-    good = [th for th in mids
-            if min(abs((th % 360) - a) for a in (0, 180, 360)) > 25
-            and abs((th % 360) - 240) > 18
-            and abs((th % 360) - 270) > 18 and 190 < (th % 360) < 350]
-    picks = [good[0], good[len(good) // 2], good[-1]] if len(good) >= 3 else good
-    for i, th in enumerate(picks):
-        x, y = polar(12.9, th)
+    place(fps["BT1"], 0, 0, rot=0, back=True)  # feet at ±x
+    # BOOTSEL: small top-actuated switch, front interior (the tip strip is
+    # fully consumed by the USB shield legs + hanger)
+    place(fps["SW1"], 1.9, 8.4, rot=0)
+    # testpoints: back shoulders, clear of the battery insertion corridor
+    # (|x|<10.5, y>9.7) and the clip feet
+    for i, (x, y) in enumerate([(-11.8, -5.0), (11.8, -5.0), (-13.1, 4.9)]):
         place(fps[f"TP{i+1}"], x, y, back=True)
 
     resolve_overlaps(board, fps)
