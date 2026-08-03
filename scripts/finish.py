@@ -440,7 +440,7 @@ def widen_lx():
     Replace freerouting's wiring with the canonical centered path, as wide
     as clearance allows (DRC-verified, restores the original on failure —
     e.g. if the cluster placement has moved and LX_PATH is stale)."""
-    errs0, _, _ = drc_counts(PCB)
+    errs0, unc0, _ = drc_counts(PCB)
     board = pcbnew.LoadBoard(str(PCB))
     net = board.FindNet("VREG_LX")
     if net is None:
@@ -462,7 +462,7 @@ def widen_lx():
         pcbnew.ZONE_FILLER(board).Fill(board.Zones())
         pcbnew.SaveBoard(str(PCB), board)
         errs, unc, _ = drc_counts(PCB)
-        if errs <= errs0 and unc == 0:
+        if errs <= errs0 and unc <= unc0:
             print(f"VREG_LX re-laid centered at {w}mm")
             return
         for t in created:

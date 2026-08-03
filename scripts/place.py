@@ -184,7 +184,10 @@ def main():
     place(fps["H1"], hx, hy, rot=0)
 
     # ---------------- back side ----------------
-    place(fps["BT1"], 0, 0, rot=0, back=True)  # feet at ±x
+    # feet at ±x; rot=180 points the spring-finger mouth toward +y (the
+    # round end / insertion corridor) — at rot=0 it faces the USB tip and
+    # the cell would collide with the connector
+    place(fps["BT1"], 0, 0, rot=180, back=True)
     # BOOTSEL: small top-actuated switch, front interior (the tip strip is
     # fully consumed by the USB shield legs + hanger)
     place(fps["SW1"], 2.45, 8.4, rot=0)  # shifted right: clears L1 courtyard
