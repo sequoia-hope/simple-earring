@@ -189,16 +189,16 @@ def build_circuit(design=None):
     c.add("R9", "r_1k", "1k", {1: "VBUS", 2: "CHRG_A"})
     c.add("D1", "chrg_led", "RED", {2: "CHRG_A", 1: "CHRG"})  # 2=A, 1=K per 0603 LED fp
 
-    # --- ear-wire loop (mechanical) ---
-    c.add("H1", "hanger", "HANGER", {})
-
     # --- battery ---
     c.add("BT1", "battery_clip", "LIR2032", {1: "VBATT", 2: "GND"})
 
-    # --- 3.3V LDO ---
+    # --- 3.3V LDO, gated by the back-side slide switch on EN ---
+    # (MSK12C02 contacts are 50mA-rated: switch the EN signal, not the
+    # battery current; SPDT gives clean VBATT/GND levels both positions)
     c.add("U3", "ldo", "NCP730-3.3", {
-        1: "3V3", 2: "", 3: "GND", 4: "VBATT", 5: "", 6: "VBATT", "EP": "GND",
+        1: "3V3", 2: "", 3: "GND", 4: "PWR_EN", 5: "", 6: "VBATT", "EP": "GND",
     })  # 1=OUT 3=GND 4=EN 6=IN
+    c.add("SW2", "slide_switch", "PWR", {1: "VBATT", 2: "PWR_EN", 3: "GND"})
     c.add("C18", "c_1u", "1u", {1: "VBATT", 2: "GND"})
     c.add("C19", "c_1u", "1u", {1: "3V3", 2: "GND"})
 

@@ -161,15 +161,17 @@ def main():
     place(fps["R7"], 2.1, 5.45, rot=0)    # DM series R below it
     # ESD chip beside the connector on the back
     place(fps["U5"], 5.7, -11.7, rot=0, back=True)
-    place(fps["R4"], -2.5, -17.5, rot=90)  # CC pulldowns at the tip
-    place(fps["R5"], 2.5, -17.5, rot=90)
+    # CC pulldowns: pulled down-board from the tip strip — LED21/LED22 now
+    # live on the tip straights behind the USB connector
+    place(fps["R4"], -2.0, -14.6, rot=90)
+    place(fps["R5"], 2.0, -14.6, rot=90)
     place(fps["U2"], 5.5, 5.0, rot=0)
     place(fps["R8"], 9.0, -0.9, rot=90)
     place(fps["C16"], 8.3, 3.9, rot=90)
     place(fps["C17"], 7.9, 0.7, rot=90)
-    # charge LED + resistor: front upper-left interior
-    place(fps["R9"], -7.7, -6.9, rot=90)
-    place(fps["D1"], -6.2, -6.6, rot=90)
+    # charge LED + resistor: front upper-left interior (clear of ring cap C32)
+    place(fps["R9"], -7.35, -5.7, rot=90)
+    place(fps["D1"], -5.55, -6.6, rot=90)
 
     # ---------------- power left/right (front) ----------------
     place(fps["U3"], -6.6, 3.4, rot=0)  # shifted left: clears CFILT (C22)
@@ -179,18 +181,27 @@ def main():
     place(fps["R10"], 8.55, -2.0, rot=90)
     place(fps["C20"], 6.3, -3.8, rot=90)  # tight to U4 output
 
-    # ---------------- hanger ----------------
-    hx, hy = design.get("hanger", {}).get("pos", [0, -12.0])
-    place(fps["H1"], hx, hy, rot=0)
+    # ---------------- power slide switch (back, left tip straight) ----------------
+    # Body inboard, actuator knob (fp +y) overhanging the left straight edge
+    # above the battery. Left edge runs corner(-4.7,-20.5)->tangency
+    # (-12.70,-8.44); outward normal (-0.833,-0.553). The footprint's two
+    # 0.9mm THT locating holes punch through — verify against front LEDs.
+    # (position solves three constraints: courtyard clear of the cell disc
+    # (r>10.45), body inside the board edge, locating holes >=1.5mm from
+    # the front LEDs)
+    ex, ey = -9.07, -13.92              # edge point at y=-13.92
+    nx_, ny_ = 0.833, 0.553             # inward normal
+    place(fps["SW2"], ex + 1.95 * nx_, ey + 1.95 * ny_, rot=123.6, back=True)
 
     # ---------------- back side ----------------
     # feet at ±x; rot=180 points the spring-finger mouth toward +y (the
     # round end / insertion corridor) — at rot=0 it faces the USB tip and
     # the cell would collide with the connector
     place(fps["BT1"], 0, 0, rot=180, back=True)
-    # BOOTSEL: small top-actuated switch, front interior (the tip strip is
-    # fully consumed by the USB shield legs + hanger)
-    place(fps["SW1"], 2.45, 8.4, rot=0)  # shifted right: clears L1 courtyard
+    # BOOTSEL: small top-actuated switch, front top-center — the spot the
+    # hanger used to occupy. Also decongests the bottom-center routing zone
+    # (VREG cluster + USB series Rs + 3V3 vias all live there now).
+    place(fps["SW1"], 0, -11.3, rot=0)
     # testpoints: back shoulders, clear of the battery insertion corridor
     # (|x|<10.5, y>9.7) and the clip feet
     for i, (x, y) in enumerate([(-11.8, -5.0), (11.8, -5.0), (-13.1, 4.9)]):

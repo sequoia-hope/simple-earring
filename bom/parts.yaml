@@ -89,11 +89,16 @@ chrg_led:
   footprint: LED_0603_1608Metric
   verified: check        # common JLC basic red 0603; validate at order time
 
-hanger:
-  mpn: ~
-  lcsc: ~
-  footprint: HANGER_LOOP
-  verified: yes          # mechanical only, not assembled
+slide_switch:
+  mpn: MSK12C02
+  lcsc: C431540
+  footprint: SW-TH_MSK12C02
+  verified: check        # SHOU HAN SPDT side-slide 8x2.8x1.4; footprint via easyeda2kicad
+  notes: >-
+    Power switch on LDO EN (50mA contact rating - do NOT put battery
+    current through it). Pin 2 = center = common. Knob = footprint +y.
+    Two 0.9mm THT locating holes at (+-1.5, 0.55) punch through to the
+    front - keep clear of front-side parts.
 
 testpoint:
   mpn: ~

@@ -59,7 +59,7 @@ def main():
         # a failed finish re-rolls the routing (up to 4 attempts)
         if s == "route" and i + 1 < len(stages) and stages[i + 1] == "finish":
             done = False
-            for attempt in range(4):
+            for attempt in range(6):
                 if not run_stage("route"):
                     print("\nBuild stopped at stage 'route'.")
                     sys.exit(1)

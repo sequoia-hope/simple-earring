@@ -36,7 +36,7 @@ def main():
                "--layers", layers, "--page-size-mode", "2",
                "--exclude-drawing-sheet", "-o", str(out), str(PCB)]
         if mirror:
-            cmd.insert(-2, "--mirror")
+            cmd.insert(cmd.index("-o"), "--mirror")
         r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode != 0:
             print(r.stdout, r.stderr)

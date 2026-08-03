@@ -22,9 +22,9 @@ board:
   #   B.Cu   - battery holder side + signal
 
 leds:
-  count: 20              # bump to 24 if the ring looks sparse
+  count: 22              # 20 around the ring + 2 on the tip straights behind USB
   ring_margin_mm: 2.0    # distance from board edge to LED center
-  path_end_y: -13.2      # LED path stops at this height near the tip
+  path_end_y: -17.0      # LED path ends between the USB THT legs (y -14.9/-19.1)
   # LEDs point pin-1/data tangentially; chain daisy-chains around the ring.
   power_rail: VBATT      # TBA-C1010 wants 4.2-5.5V officially; runs at LiR voltage in practice
 
@@ -33,11 +33,6 @@ power:
   charge_current_ma: 40  # ~1C for LIR2032; sets charger Rprog
   regulator_3v3: LDO     # battery -> 3.3V LDO for RP2354 IOVDD/VREG_VIN
   led_load_switch: true  # high-side switch so LEDs draw zero when off
-
-hanger:
-  hole_mm: 1.5           # ear-wire hole (plated for strength, no net)
-  pad_mm: 2.7
-  pos: [0, -11.8]        # on-axis between battery cell and USB connector
 
 usb:
   connector: usb_c       # TYPE-C-31-M-12 right-angle SMD, BACK side at the tip
