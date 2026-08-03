@@ -286,8 +286,16 @@ def main():
     # left/right clusters.
     # NB: no through vias possible for r<4.4 — the battery clip's 8mm GND
     # contact pad covers the back there.
-    for pos in ((-5.9, -1.2), (6.2, 2.6), (0.9, 4.1), (0.05, 3.95)):
+    # (bottom-center pair kept at r>4.4: inside that radius the clip's 8mm
+    # back pad eats the via holes — they only survived DRC before because
+    # they went unused and were dropped as dangling)
+    for pos in ((-5.9, -1.2), (6.2, 2.6), (0.9, 5.0), (-0.6, 4.5)):
         rt.via(pos, "3V3")
+    # VREG single-point ground return (RP2350 ds §6.3.8): two adjacent vias
+    # beside the CIN/COUT GND pads; separate dedicated via for CFILT's GND
+    for pos in ((-3.45, 4.35), (-3.45, 4.98)):
+        rt.via(pos, "GND")
+    rt.via((-4.65, 3.20), "GND")
     # channel the HRO connector's interleaved duplicate-pad joins through
     # the front layer: DM hops inboard of the pad row, DP outboard
     for pos in ((-0.75, -13.55), (0.25, -13.55)):
@@ -351,6 +359,28 @@ def main():
     # ---------- outer pours (post-route: as DSN planes they stall freerouting) ----------
     from outline import offset_polygon as _offp
     rt2 = Router(board, design)
+
+    # RP2350 ds §6.3.8: cut copper under the inductor (F.Cu) and cut the
+    # layer-2 plane under the inductor + VREG_LX node (In1). Added post-route
+    # so the DSN never sees them (freerouting treats keepouts as obstacles).
+    def pour_keepout(layer, x0, y0, x1, y1):
+        z = pcbnew.ZONE(board)
+        z.SetIsRuleArea(True)
+        z.SetDoNotAllowCopperPour(True)
+        z.SetDoNotAllowVias(False)
+        z.SetDoNotAllowTracks(False)
+        z.SetDoNotAllowPads(False)
+        z.SetDoNotAllowFootprints(False)
+        z.SetLayer(layer)
+        ol = z.Outline()
+        ol.NewOutline()
+        for x, y in ((x0, y0), (x1, y0), (x1, y1), (x0, y1)):
+            ol.Append(mm(CX + x), mm(CY + y))
+        board.Add(z)
+
+    pour_keepout(pcbnew.F_Cu, -3.35, 5.65, -0.65, 8.00)    # under L1 body
+    pour_keepout(pcbnew.In1_Cu, -3.35, 5.65, -0.65, 8.00)  # In1 under L1
+    pour_keepout(pcbnew.In1_Cu, -2.60, 3.35, -1.80, 5.65)  # In1 under LX
     _pour = _offp(design, 0.3, 80)
     zf = rt2.zone(pcbnew.F_Cu, "GND", _pour, name="gnd_front")
     zb = rt2.zone(pcbnew.B_Cu, "GND", _pour, name="gnd_back")

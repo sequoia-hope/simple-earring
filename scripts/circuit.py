@@ -104,7 +104,7 @@ def build_circuit(design=None):
     u1[RP_PINS["SWD"]] = "SWDIO"
     u1[RP_PINS["RUN"]] = "RUN"
     u1[RP_PINS["ADC_AVDD"]] = "3V3"
-    u1[RP_PINS["VREG_AVDD"]] = "3V3"
+    u1[RP_PINS["VREG_AVDD"]] = "VREG_AVDD"  # noise-sensitive: RC-filtered 3V3
     u1[RP_PINS["VREG_PGND"]] = "GND"
     u1[RP_PINS["VREG_LX"]] = "VREG_LX"
     u1[RP_PINS["VREG_VIN"]] = "3V3"
@@ -125,11 +125,15 @@ def build_circuit(design=None):
     # --- IOVDD / rail decoupling on MCU ---
     for i, _ in enumerate(RP_PINS["IOVDD"] + [53, 54, 44, 46]):
         c.add(f"C{i+1}", "c_100n", "100n", {1: "3V3", 2: "GND"})
-    # VREG: 4.7u in, 2x4.7u out
-    c.add("C11", "c_4u7", "4.7u", {1: "3V3", 2: "GND"})       # VREG_VIN
-    c.add("C12", "c_4u7", "4.7u", {1: "VDD_CORE", 2: "GND"})
-    c.add("C13", "c_4u7", "4.7u", {1: "VDD_CORE", 2: "GND"})
-    c.add("L1", "vreg_inductor", "3.3uH", {1: "VREG_LX", 2: "VDD_CORE"})
+    # VREG per RP2350 ds §6.3.8: CIN at VIN/PGND, COUT at the inductor,
+    # C13 = second VDD_CORE cap near a DVDD pin, AVDD RC-filtered (33R+4u7)
+    c.add("C11", "c_4u7", "4.7u", {1: "3V3", 2: "GND"})       # CIN
+    c.add("C12", "c_4u7", "4.7u", {1: "VDD_CORE", 2: "GND"})  # COUT
+    c.add("C13", "c_4u7", "4.7u", {1: "VDD_CORE", 2: "GND"})  # 2nd VOUT cap
+    # L1 pad 1 = polarity-dot end; ds Fig 23 wants the dot on the VOUT side
+    c.add("L1", "vreg_inductor", "3.3uH", {1: "VDD_CORE", 2: "VREG_LX"})
+    c.add("R13", "r_33", "33", {1: "3V3", 2: "VREG_AVDD"})
+    c.add("C22", "c_4u7", "4.7u", {1: "VREG_AVDD", 2: "GND"})
 
     # --- crystal: XIN direct, XOUT via 1k; 2520-4P pins 1/3 xtal, 2/4 GND ---
     c.add("Y1", "crystal", "12MHz", {1: "XIN", 2: "GND", 3: "XTAL_R", 4: "GND"})

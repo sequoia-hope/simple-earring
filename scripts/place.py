@@ -118,12 +118,21 @@ def main():
     place(fps["C14"], 2.4, -6.7, rot=90)   # XIN load cap, right
     place(fps["C15"], -4.05, -6.9, rot=90) # XTAL_R load cap, left
     place(fps["R1"], -2.4, -6.7, rot=90)   # XOUT series R beside crystal
-    # VREG cluster bottom-left (VDD_CORE caps split: C12 near L1, C13 at
-    # the DVDD pin on the other side of the QFN)
-    place(fps["L1"], -3.9, 6.75, rot=0)
-    place(fps["C11"], 2.6, -8.6, rot=0)
-    place(fps["C12"], -5.9, -2.9, rot=90)  # near DVDD pin 39 (left column)
-    place(fps["C13"], 3.1, -5.2, rot=0)
+    # VREG cluster per RP2350 ds §6.3.8 Fig 23 (reference layout rotated
+    # 180° to match U1): pins 46-50 sit at y=+2.94, x -2.8..-1.2. CIN/COUT
+    # straddle the LX pin column — hot pads land over VREG_VIN, GND pads
+    # toward VREG_PGND — and VREG_LX threads the gap between their pads up
+    # into L1. L1 pad 1 (polarity dot) = VOUT side, per the figure. The AVDD
+    # RC filter (R13/C22) columns to the left near pin 46. GND-return and
+    # CFILT vias are pre-placed in route.py; pour/In1 keepouts under L1 too.
+    # (stack sits 0.25 lower than the raw reference spacing: U1's courtyard
+    # extends 0.68 beyond its pad row and courtyard overlaps are DRC errors)
+    place(fps["C11"], -2.20, 4.15, rot=180)  # CIN  (pad1 3V3 -> right)
+    place(fps["C12"], -2.20, 5.20, rot=180)  # COUT (pad1 VDD_CORE -> right)
+    place(fps["L1"], -2.00, 6.82, rot=180)   # pad2 LX left, pad1 dot right
+    place(fps["R13"], -4.08, 6.30, rot=90)   # RFILT (pad1 3V3 far end)
+    place(fps["C22"], -4.65, 4.37, rot=90)   # CFILT (pad1 AVDD far end)
+    place(fps["C13"], 3.1, -5.2, rot=0)      # 2nd VOUT cap, nearest DVDD 23
     # IOVDD decoupling: explicit pockets around the QFN courtyard (its
     # corners reach r≈6.2, so a uniform ring does not fit)
     DECAP = [(-4.8, -4.0, 90), (4.8, -3.9, 90),
@@ -146,8 +155,10 @@ def main():
     overhang = design.get("usb", {}).get("overhang_mm", 1.3)
     j1_y = -og["tip_y"] + (5.21 - overhang)  # footprint +y extent = 5.21
     place(fps["J1"], 0, j1_y, rot=0, back=True)  # rot0: pads inboard, mouth out
-    place(fps["R6"], -0.6, 4.6, rot=0)    # DP series R under pin 52
-    place(fps["R7"], -1.0, 5.8, rot=0)    # DM series R below it
+    # USB series Rs shifted right of the VREG cluster and the 3V3 access
+    # vias (keep the FB channel at x~-1.15 and the L1 area clear)
+    place(fps["R6"], 2.1, 4.30, rot=0)    # DP series R right of pin 52
+    place(fps["R7"], 2.1, 5.45, rot=0)    # DM series R below it
     # ESD chip beside the connector on the back
     place(fps["U5"], 5.7, -11.7, rot=0, back=True)
     place(fps["R4"], -2.5, -17.5, rot=90)  # CC pulldowns at the tip
@@ -161,7 +172,7 @@ def main():
     place(fps["D1"], -6.2, -6.6, rot=90)
 
     # ---------------- power left/right (front) ----------------
-    place(fps["U3"], -6.0, 3.2, rot=0)
+    place(fps["U3"], -6.6, 3.4, rot=0)  # shifted left: clears CFILT (C22)
     place(fps["C18"], -8.5, 1.2, rot=90)
     place(fps["C19"], -8.3, 3.6, rot=90)
     place(fps["U4"], 6.6, -1.6, rot=0)
@@ -176,7 +187,7 @@ def main():
     place(fps["BT1"], 0, 0, rot=0, back=True)  # feet at ±x
     # BOOTSEL: small top-actuated switch, front interior (the tip strip is
     # fully consumed by the USB shield legs + hanger)
-    place(fps["SW1"], 1.9, 8.4, rot=0)
+    place(fps["SW1"], 2.45, 8.4, rot=0)  # shifted right: clears L1 courtyard
     # testpoints: back shoulders, clear of the battery insertion corridor
     # (|x|<10.5, y>9.7) and the clip feet
     for i, (x, y) in enumerate([(-11.8, -5.0), (11.8, -5.0), (-13.1, 4.9)]):
@@ -192,7 +203,8 @@ def resolve_overlaps(board, fps, max_iter=300):
     bboxes overlap. Ring caps (C30+) and non-passives stay fixed."""
     import re as _re
 
-    EXEMPT = {"R4", "R5", "R8", "R9"}  # deliberately placed in the outer wedges
+    # outer-wedge parts + the VREG reference-layout cluster stay exactly put
+    EXEMPT = {"R4", "R5", "R8", "R9", "C11", "C12", "R13", "C22"}
 
     def movable(ref):
         if ref in EXEMPT:

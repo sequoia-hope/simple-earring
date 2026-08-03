@@ -426,6 +426,60 @@ def drop_dangling_vias():
         print(f"dropped {n} dangling vias")
 
 
+# Canonical VREG_LX path (matches the place.py cluster): pin 48 up, dogleg
+# past pin 47's pad corner (which pins the trace to x>=-2.15 below y~3.6),
+# onto the corridor centerline between the CIN/COUT pad columns, up, then
+# left into L1's LX pad. Centering lets it carry 0.20mm at the 0.127
+# clearance rule (0.25 leaves a +/-13um window — not worth the fragility).
+LX_PATH = [(-2.00, 2.94), (-2.00, 3.35), (-2.15, 3.60),
+           (-2.215, 3.90), (-2.215, 6.82), (-2.70, 6.82)]
+
+
+def widen_lx():
+    """RP2350 ds §6.3.8 asks for minimal parasitics on the VREG_LX node.
+    Replace freerouting's wiring with the canonical centered path, as wide
+    as clearance allows (DRC-verified, restores the original on failure —
+    e.g. if the cluster placement has moved and LX_PATH is stale)."""
+    errs0, _, _ = drc_counts(PCB)
+    board = pcbnew.LoadBoard(str(PCB))
+    net = board.FindNet("VREG_LX")
+    if net is None:
+        return
+    rt = Router(board, load_design())
+    orig = []
+    for t in list(board.GetTracks()):
+        if t.GetNetCode() == net.GetNetCode() and \
+                not isinstance(t, pcbnew.PCB_VIA):
+            # copy coords by value: the VECTOR2Is returned by GetStart/End
+            # dangle once the track is Delete()d
+            s, e = t.GetStart(), t.GetEnd()
+            orig.append((s.x, s.y, e.x, e.y, t.GetWidth(), t.GetLayer()))
+            board.Delete(t)
+    for w in (0.20,):
+        created = [rt.track(vec(*a), vec(*b), "VREG_LX", width=w,
+                            locked=False)
+                   for a, b in zip(LX_PATH, LX_PATH[1:])]
+        pcbnew.ZONE_FILLER(board).Fill(board.Zones())
+        pcbnew.SaveBoard(str(PCB), board)
+        errs, unc, _ = drc_counts(PCB)
+        if errs <= errs0 and unc == 0:
+            print(f"VREG_LX re-laid centered at {w}mm")
+            return
+        for t in created:
+            board.Delete(t)
+    for sx, sy, ex, ey, w0, lay in orig:
+        t = pcbnew.PCB_TRACK(board)
+        t.SetStart(pcbnew.VECTOR2I(sx, sy))
+        t.SetEnd(pcbnew.VECTOR2I(ex, ey))
+        t.SetWidth(w0)
+        t.SetLayer(lay)
+        t.SetNet(net)
+        board.Add(t)
+    pcbnew.ZONE_FILLER(board).Fill(board.Zones())
+    pcbnew.SaveBoard(str(PCB), board)
+    print("VREG_LX kept as freerouting laid it (canonical path failed DRC)")
+
+
 def main():
     design = load_design()
     drop_dangling_vias()
@@ -484,7 +538,8 @@ def main():
         pcbnew.SaveBoard(str(PCB), board)
         if not progress:
             break
-    # final: refill zones, report
+    # final: widen the LX node, refill zones, report
+    widen_lx()
     board = pcbnew.LoadBoard(str(PCB))
     filler = pcbnew.ZONE_FILLER(board)
     filler.Fill(board.Zones())

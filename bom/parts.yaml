@@ -63,7 +63,12 @@ vreg_inductor:
   lcsc: C42411119
   footprint: L_pol_2016
   verified: check        # from funvill RP2350A minimal BOM; footprint from pendant
-  notes: 3.3uH for RP2350 internal VREG
+  notes: >-
+    3.3uH for RP2350 internal VREG. POLARITY MATTERS (ds §6.3.8.3 / Fig 23):
+    orientation dot must land on the VOUT pad = L1 pad 1 (netlist swapped
+    accordingly). Footprint L_pol_2016 draws its dot at pad 1 — confirm
+    against the Abracon drawing that the physical dot end maps to pad 1 in
+    JLC assembly orientation before ordering.
 
 battery_clip:
   mpn: CR2032-W
@@ -98,6 +103,7 @@ testpoint:
 
 # --- passives (0402 unless noted) ---
 r_27:    {lcsc: C138021, footprint: R_0402_1005Metric, verified: prior}   # USB series
+r_33:    {lcsc: C25105,  footprint: R_0402_1005Metric, verified: yes}     # VREG_AVDD RC filter (0402WGF330JTCE)
 r_1k:    {lcsc: C11702,  footprint: R_0402_1005Metric, verified: prior}   # BOOTSEL, CHRG LED
 r_5k1:   {lcsc: C25905,  footprint: R_0402_1005Metric, verified: prior}   # USB-C CC pulldowns
 r_10k:   {lcsc: C25804,  footprint: R_0402_1005Metric, verified: prior}   # RUN pullup, SW ON pulldown
