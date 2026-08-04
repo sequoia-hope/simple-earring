@@ -129,7 +129,7 @@ refresh();
 </script>
 <script type="module">
 import * as THREE from 'three';
-import { OrbitControls } from './vendor/OrbitControls.js';
+import { TrackballControls } from './vendor/TrackballControls.js';
 import { GLTFLoader } from './vendor/GLTFLoader.js';
 const el = document.getElementById('three');
 const scene = new THREE.Scene();
@@ -145,7 +145,13 @@ const d1 = new THREE.DirectionalLight(0xffffff, 2.2);
 d1.position.set(1, 1, 2); scene.add(d1);
 const d2 = new THREE.DirectionalLight(0xffffff, 1.0);
 d2.position.set(-1, -0.5, -2); scene.add(d2);
-const controls = new OrbitControls(cam, renderer.domElement);
+// TrackballControls (not Orbit): no pole clamp, so the board can be
+// tumbled continuously end over end
+const controls = new TrackballControls(cam, renderer.domElement);
+controls.rotateSpeed = 4.0;
+controls.zoomSpeed = 1.4;
+controls.panSpeed = 0.6;
+controls.dynamicDampingFactor = 0.12;
 new GLTFLoader().load('board.glb?' + Date.now(), g => {
   const obj = g.scene;
   const box = new THREE.Box3().setFromObject(obj);
@@ -166,6 +172,7 @@ window.addEventListener('resize', () => {
   cam.aspect = el.clientWidth / el.clientHeight;
   cam.updateProjectionMatrix();
   renderer.setSize(el.clientWidth, el.clientHeight);
+  controls.handleResize();
 });
 </script>
 </body></html>
