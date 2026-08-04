@@ -1,0 +1,21 @@
+#VRML V2.0 utf8
+# TBA-C1010MB-J2I16 (NationStar SMD1010-4P): 1.0 x 1.0 x 0.85 mm body,
+# drawn as a single translucent grey box (datasheet package outline).
+# KiCad VRML unit = 0.1 inch: 1.0 mm = 0.39370 u, 0.85 mm = 0.33465 u.
+Transform {
+  translation 0 0 0.167323
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.55 0.57 0.60
+          specularColor 0.25 0.25 0.25
+          emissiveColor 0.02 0.02 0.02
+          shininess 0.35
+          transparency 0.45
+        }
+      }
+      geometry Box { size 0.393701 0.393701 0.334646 }
+    }
+  ]
+}

@@ -118,7 +118,57 @@ function refresh() {
 }
 setInterval(refresh, 15000);
 refresh();
-</script></body></html>
+</script>
+<h2>Interactive 3D board</h2>
+<div id="three" style="width:min(94vw,1400px);height:640px;background:#222228;
+     border-radius:8px;overflow:hidden"></div>
+<div class="hint" style="color:#888;font-size:.75rem;margin-top:6px">
+  drag = orbit, wheel = zoom, right-drag = pan (board.glb regenerates each build)</div>
+<script type="importmap">
+{"imports": {"three": "./vendor/three.module.js"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from './vendor/OrbitControls.js';
+import { GLTFLoader } from './vendor/GLTFLoader.js';
+const el = document.getElementById('three');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x222228);
+const cam = new THREE.PerspectiveCamera(
+    40, el.clientWidth / el.clientHeight, 0.001, 10);
+const renderer = new THREE.WebGLRenderer({antialias: true});
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(el.clientWidth, el.clientHeight);
+el.appendChild(renderer.domElement);
+scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+const d1 = new THREE.DirectionalLight(0xffffff, 2.2);
+d1.position.set(1, 1, 2); scene.add(d1);
+const d2 = new THREE.DirectionalLight(0xffffff, 1.0);
+d2.position.set(-1, -0.5, -2); scene.add(d2);
+const controls = new OrbitControls(cam, renderer.domElement);
+new GLTFLoader().load('board.glb?' + Date.now(), g => {
+  const obj = g.scene;
+  const box = new THREE.Box3().setFromObject(obj);
+  obj.position.sub(box.getCenter(new THREE.Vector3()));
+  scene.add(obj);
+  const r = box.getSize(new THREE.Vector3()).length();
+  cam.position.set(0, r * 0.55, r * 0.8);
+  cam.near = r / 1000; cam.far = r * 20;
+  cam.updateProjectionMatrix();
+  controls.update();
+});
+(function loop() {
+  requestAnimationFrame(loop);
+  controls.update();
+  renderer.render(scene, cam);
+})();
+window.addEventListener('resize', () => {
+  cam.aspect = el.clientWidth / el.clientHeight;
+  cam.updateProjectionMatrix();
+  renderer.setSize(el.clientWidth, el.clientHeight);
+});
+</script>
+</body></html>
 """
 
 
@@ -242,6 +292,22 @@ def main():
     layers_js = "[" + ", ".join(
         f'["{name}", "{slug}", "{COLORS[slug]}"]'
         for name, slug in LAYER_STACK) + "]"
+    # interactive 3D: board GLB + vendored three.js for the page viewer
+    r = subprocess.run(
+        ["kicad-cli", "pcb", "export", "glb", "-f", "--subst-models",
+         "--include-tracks", "--include-pads", "--include-zones",
+         "--include-silkscreen", "--include-soldermask",
+         "-o", str(ROOT / "out" / "board.glb"), str(PCB)],
+        capture_output=True, text=True)
+    if r.returncode != 0:
+        print(r.stdout, r.stderr)
+        ok = False
+    else:
+        print(f"wrote {ROOT / 'out' / 'board.glb'}")
+    import shutil
+    shutil.copytree(ROOT / "web" / "vendor", ROOT / "out" / "vendor",
+                    dirs_exist_ok=True)
+
     index = ROOT / "out" / "index.html"
     index.write_text(INDEX_HTML % (imgs, layers_js))
     print(f"wrote {index}")
