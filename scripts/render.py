@@ -20,41 +20,66 @@ LAYOUT_VIEWS = {
 LAYER_STACK = [("F.Cu", "fcu"), ("In1.Cu", "in1"),
                ("In2.Cu", "in2"), ("B.Cu", "bcu")]
 
-VIEWER_HTML = """<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>earring layer viewer</title>
+INDEX_HTML = """<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>simple_earring renders</title>
 <style>
-  body { background: #1c1c22; color: #ddd; font: 14px sans-serif;
-         margin: 0; display: flex; height: 100vh; }
-  #panel { padding: 16px; min-width: 220px; background: #26262e; }
-  #panel h1 { font-size: 15px; margin: 0 0 12px; }
-  .lay { display: flex; align-items: center; gap: 8px; padding: 6px 4px; }
-  .lay .sw { width: 14px; height: 14px; border-radius: 3px; }
-  #stage { flex: 1; display: flex; align-items: center;
-           justify-content: center; overflow: hidden; }
-  #stack { position: relative; }
-  #stack img { position: absolute; inset: 0; width: 100%%; height: 100%%;
-               pointer-events: none; }
-  #stack img.base { position: relative; display: block; width: auto;
-                    height: auto; max-width: calc(100vw - 280px);
-                    max-height: 96vh; }
-  label { user-select: none; }
-  input[type=range] { width: 100%%; }
-  .hint { color: #888; font-size: 12px; margin-top: 10px; }
+  body { background:#1a1a1e; color:#ddd; font-family:sans-serif; margin:1rem; }
+  h1 { font-size:1.1rem; font-weight:600; }
+  h2 { font-size:.95rem; font-weight:600; color:#bbb; margin:1.4rem 0 .5rem; }
+  .row { display:flex; flex-wrap:wrap; gap:1rem; }
+  figure { margin:0; }
+  figcaption { text-align:center; padding:.3rem; color:#aaa; font-size:.85rem; }
+  img { max-width:min(46vw,900px); height:auto; border-radius:8px; background:#26262c; }
+  #ts { color:#777; font-size:.8rem; }
+  #viewer { display:flex; gap:1rem; align-items:flex-start; }
+  #panel { padding:12px; min-width:210px; background:#26262e; border-radius:8px; }
+  .lay { display:flex; align-items:center; gap:8px; padding:5px 2px; }
+  .lay .sw { width:14px; height:14px; border-radius:3px; }
+  #stack { position:relative; }
+  #stack img { position:absolute; inset:0; width:100%%; height:100%%;
+               max-width:none; pointer-events:none; border-radius:0;
+               background:none; }
+  #stack img.base { position:relative; display:block; width:auto; height:auto;
+                    max-width:min(66vw,1100px); background:#fff;
+                    border-radius:8px; }
+  label { user-select:none; }
+  input[type=range] { width:100%%; }
+  .hint { color:#888; font-size:.75rem; margin-top:10px; }
 </style></head><body>
-<div id="panel">
-  <h1>Copper layers</h1>
-  <div id="layers"></div>
-  <div style="margin-top:14px">others opacity
-    <input type="range" id="dim" min="0" max="100" value="25">
-  </div>
-  <div class="hint">radio = selected layer (always opaque)<br>
-       checkbox = layer visible at all<br>
-       slider = opacity of visible, unselected layers</div>
+<h1>simple_earring — latest outputs <span id="ts"></span></h1>
+<div class="row">
+  <figure><img class="rf" id="ptop" src="render_place_top.png"><figcaption>placement preview front (unrouted, updates right after place)</figcaption></figure>
+  <figure><img class="rf" id="pbot" src="render_place_bottom.png"><figcaption>placement preview back (unrouted)</figcaption></figure>
 </div>
-<div id="stage"><div id="stack">
-  <img class="base" src="layer_edge.png">
+<div class="row">
+  <figure><img class="rf" id="rtop" src="render_top.png"><figcaption>front, routed (MCU + LED ring)</figcaption></figure>
+  <figure><img class="rf" id="rbot" src="render_bottom.png"><figcaption>back, routed (battery clip)</figcaption></figure>
+</div>
+<div class="row">
+  <figure><img class="rf" id="laytop" src="layout_top.png"><figcaption>layout top (F.Cu over In1/In2/B.Cu)</figcaption></figure>
+  <figure><img class="rf" id="laybot" src="layout_bottom.png"><figcaption>layout bottom, mirrored (B.Cu over In2/In1/F.Cu)</figcaption></figure>
+</div>
+<h2>Copper layers</h2>
+<div class="row">
+  <figure><img class="rf" id="grid" src="layout_layers.png" style="max-width:min(92vw,1400px)"><figcaption>individual copper layers (top view)</figcaption></figure>
+</div>
+<h2>Layer stack viewer</h2>
+<div id="viewer">
+  <div id="panel">
+    <div id="layers"></div>
+    <div style="margin-top:12px">others opacity
+      <input type="range" id="dim" min="0" max="100" value="25">
+    </div>
+    <div class="hint">radio = selected layer (always opaque)<br>
+         checkbox = layer visible at all<br>
+         slider = opacity of visible, unselected layers<br>
+         all layers drawn from the top, unmirrored</div>
+  </div>
+  <div id="stack">
+    <img class="base rf" id="img_edge" src="layer_edge.png">
 %s
-</div></div>
+  </div>
+</div>
 <script>
 const LAYERS = %s;
 const dim = document.getElementById('dim');
@@ -83,6 +108,16 @@ function apply() {
   }
 }
 apply();
+function refresh() {
+  const t = Date.now();
+  for (const img of document.querySelectorAll('img.rf')) {
+    img.src = img.src.split('?')[0] + '?' + t;
+  }
+  document.getElementById('ts').textContent =
+    '(auto-refresh ' + new Date().toLocaleTimeString() + ')';
+}
+setInterval(refresh, 15000);
+refresh();
 </script></body></html>
 """
 
@@ -197,19 +232,19 @@ def main():
         print(f"layer grid failed: {e}")
         ok = False
 
-    # stack viewer: static HTML next to the images (serve out/ locally)
+    # dashboard: everything on one page (served from out/, e.g. :8618),\n    # auto-refreshing, with the copper-stack viewer embedded
     # swatches match kicad-cli's default export theme for each layer
     COLORS = {"fcu": "#c83434", "in1": "#7fc87f",
               "in2": "#d38235", "bcu": "#4d7fc4"}
     imgs = "\n".join(
-        f'  <img id="img_{slug}" src="layer_{slug}.png">'
+        f'    <img class="rf" id="img_{slug}" src="layer_{slug}.png">'
         for _, slug in LAYER_STACK)
     layers_js = "[" + ", ".join(
         f'["{name}", "{slug}", "{COLORS[slug]}"]'
         for name, slug in LAYER_STACK) + "]"
-    viewer = ROOT / "out" / "layer_viewer.html"
-    viewer.write_text(VIEWER_HTML % (imgs, layers_js))
-    print(f"wrote {viewer}")
+    index = ROOT / "out" / "index.html"
+    index.write_text(INDEX_HTML % (imgs, layers_js))
+    print(f"wrote {index}")
     sys.exit(0 if ok else 1)
 
 
