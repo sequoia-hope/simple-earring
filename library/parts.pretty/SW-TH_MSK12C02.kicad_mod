@@ -40,7 +40,7 @@
 	(fp_line (start 0.10 1.89) (end -3.30 1.89) (layer F.CrtYd) (width 0.05))
 	(fp_line (start -3.30 1.89) (end -3.30 -0.91) (layer F.CrtYd) (width 0.05))
 	(model "${KIPRJMOD}/../library/3d/ee.3dshapes/SW-SMD_3P-L6.6-W2.7-LS7.8-P1.50.wrl"
-		(offset (xyz 0.000 -1.550 0.000))
+		(offset (xyz 0.000 0.000 0.000))
 		(scale (xyz 1 1 1))
 		(rotate (xyz 0 0 180))
 	)
