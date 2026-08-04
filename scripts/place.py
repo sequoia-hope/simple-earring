@@ -76,6 +76,23 @@ def main():
     n = design["leds"]["count"]
     n_ring = design["leds"].get("ring_count", n)
     S = [i * path.length / (n_ring - 1) for i in range(n_ring)]
+    # SW2's NPTH locating pegs sit 0.25mm off the LED line and, against the
+    # 45deg-rotated LED pads (0.81mm along-path reach), need the full 1.5mm
+    # LED-bracketing clearance that the old 3.83mm grid gave for free; LED
+    # courtyards (1.6mm squares, also at 45deg) need >=2.27mm LED-LED
+    # spacing. At 2.44mm pitch both can't hold on an even grid, so the
+    # chain is re-pitched around the switch: anchor LED4 stays at the
+    # proven SW2 spot (S=7.75), LED3/LED5 sit exactly 3.0mm away (pegs at
+    # LED4 +-1.5), LED2 splits the gap below, and the rest run evenly to
+    # the path end (~2.40mm, still matching the tip group's ~2.45).
+    if n_ring > 6 and path.length / (n_ring - 1) < 2.9:
+        S[3] = 7.75
+        S[2] = S[3] - 3.0
+        S[1] = S[2] / 2
+        S[4] = S[3] + 3.0
+        rest = (path.length - S[4]) / (n_ring - 5)
+        for i in range(5, n_ring):
+            S[i] = S[4] + (i - 4) * rest
     pts = [path.point(si) for si in S]
     tangs = [path.tangent(si) for si in S]
     # tip closure (front): 3 LEDs continuing the chain from the right
@@ -115,26 +132,29 @@ def main():
           f"chain gap total {best[1]/1e6:.2f}mm")
 
     # bypass caps at every-2nd chain midpoint, shifted inward; slide along
-    # the path if the spot lands on a USB shell THT leg (tip straights)
-    J1_LEGS = [(sx * 4.33, sy) for sx in (-1, 1) for sy in (-14.88, -19.06)]
+    # the path if the spot lands on a USB shell THT leg or one of the two
+    # NPTH locating pegs (tip straights)
+    J1_LEGS = [(sx * 4.33, sy, 2.3) for sx in (-1, 1) for sy in (-14.88, -19.06)]
+    J1_PEGS = [(sx * 2.90, -15.38, 1.6) for sx in (-1, 1)]
     for i in range(n_ring):
         ref = f"C{30+i}"
         if ref not in fps:
             continue
-        sm = min(S[i] + path.length / (n_ring - 1) / 2, path.length - 1)
-        for slide in (0, 1.3, -1.3, 2.0, -2.0):
+        sm = (S[i] + S[i + 1]) / 2 if i + 1 < n_ring else path.length - 1
+        for slide in (0, 1.3, -1.3, 2.0, -2.0, 2.7, -2.7, 3.4, -3.4):
             smt = min(max(sm + slide, 0.5), path.length - 0.5)
             x, y = path.point(smt)
             nx, ny = path.normal_in(smt, design)
             px, py = x + nx * 1.9, y + ny * 1.9
-            if all(math.hypot(px - lx, py - ly) > 2.3 for lx, ly in J1_LEGS):
+            if all(math.hypot(px - lx, py - ly) > lr
+                   for lx, ly, lr in J1_LEGS + J1_PEGS):
                 break
         t = path.tangent(smt)
         rot = -(math.degrees(math.atan2(t[1], t[0])))
         place(fps[ref], px, py, rot=rot)
-    # tip-closure bypass caps (i=22,24 -> C52/C54): inboard of the chevron,
+    # tip-closure bypass caps (i=n_ring, n_ring+2): inboard of the chevron,
     # between the D+/D- channel vias (y>=-15.0) and the tip LEDs' courtyards
-    for ref, x in (("C52", 1.30), ("C54", -1.30)):
+    for ref, x in ((f"C{30 + n_ring}", 1.30), (f"C{30 + n_ring + 2}", -1.30)):
         if ref in fps:
             place(fps[ref], x, -16.30, rot=0)
 
@@ -194,8 +214,11 @@ def main():
     # vias (keep the FB channel at x~-1.15 and the L1 area clear)
     # (0.45 lower than the pin row allows: their pads pinched the pin-row
     # escape channel to 0.35mm — traces need 0.404)
-    place(fps["R6"], 2.1, 4.75, rot=0)    # DP series R right of pin 52
-    place(fps["R7"], 2.1, 5.90, rot=0)    # DM series R below it
+    # R7 (DM) on top, R6 (DP) below: DM escapes from the WEST pin (51) so
+    # it takes the upper row; DP (pin 52) loops east around both. With
+    # R6 on top the two locked escapes would have to cross on F.Cu.
+    place(fps["R7"], 2.1, 4.75, rot=0)    # DM series R
+    place(fps["R6"], 2.1, 5.90, rot=0)    # DP series R below it
     # ESD chip on-axis right behind the connector (back top-center freed
     # by the hanger removal) — also clears the right-edge annulus band the
     # tip ring caps need for their VLED plane vias
@@ -226,15 +249,17 @@ def main():
     # (-12.70,-8.44); outward normal (-0.833,-0.553). The footprint's two
     # 0.9mm THT locating holes punch through — verify against front LEDs.
     # rot=56.4: the back-side flip NEGATES the rotation sense (scan-found).
-    # Anchored to LED3: the two NPTH locating holes (3.0mm apart vs 3.82mm
-    # LED pitch) only clear the front LEDs by bracketing one LED at
-    # +-1.5mm, so the hole-pair midpoint sits on LED3, 0.25mm outboard of
-    # the LED line. Center lands 2.30mm inboard: knob-side mounting pads
+    # Anchored to LED4: the two NPTH locating holes (3.0mm apart) only
+    # clear the front LEDs by bracketing one LED at +-1.5mm, so the
+    # hole-pair midpoint sits on LED4 — pinned at the proven S=7.75 spot by
+    # the chain re-pitch above, which also holds LED3/LED5 exactly 3.0mm
+    # away so the pegs keep their 1.5mm LED clearance at the denser pitch.
+    # Center lands 2.30mm inboard: knob-side mounting pads
     # stay 0.25 inside the edge, interior courtyard face stays off the
     # cell disc (r 10.49 > 10.45), knob overhangs 1.23mm.
     nx_, ny_ = 0.833, 0.553             # inward normal of the left straight
-    l3x, l3y = pts[2]                   # LED3 (path-derived, margin 2.0)
-    place(fps["SW2"], l3x + 0.30 * nx_, l3y + 0.30 * ny_, rot=56.4, back=True)
+    l4x, l4y = pts[3]                   # LED4 (path-derived, margin 2.0)
+    place(fps["SW2"], l4x + 0.30 * nx_, l4y + 0.30 * ny_, rot=56.4, back=True)
 
     # ---------------- back side ----------------
     # feet at ±x; rot=180 points the spring-finger mouth toward +y (the

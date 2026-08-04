@@ -341,7 +341,9 @@ def main():
     # they went unused and were dropped as dangling)
     # ((-1.2,-8.3): the crystal-pocket decaps' 3V3 feed — SW1's move to
     # top-center displaced the corridor they used to tap)
-    for pos in ((-5.9, -1.2), (6.2, 2.6), (0.9, 5.0), (-0.6, 4.5),
+    # ((-0.35,4.5) not (-0.6,4.5): shifted right so the locked FB link can
+    # enter the switcher pour's lobe at x=-1.0 with 0.127 via clearance)
+    for pos in ((-5.9, -1.2), (6.2, 2.6), (0.9, 5.0), (-0.35, 4.5),
                 (-1.2, -8.3)):
         rt.via(pos, "3V3")
     # VREG single-point ground return: two vias INSIDE the transplanted
@@ -350,12 +352,123 @@ def main():
     for pos in ((-3.10, 4.40), (-3.10, 5.00)):
         rt.via(pos, "GND")
     rt.via((-4.65, 3.20), "GND")
+    # canonical FB link: pin 50 -> the switcher pour's FB landing lobe
+    # (the lobe stops 1mm short of the FB pad on the official board too;
+    # without this link freerouting can leave the cluster copper and the
+    # pin-ring VDD_CORE as two fragments whose closest approach is mid-air
+    # over U2 — no candidate the finisher can act on). Geometry is exact
+    # against the 0.127 rule: out of pad 50 dead-center of the pin 49/51
+    # gap (pad edges -1.5/-0.9 -> 0.225 each side), jog right at y=3.66
+    # (0.205 above the pad tips, 0.15 under C11 pad1's corner at
+    # (-1.25,3.885)), up at x=-1.00 (0.175 off C11 pad1) into the lobe's
+    # bottom-left corner (-1.0,4.4). The 3V3 finger pour it grazes is
+    # filled post-route and necks around this track on its own. A stray
+    # clearance violation here is fatal: freerouting cannot rip up locked
+    # wiring and burns its whole 900s budget trying (seen live), so
+    # re-audit pads AND pre-placed vias before moving any coordinate.
+    # (C leg at -1.02, not -1.00: buys the USB_DM escape diagonal its
+    # 0.277 corner clearance; C11 pad1 gap is still 0.155)
+    for a, b in (((-1.20, 3.30), (-1.20, 3.66)),
+                 ((-1.20, 3.66), (-1.02, 3.66)),
+                 ((-1.02, 3.66), (-1.02, 4.44))):
+        rt.track(a, b, "VDD_CORE", width=0.15)
     # channel the HRO connector's interleaved duplicate-pad joins through
     # the front layer: DM hops inboard of the pad row, DP outboard
     for pos in ((-0.75, -13.55), (0.25, -13.55)):
         rt.via(pos, "USB_DM_C")
     for pos in ((-0.25, -15.0), (0.75, -15.0)):
         rt.via(pos, "USB_DP_C")
+    # ---------- USB differential pair (canonical, locked) ----------
+    # J1 -> U5 (flow-through ESD) -> down the back WEST of the battery
+    # clip's 8x8 back pad, around its SW corner with concentric-C parity
+    # (outer lane always turns onto the farther rail so the pair never
+    # crosses itself) -> via pair below R6/R7 -> up to their pad 1, DP
+    # threading the 0.48mm R7.1/R7.2 gap at x=2.1. Keeps DP/DM paired at
+    # 0.30mm centers for the shared run and, critically, off the inner
+    # layers: freerouting used to snake both lines through In1/In2,
+    # slotting the GND plane and splitting the 3V3 disc. The west side is
+    # chosen because an east-side run walls off SWCLK's back-side test
+    # pad, VBUS's route to the charger and BOOTSEL (seen live: 6/6 seeds
+    # failed); west only PWR_EN crosses, with an easy front hop. The
+    # verticals jog west around the GND via at (-4.65,3.2). Every
+    # segment, via and cross-net pairing is verified numerically against
+    # all pads (rect models), holes, pre-placed vias and the other locked
+    # links, including segment crossings — re-run the checker on ANY
+    # coordinate change: a locked-wire clearance violation makes
+    # freerouting burn its whole 900s budget.
+    # Topology: J1's pin order puts DM's duplicate pads outside DP's at
+    # the connector, while R7 (DM) sits above R6 (DP) — one pair crossing
+    # is unavoidable. It happens on the west side as a short F.Cu hop
+    # (vias at (-4.34,-9.40)/(-5.40,-8.75), a zone that is empty on F):
+    # DP crosses over DM's rail, so DM rides outer-north/inner-south and
+    # the escapes stay planar. VBUS's ties would be walled in by the DP
+    # tip bypass, so it gets a locked link too: via-in-pad on U5.5 (same
+    # trick as C30) and an F.Cu trunk over U5's body joining both ties.
+    USB_PAIR = {
+        "USB_DM_C": [
+            # J1's pad row + tie pads + shell legs form an unbroken wall
+            # across the back at y -14.8..-13.4 — the ONLY legal vertical
+            # corridors are through your own net's pads. DM rises through
+            # B7's column, DP through B6's.
+            ("F", (-0.75, -13.55), (0.25, -13.55)),  # duplicate-pad join
+            ("B", (-0.75, -13.55), (-0.75, -12.60)),  # rise through B7
+            ("B", (-0.75, -12.60), (-0.85, -12.35)),
+            ("B", (-0.85, -12.35), (-0.85, -12.04)),  # into U5.3
+            ("B", (0.85, -12.04), (-0.85, -12.04)),   # flow-through to U5.4
+            ("B", (-0.85, -12.35), (-4.75, -12.35)),  # west, outer rail
+            ("B", (-4.75, -12.35), (-4.75, -8.30)),
+            ("B", (-4.75, -8.30), (-5.10, -7.95)),    # inner after the cross
+            ("B", (-5.10, -7.95), (-5.10, 6.55)),     # past GND via (dx .45)
+            ("B", (-5.10, 6.55), (2.45, 6.55)),       # south, upper rail
+            ("B", (2.45, 6.55), (2.45, 7.05)),        # drop to via
+            ("F", (2.45, 7.05), (2.10, 6.55)),
+            ("F", (2.10, 6.55), (2.10, 5.35)),        # R7.1/R6.1 gap
+            ("F", (2.10, 5.35), (1.80, 5.05)),
+            ("F", (1.80, 5.05), (1.59, 4.75)),        # R7 pad 1 (upper)
+        ],
+        "USB_DP_C": [
+            ("B", (-0.25, -14.60), (-0.25, -15.00)),  # pad stubs to vias
+            ("B", (0.75, -14.60), (0.75, -15.00)),
+            ("F", (-0.25, -15.00), (0.75, -15.00)),   # duplicate-pad join
+            ("B", (0.75, -15.00), (0.75, -13.00)),    # rise through B6
+            ("B", (0.75, -13.00), (1.62, -12.55)),
+            ("B", (1.62, -12.55), (1.62, -11.10)),    # east of U5.4/U5.5
+            ("B", (1.62, -11.10), (1.10, -10.96)),    # into U5.6
+            ("B", (1.10, -10.96), (-0.85, -10.96)),   # flow-through to U5.1
+            ("B", (-0.85, -10.96), (-4.45, -10.96)),  # west, inner rail
+            ("B", (-4.45, -10.96), (-4.34, -10.80)),
+            ("B", (-4.34, -10.80), (-4.34, -9.40)),   # to crossing via
+            ("F", (-4.34, -9.40), (-5.40, -8.75)),    # F hop over DM's rail
+            ("B", (-5.40, -8.75), (-5.40, 6.85)),     # outer after the cross
+            ("B", (-5.40, 6.85), (1.05, 6.85)),       # south, lower rail
+            ("B", (1.05, 6.85), (1.05, 7.05)),        # drop to via
+            ("F", (1.05, 7.05), (1.45, 6.35)),
+            ("F", (1.45, 6.35), (1.59, 5.95)),        # R6 pad 1 (lower)
+        ],
+    }
+    # NB: do NOT lock the pin 51/52 escapes (USB_DM/USB_DP). Fixed wires
+    # that START on U1's pads hang freerouting v2 before pass 1 (bisected
+    # via DSN text-editing: removing only those two nets' wires from an
+    # otherwise identical DSN un-hangs it). With R7 (DM) on the upper row
+    # the escapes are easy for freerouting anyway — that was the point of
+    # the R6/R7 swap.
+    # (VBUS's F.Cu trunk is laid POST-route — see below. Pre-placing
+    # those tracks makes freerouting v2.2.4 crash at SES-write time and
+    # silently restart its whole job every ~2 min until the 900s timeout
+    # (bisected with probe DSNs: with the tracks removed and only the
+    # three via-in-pads kept, the SES writes fine). The vias go in now
+    # so nothing else takes their spots.)
+    for net, segs in USB_PAIR.items():
+        for layer, a, bpt in segs:
+            ly = pcbnew.F_Cu if layer == "F" else pcbnew.B_Cu
+            rt.track(a, bpt, net, layer=ly, width=0.15)
+    rt.via((2.45, 7.05), "USB_DM_C")
+    rt.via((1.05, 7.05), "USB_DP_C")
+    rt.via((-4.34, -9.40), "USB_DP_C")
+    rt.via((-5.40, -8.75), "USB_DP_C")
+    rt.via((-2.35, -13.45), "VBUS")  # via-in-pad on tie A4B9
+    rt.via((0.92, -11.50), "VBUS")   # via-in-pad on U5.5 (tented)
+    rt.via((2.35, -13.45), "VBUS")   # via-in-pad on tie B4A9
     from outline import outline_points, offset_polygon
     margin = design["leds"]["ring_margin_mm"]
     outer = outline_points(design, 100)
@@ -383,20 +496,25 @@ def main():
     # seeds. One via per LED, spot scanned against all static copper —
     # pre-route vias can't conflict with wires (freerouting routes around
     # them), only pads/holes/edge matter.
-    def safe_via_spot(cx, cy):
+    def safe_via_spot(cx, cy, net="VLED", radii=(0.7, 0.9, 1.1)):
         pads = [(p, fp) for fp in board.GetFootprints() for p in fp.Pads()]
-        for r in (0.7, 0.9, 1.1):
+        for r in radii:
             for k in range(16):
                 ang = math.pi * 2 * k / 16
                 x, y = cx + r * math.cos(ang), cy + r * math.sin(ang)
                 if math.hypot(x, y) < 4.6:
                     continue  # battery clip back pad
-                # inside the outline with margin, and within the VLED band?
                 from outline import half_width_at
                 if abs(x) > half_width_at(load_design(), y) - 0.45:
                     continue
-                if abs(x) < half_width_at(load_design(), y) - 4.5:
-                    continue
+                if net == "VLED":
+                    # within the outer In2 VLED band
+                    if abs(x) < half_width_at(load_design(), y) - 4.5:
+                        continue
+                elif net == "3V3":
+                    # inside the In2 3V3 disc (r=9.55)
+                    if math.hypot(x, y) > 9.55 - 0.45:
+                        continue
                 ok = True
                 for p, fp in pads:
                     pp = p.GetPosition()
@@ -404,7 +522,7 @@ def main():
                                    to_mm(pp.y) - 100 - y)
                     sz = p.GetSize(pcbnew.F_Cu)
                     half = math.hypot(to_mm(sz.x), to_mm(sz.y)) / 2
-                    need = 0.55 if p.GetNetname() != "VLED" else 0.0
+                    need = 0.55 if p.GetNetname() != net else 0.0
                     if p.GetAttribute() != pcbnew.PAD_ATTRIB_SMD:
                         need = 0.75  # hole-to-hole
                     if d < half + need:
@@ -413,13 +531,42 @@ def main():
                 if ok:
                     return (x, y)
         return None
-    for ref in ("LED1", "LED2"):
+    # same treatment for the mirror pocket on the right tip straight: at
+    # the 2.4mm pitch the finisher deterministically fails to reach the
+    # last straight LEDs' VCC pads without a pre-scanned via
+    ring = design["leds"].get("ring_count", design["leds"]["count"])
+    for ref in ("LED1", "LED2", "LED3",
+                f"LED{ring}", f"LED{ring - 1}", f"LED{ring - 2}"):
         px, py = rel(pad_of(fps[ref], 2).GetPosition())
         spot = safe_via_spot(px, py)
         if spot:
             rt.via(spot, "VLED")
         else:
             print(f"WARNING: no safe VLED via spot near {ref}")
+    # U3's (LDO) 3V3 output pin is walled in by C19's GND pad + GND
+    # fanout at the 2.4mm-pitch seeds — the finisher finds no candidate,
+    # so give it a scanned 3V3-disc via up front
+    px, py = rel(pad_of(fps["U3"], 1).GetPosition())
+    spot = safe_via_spot(px, py, "3V3",
+                         radii=(0.7, 0.9, 1.1, 1.35, 1.6, 1.85))
+    if spot:
+        rt.via(spot, "3V3")
+    else:
+        print("WARNING: no safe 3V3 via spot near U3")
+    # C32 (the SW2-shadow bypass cap): no legal via spot exists within
+    # 1.85mm — SW2's mount pad and pegs plus the LED3/C30 pads wall in
+    # the whole pocket (scan-verified). Tie its VLED pad to C30's locked
+    # via-in-pad instead. Waypoints are grid-search-verified against every
+    # local pad (half-diagonal disc + 0.127 + track half): worst margin
+    # is +0.21mm (C30.2 GND / SW1.1 / J1's shell leg are the binders) —
+    # a locked-wire clearance violation makes freerouting burn its whole
+    # 900s budget, so re-verify numerically before touching these.
+    c30 = rel(pad_of(fps["C30"], 1).GetPosition())
+    c32 = rel(pad_of(fps["C32"], 1).GetPosition())
+    for a, b in ((c32, (-4.90, -11.60)),
+                 ((-4.90, -11.60), (-4.00, -13.20)),
+                 ((-4.00, -13.20), c30)):
+        rt.track(a, b, "VLED", width=0.15)
     pcbnew.SaveBoard(str(PCB), board)
 
     # ---------- freerouting ----------
@@ -463,6 +610,27 @@ def main():
     from outline import offset_polygon as _offp
     rt2 = Router(board, design)
     add_ring_stubs(board, rt2)
+
+    # VBUS trunk (F.Cu over U5's body, joining the tie-pad via-in-pads to
+    # U5.5's): pre-routing these tracks crashes freerouting's SES writer
+    # (see the pre-route comment), so they go in here. The corridor is
+    # numerically verified against all static copper; the gate only
+    # protects against freerouting wires that strayed into it — a blocked
+    # seg fails this attempt and the route/finish retry rerolls the seed.
+    import finish as fin
+    obs2 = fin.Obstacles(board)
+    VBUS_TRUNK = [((-2.35, -13.45), (-0.50, -12.40)),
+                  ((-0.50, -12.40), (0.92, -11.50)),
+                  ((0.92, -11.50), (1.60, -12.20)),
+                  ((1.60, -12.20), (2.35, -13.45))]
+    vb_blocked = 0
+    for a, b2 in VBUS_TRUNK:
+        if obs2.clear_seg(a, b2, pcbnew.F_Cu, "VBUS", 0.127 + 0.075):
+            rt2.track(a, b2, "VBUS", width=0.15)
+        else:
+            vb_blocked += 1
+    if vb_blocked:
+        print(f"WARNING: VBUS trunk: {vb_blocked} segs blocked by routed copper")
 
     # RP2350 ds §6.3.8: cut copper under the inductor (F.Cu) and cut the
     # layer-2 plane under the inductor + VREG_LX node (In1). Added post-route

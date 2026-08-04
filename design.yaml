@@ -22,8 +22,9 @@ board:
   #   B.Cu   - battery holder side + signal
 
 leds:
-  count: 25              # ring_count on the perimeter path + 3 closing the tip
-  ring_count: 22         # 20 around the ring + 2 on the tip straights behind USB
+  count: 37              # ring_count on the perimeter path + 3 closing the tip
+  ring_count: 34         # 2.44mm pitch on the 80.4mm path — matches the
+                         # ~2.45mm pitch of the 5-LED tip closure group
   ring_margin_mm: 2.0    # distance from board edge to LED center
   path_end_y: -17.0      # LED path ends between the USB THT legs (y -14.9/-19.1)
   # The last (count - ring_count) LEDs close the teardrop tip on the FRONT
