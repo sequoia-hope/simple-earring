@@ -36,18 +36,39 @@ def main():
             print(f"wrote {out}")
     if placement:
         sys.exit(0 if ok else 1)
+    # layout views: kicad-cli only exports vector formats for layer views,
+    # so export SVG then rasterize to a PNG matching the 3D render size
+    # (board centered on white); the intermediate SVG is removed
+    try:
+        from PIL import Image
+        size = Image.open(ROOT / "out" / f"{prefix}top.png").size
+    except Exception:
+        size = (1568, 872)
     for side, (layers, mirror) in LAYOUT_VIEWS.items():
-        out = ROOT / "out" / f"layout_{side}.svg"
+        svg = ROOT / "out" / f"layout_{side}.svg"
         cmd = ["kicad-cli", "pcb", "export", "svg", "--mode-single",
                "--layers", layers, "--page-size-mode", "2",
-               "--exclude-drawing-sheet", "-o", str(out), str(PCB)]
+               "--exclude-drawing-sheet", "-o", str(svg), str(PCB)]
         if mirror:
             cmd.insert(cmd.index("-o"), "--mirror")
         r = subprocess.run(cmd, capture_output=True, text=True)
         if r.returncode != 0:
             print(r.stdout, r.stderr)
             ok = False
+            continue
+        out = ROOT / "out" / f"layout_{side}.png"
+        wh = f"{size[0]}x{size[1]}"
+        r = subprocess.run(
+            ["magick", "-density", "600", "-background", "white",
+             str(svg), "-resize", wh, "-gravity", "center",
+             "-extent", wh, "-alpha", "remove", "-alpha", "off",
+             "-depth", "8", str(out)],
+            capture_output=True, text=True)
+        if r.returncode != 0:
+            print(r.stdout, r.stderr)
+            ok = False
         else:
+            svg.unlink()
             print(f"wrote {out}")
     sys.exit(0 if ok else 1)
 
