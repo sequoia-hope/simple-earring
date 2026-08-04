@@ -15,6 +15,77 @@ LAYOUT_VIEWS = {
     "bottom": ("F.Cu,In1.Cu,In2.Cu,B.Cu,B.Silkscreen,Edge.Cuts", True),
 }
 
+# individual copper layers (all drawn from the top, unmirrored, so the
+# transparent PNGs stack in register in the grid and the layer viewer)
+LAYER_STACK = [("F.Cu", "fcu"), ("In1.Cu", "in1"),
+               ("In2.Cu", "in2"), ("B.Cu", "bcu")]
+
+VIEWER_HTML = """<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>earring layer viewer</title>
+<style>
+  body { background: #1c1c22; color: #ddd; font: 14px sans-serif;
+         margin: 0; display: flex; height: 100vh; }
+  #panel { padding: 16px; min-width: 220px; background: #26262e; }
+  #panel h1 { font-size: 15px; margin: 0 0 12px; }
+  .lay { display: flex; align-items: center; gap: 8px; padding: 6px 4px; }
+  .lay .sw { width: 14px; height: 14px; border-radius: 3px; }
+  #stage { flex: 1; display: flex; align-items: center;
+           justify-content: center; overflow: hidden; }
+  #stack { position: relative; }
+  #stack img { position: absolute; inset: 0; width: 100%%; height: 100%%;
+               pointer-events: none; }
+  #stack img.base { position: relative; display: block; width: auto;
+                    height: auto; max-width: calc(100vw - 280px);
+                    max-height: 96vh; }
+  label { user-select: none; }
+  input[type=range] { width: 100%%; }
+  .hint { color: #888; font-size: 12px; margin-top: 10px; }
+</style></head><body>
+<div id="panel">
+  <h1>Copper layers</h1>
+  <div id="layers"></div>
+  <div style="margin-top:14px">others opacity
+    <input type="range" id="dim" min="0" max="100" value="25">
+  </div>
+  <div class="hint">radio = selected layer (always opaque)<br>
+       checkbox = layer visible at all<br>
+       slider = opacity of visible, unselected layers</div>
+</div>
+<div id="stage"><div id="stack">
+  <img class="base" src="layer_edge.png">
+%s
+</div></div>
+<script>
+const LAYERS = %s;
+const dim = document.getElementById('dim');
+const box = document.getElementById('layers');
+const state = {sel: LAYERS[0][1], vis: Object.fromEntries(
+    LAYERS.map(l => [l[1], true]))};
+for (const [name, slug, color] of LAYERS) {
+  const row = document.createElement('div');
+  row.className = 'lay';
+  row.innerHTML = `<input type="radio" name="sel" id="r_${slug}">` +
+    `<input type="checkbox" id="v_${slug}" checked>` +
+    `<span class="sw" style="background:${color}"></span>` +
+    `<label for="r_${slug}">${name}</label>`;
+  box.appendChild(row);
+  row.querySelector(`#r_${slug}`).onchange = () => { state.sel = slug; apply(); };
+  row.querySelector(`#v_${slug}`).onchange = e => {
+    state.vis[slug] = e.target.checked; apply(); };
+}
+document.getElementById('r_' + state.sel).checked = true;
+dim.oninput = apply;
+function apply() {
+  for (const [, slug] of LAYERS) {
+    const img = document.getElementById('img_' + slug);
+    img.style.display = state.vis[slug] ? '' : 'none';
+    img.style.opacity = (slug === state.sel) ? 1 : dim.value / 100;
+  }
+}
+apply();
+</script></body></html>
+"""
+
 
 def main():
     ok = True
@@ -70,6 +141,75 @@ def main():
         else:
             svg.unlink()
             print(f"wrote {out}")
+
+    # ---- individual copper layers: transparent PNGs on the shared canvas
+    # (page-size-mode 2 crops every export to the board bbox, so all
+    # layers land in register), then a labeled 2x2 grid + stack viewer
+    wh = f"{size[0]}x{size[1]}"
+    for name, slug in LAYER_STACK + [("Edge.Cuts", "edge")]:
+        svg = ROOT / "out" / f"layer_{slug}.svg"
+        r = subprocess.run(
+            ["kicad-cli", "pcb", "export", "svg", "--mode-single",
+             "--layers", name, "--page-size-mode", "2",
+             "--exclude-drawing-sheet", "-o", str(svg), str(PCB)],
+            capture_output=True, text=True)
+        if r.returncode != 0:
+            print(r.stdout, r.stderr)
+            ok = False
+            continue
+        out = ROOT / "out" / f"layer_{slug}.png"
+        r = subprocess.run(
+            ["magick", "-density", "600", "-background", "none",
+             str(svg), "-resize", wh, "-gravity", "center",
+             "-extent", wh, f"png32:{out}"],
+            capture_output=True, text=True)
+        if r.returncode != 0:
+            print(r.stdout, r.stderr)
+            ok = False
+        else:
+            svg.unlink()
+            print(f"wrote {out}")
+
+    try:
+        from PIL import Image, ImageDraw
+        edge = Image.open(ROOT / "out" / "layer_edge.png").convert("RGBA")
+        tw, th = size[0] // 2, size[1] // 2
+        grid = Image.new("RGB", (tw * 2, th * 2), "white")
+        draw = ImageDraw.Draw(grid)
+        try:
+            from PIL import ImageFont
+            font = ImageFont.load_default(size=24)
+        except Exception:
+            font = None
+        for i, (name, slug) in enumerate(LAYER_STACK):
+            tile = Image.new("RGBA", size, "white")
+            tile.alpha_composite(edge)
+            tile.alpha_composite(
+                Image.open(ROOT / "out" / f"layer_{slug}.png").convert("RGBA"))
+            tile = tile.resize((tw, th), Image.LANCZOS).convert("RGB")
+            x, y = (i % 2) * tw, (i // 2) * th
+            grid.paste(tile, (x, y))
+            draw.text((x + 10, y + 8), name, fill="#222", font=font)
+        gout = ROOT / "out" / "layout_layers.png"
+        grid.save(gout)
+        print(f"wrote {gout}")
+    except Exception as e:
+        print(f"layer grid failed: {e}")
+        ok = False
+
+    # stack viewer: static HTML next to the images (serve out/ locally)
+    # swatches match kicad-cli's default export theme for each layer
+    COLORS = {"fcu": "#c83434", "in1": "#7fc87f",
+              "in2": "#d38235", "bcu": "#4d7fc4"}
+    imgs = "\n".join(
+        f'  <img id="img_{slug}" src="layer_{slug}.png">'
+        for _, slug in LAYER_STACK)
+    layers_js = "[" + ", ".join(
+        f'["{name}", "{slug}", "{COLORS[slug]}"]'
+        for name, slug in LAYER_STACK) + "]"
+    viewer = ROOT / "out" / "layer_viewer.html"
+    viewer.write_text(VIEWER_HTML % (imgs, layers_js))
+    print(f"wrote {viewer}")
     sys.exit(0 if ok else 1)
 
 
