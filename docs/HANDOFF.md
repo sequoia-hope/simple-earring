@@ -146,6 +146,21 @@ get the design to converge on 4 layers.
   compared on the dashboard. Keep the 6-layer config as fallback — if
   4-layer won't converge DRC-clean in a few attempts, ship 6-layer and eat
   the lead time (Sequoia's call; present both results).
+- **If routing fails to converge (likely): hand the BEST partial result to
+  Sequoia for manual completion in KiCad.** Concretely:
+  - Across all routing attempts, keep the board with the fewest unconnected
+    nets / DRC errors (not the last attempt) — snapshot each attempt's
+    result + stats so "best" is selectable after the fact.
+  - Deliver it as a saved, committed `out/earring.kicad_pcb` (zone fills
+    done, no stale `.lck`), on a branch or clearly-messaged commit so it's
+    distinguishable from a converged build.
+  - Include a short punch list: which nets are unconnected / which DRC
+    errors remain, roughly where (refs + area), and any known blockers
+    (e.g. congestion under U1, VLED feed) — on the dashboard and/or in the
+    commit message.
+  - After Sequoia finishes it by hand, their copper is the source of truth
+    for that build: same rule as the current hand edits — don't rebuild
+    over it; back-port or lock before any regeneration.
 - **Interaction with Task 1**: a 4-layer reroute discards all hand-edit
   copper. So back-port the hand edits as *generator rules* (net names,
   VBUS width class, diff-pair handling) — those carry over to any stackup —
