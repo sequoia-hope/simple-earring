@@ -26,11 +26,27 @@ flash:
     8=VCC — wiring copied from RPI-RP2350A-MINIMAL R4 (docs/).
 
 led:
-  mpn: TBA-C1010MB-J2I16
-  lcsc: C22461778
-  footprint: LED_TBA-C1010MB
-  verified: yes          # datasheet fetched; pinout 1=DI 2=VCC 3=GND 4=DO
-  notes: 4.2-5.5V spec, runs at LiR voltage; 3.3V data OK; 760uA quiescent each
+  mpn: SK6805-EC10-000
+  lcsc: C22394946
+  footprint: LED_SK6805-EC10
+  verified: yes          # 2026-08-05: LCSC 4095 in stock (~91 boards at 45/ea),
+                         # $0.096@5. Datasheet REV.01 checked (OPSCO).
+  notes: >
+    Replaces TBA-C1010MB-J2I16 (C22461778, down to 15 pcs). Pinout
+    1=GND 2=DIN 3=VDD 4=DOUT — see LED_PIN in circuit.py; PHYSICAL pad
+    layout is identical to the TBA part (DI top-left, VDD bottom-left,
+    GND top-right, DO bottom-right, 0.68mm diagonal grid) so ring
+    placement and the locked chain arcs are unchanged. Body 1.1x1.1mm
+    (was 1.0), pads 0.37 at +-0.34 (were 0.45 at +-0.35).
+    VDD 3.7-5.5V: still above the LiR2032's 3.0V floor but the BEST of
+    the in-stock 1010 options (XL-1010RGBC-2812B C5349953 needs
+    4.5-5.5V; the outgoing TBA wanted 4.2V) — LEDs dim near end of
+    discharge, same compromise the board already shipped with.
+    VIH = 0.7*VDD -> 2.94V at 4.2V, so 3.3V GPIO data still clears it.
+    800kHz protocol, IDD 0.3mA quiescent each.
+    Footprint/WRL via easyeda2kicad C22394946; it is the datasheet land
+    rotated 90 CW (pure rotation, verified pad-by-pad against REV.01
+    sections 4-6) and place.py's k-loop picks the right quadrant.
 
 charger:
   mpn: LGS4056HDA

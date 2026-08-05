@@ -22,7 +22,7 @@ from pathlib import Path
 import pcbnew
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from circuit import load_design  # noqa: E402
+from circuit import LED_PIN, load_design  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 PCB = ROOT / "out" / "earring.kicad_pcb"
@@ -231,8 +231,8 @@ def beautify_led_chain(board, rt, fps, n_leds):
     kept = 0
     for i in range(n_leds - 1):
         net = f"LED_D{i+1}"
-        a = pad_of(fps[f"LED{i+1}"], 4).GetPosition()   # DO
-        b = pad_of(fps[f"LED{i+2}"], 1).GetPosition()   # DI
+        a = pad_of(fps[f"LED{i+1}"], LED_PIN["DO"]).GetPosition()
+        b = pad_of(fps[f"LED{i+2}"], LED_PIN["DI"]).GetPosition()
         ar, br = rel(a), rel(b)
         # sample the TRUE arc corridor (same geometry as true_arc below):
         # at ring radius a chord sample was close enough, but interior hops
@@ -661,7 +661,7 @@ def main():
     ring = design["leds"].get("ring_count", design["leds"]["count"])
     for ref in ("LED1", "LED2", "LED3",
                 f"LED{ring}", f"LED{ring - 1}", f"LED{ring - 2}"):
-        px, py = rel(pad_of(fps[ref], 2).GetPosition())
+        px, py = rel(pad_of(fps[ref], LED_PIN["VDD"]).GetPosition())
         spot = safe_via_spot(px, py)
         if spot:
             rt.via(spot, "VLED")

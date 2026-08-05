@@ -2,9 +2,9 @@
 # Edit this file, then run: python3 build.py
 #
 # High-level goals:
-#   - RP2354A (QFN-60, 2MB internal flash) on the front
+#   - RP2350A (QFN-60) + W25Q16JV QSPI flash on the front
 #   - Rechargeable LIR2032 coin cell + holder on the back
-#   - TBA-C1010MB-J2I16 addressable RGB LEDs around the periphery
+#   - SK6805-EC10 addressable RGB LEDs around the periphery
 #   - USB-C for charging (LiPo/LiR charger) and UF2 programming
 #   - 4-layer board, JLCPCB rules, all parts sourced at LCSC
 
@@ -34,12 +34,12 @@ leds:
   # (opposite face from the USB connector): a 3-LED chevron with the middle
   # one higher, continuing the chain right-to-left across the tip.
   # LEDs point pin-1/data tangentially; chain daisy-chains around the ring.
-  power_rail: VBATT      # TBA-C1010 wants 4.2-5.5V officially; runs at LiR voltage in practice
+  power_rail: VBATT      # SK6805 wants 3.7-5.5V officially; runs at LiR voltage in practice
 
 power:
   battery: LIR2032       # 3.6V nominal, 3.0-4.2V, ~40mAh usable
   charge_current_ma: 40  # ~1C for LIR2032; sets charger Rprog
-  regulator_3v3: LDO     # battery -> 3.3V LDO for RP2354 IOVDD/VREG_VIN
+  regulator_3v3: LDO     # battery -> 3.3V LDO for RP2350 IOVDD/VREG_VIN
   led_load_switch: true  # high-side switch so LEDs draw zero when off
 
 usb:

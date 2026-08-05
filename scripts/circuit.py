@@ -7,7 +7,7 @@ Pin references verified against:
   - RP2350 QFN-60 pin table (from rp2350a-compact, matches datasheet)
   - LGS4056H datasheet rev C (TEMP->GND disables NTC, I=900/R_PROG <300mA)
   - NCP730 WDFN-6, TPS22913 YZV 4-ball, USBLC6-2P6 SOT-666 (from earring)
-  - TBA-C1010MB-J2I16 datasheet (1=DI, 2=VCC, 3=GND, 4=DO)
+  - SK6805-EC10 datasheet REV.01 (1=GND, 2=DIN, 3=VDD, 4=DOUT)
 RP2350A (RP2354A pinout, no internal flash): QSPI bus wired to external
 W25Q16JVUXIQ (U7) per the official RPI-RP2350A-MINIMAL R4 (docs/);
 QSPI_SS doubles as the BOOTSEL strap (button + 1k to GND) and U7's /CS.
@@ -109,6 +109,15 @@ GP_IMU_INT1 = 8   # pin 12           (lower decap gap)
 # VBSENSE shares it), In3 vias (-4.6,1.35) -> (7.8,6.6) NE of U2/C16.
 GP_CHRG = 19      # pin 31: low while charging
 GP_CHRG_DONE = 28 # pin 42: low when charge complete
+
+# LED pin numbering. SK6805-EC10: 1=GND, 2=DIN, 3=VDD, 4=DOUT.
+# The PHYSICAL pad layout is identical to the old TBA-C1010MB it replaces
+# (DI top-left, VDD bottom-left, GND top-right, DO bottom-right, ~0.7mm
+# diagonal grid) — only the numbering differs, so the ring placement,
+# 45-degree diamond orientation and locked chain arcs are unchanged.
+# route.py reads DI/DO/VDD from here; keep this the single source of
+# truth when swapping LED parts (TBA was 1=DI 2=VCC 3=GND 4=DO).
+LED_PIN = {"GND": 1, "DI": 2, "VDD": 3, "DO": 4}
 
 
 def load_parts():
@@ -299,12 +308,14 @@ def build_circuit(design=None):
     c.add("R12", "r_1m", "1M", {1: "VBSENSE", 2: "GND"})
     c.add("C21", "c_100n", "100n", {1: "VBSENSE", 2: "GND"})
 
-    # --- LED ring: 1=DI 2=VCC 3=GND 4=DO ---
+    # --- LED ring (pin numbers from LED_PIN) ---
     bypass_every = design["leds"].get("bypass_every", 2)
     for i in range(n_leds):
         di = f"LED_D{i}"
         do = f"LED_D{i+1}" if i < n_leds - 1 else ""
-        c.add(f"LED{i+1}", "led", "TBA-C1010MB", {1: di, 2: "VLED", 3: "GND", 4: do})
+        c.add(f"LED{i+1}", "led", "SK6805-EC10", {
+            LED_PIN["DI"]: di, LED_PIN["VDD"]: "VLED",
+            LED_PIN["GND"]: "GND", LED_PIN["DO"]: do})
         if i % bypass_every == 0:
             c.add(f"C{30+i}", "c_100n", "100n", {1: "VLED", 2: "GND"})
 

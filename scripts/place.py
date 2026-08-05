@@ -21,7 +21,7 @@ from pathlib import Path
 import pcbnew
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from circuit import build_circuit, load_design  # noqa: E402
+from circuit import LED_PIN, build_circuit, load_design  # noqa: E402
 from outline import led_path, geometry  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -134,8 +134,8 @@ def main():
             place(fps[f"LED{i+1}"], *pts[i], rot=(45.0 + 90.0 * k - pthetas[i]))
         total = 0.0
         for i in range(n - 1):
-            a = pad_pos(fps[f"LED{i+1}"], 4)
-            b = pad_pos(fps[f"LED{i+2}"], 1)
+            a = pad_pos(fps[f"LED{i+1}"], LED_PIN["DO"])
+            b = pad_pos(fps[f"LED{i+2}"], LED_PIN["DI"])
             total += math.hypot(a.x - b.x, a.y - b.y)
         if best is None or total < best[1]:
             best = (k, total)
