@@ -11,14 +11,16 @@ PCB = ROOT / "out" / "earring.kicad_pcb"
 
 # layers listed back-to-front; kicad-cli draws them in list order
 LAYOUT_VIEWS = {
-    "top": ("B.Cu,In2.Cu,In1.Cu,F.Cu,F.Silkscreen,Edge.Cuts", False),
-    "bottom": ("F.Cu,In1.Cu,In2.Cu,B.Cu,B.Silkscreen,Edge.Cuts", True),
+    "top": ("B.Cu,In4.Cu,In3.Cu,In2.Cu,In1.Cu,F.Cu,F.Silkscreen,Edge.Cuts",
+            False),
+    "bottom": ("F.Cu,In1.Cu,In2.Cu,In3.Cu,In4.Cu,B.Cu,B.Silkscreen,Edge.Cuts",
+               True),
 }
 
 # individual copper layers (all drawn from the top, unmirrored, so the
 # transparent PNGs stack in register in the grid and the layer viewer)
-LAYER_STACK = [("F.Cu", "fcu"), ("In1.Cu", "in1"),
-               ("In2.Cu", "in2"), ("B.Cu", "bcu")]
+LAYER_STACK = [("F.Cu", "fcu"), ("In1.Cu", "in1"), ("In2.Cu", "in2"),
+               ("In3.Cu", "in3"), ("In4.Cu", "in4"), ("B.Cu", "bcu")]
 
 INDEX_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>simple_earring renders</title>
@@ -266,7 +268,8 @@ def main():
         from PIL import Image, ImageDraw
         edge = Image.open(ROOT / "out" / "layer_edge.png").convert("RGBA")
         tw, th = size[0] // 2, size[1] // 2
-        grid = Image.new("RGB", (tw * 2, th * 2), "white")
+        rows = (len(LAYER_STACK) + 1) // 2
+        grid = Image.new("RGB", (tw * 2, th * rows), "white")
         draw = ImageDraw.Draw(grid)
         try:
             from PIL import ImageFont
@@ -290,14 +293,28 @@ def main():
         ok = False
 
     # dashboard: everything on one page (served from out/, e.g. :8618),\n    # auto-refreshing, with the copper-stack viewer embedded
-    # swatches match kicad-cli's default export theme for each layer
-    COLORS = {"fcu": "#c83434", "in1": "#7fc87f",
-              "in2": "#d38235", "bcu": "#4d7fc4"}
+    # swatches: sampled from each exported layer PNG so they always match
+    # kicad-cli's theme, whatever the layer count
+    def swatch(slug):
+        try:
+            from PIL import Image
+            im = Image.open(ROOT / "out" / f"layer_{slug}.png")
+            im = im.convert("RGBA").resize((128, 128))
+            counts = {}
+            for r, g, b, a in im.getdata():
+                if a > 200:
+                    counts[(r, g, b)] = counts.get((r, g, b), 0) + 1
+            if counts:
+                r, g, b = max(counts, key=counts.get)
+                return f"#{r:02x}{g:02x}{b:02x}"
+        except Exception:
+            pass
+        return "#888888"
     imgs = "\n".join(
         f'    <img class="rf" id="img_{slug}" src="layer_{slug}.png">'
         for _, slug in LAYER_STACK)
     layers_js = "[" + ", ".join(
-        f'["{name}", "{slug}", "{COLORS[slug]}"]'
+        f'["{name}", "{slug}", "{swatch(slug)}"]'
         for name, slug in LAYER_STACK) + "]"
     # interactive 3D: board GLB + vendored three.js for the page viewer
     r = subprocess.run(

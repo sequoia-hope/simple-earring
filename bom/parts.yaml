@@ -83,12 +83,6 @@ bootsel_button:
   footprint: SW-SMD_L6.0-W3.3-LS8.0_TS-1101-C-W
   verified: yes          # small top-actuated tact, proven on prior earring
 
-chrg_led:
-  mpn: KT-0603R
-  lcsc: C2286
-  footprint: LED_0603_1608Metric
-  verified: check        # common JLC basic red 0603; validate at order time
-
 slide_switch:
   mpn: MSK12C02
   lcsc: C431540
@@ -100,6 +94,16 @@ slide_switch:
     Two 0.9mm THT locating holes at (+-1.5, 0.55) punch through to the
     front - keep clear of front-side parts.
 
+imu:
+  mpn: LSM6DS3TR-C
+  lcsc: C967633
+  footprint: LGA-14_L3.0-W2.5-P0.50-TL
+  verified: yes          # LCSC stock confirmed Aug 2026 (18k+ units, ~$0.99)
+  notes: >-
+    6-axis IMU, LGA-14 2.5x3.0mm, 1.71-3.6V, wake-on-motion INT. I2C mode 1
+    per ds application hints: CS->VDDIO, SDx/SCx->VDDIO (lowest power),
+    SDO/SA0->GND (addr 0x6A), INT2/NC floating. Back side, opposite SW2.
+
 testpoint:
   mpn: ~
   lcsc: ~
@@ -109,7 +113,8 @@ testpoint:
 # --- passives (0402 unless noted) ---
 r_27:    {lcsc: C138021, footprint: R_0402_1005Metric, verified: prior}   # USB series
 r_33:    {lcsc: C25105,  footprint: R_0402_1005Metric, verified: yes}     # VREG_AVDD RC filter (0402WGF330JTCE)
-r_1k:    {lcsc: C11702,  footprint: R_0402_1005Metric, verified: prior}   # BOOTSEL, CHRG LED
+r_1k:    {lcsc: C11702,  footprint: R_0402_1005Metric, verified: prior}   # XOUT series (R1), BOOTSEL (R3)
+r_4k7:   {lcsc: C25900,  footprint: R_0402_1005Metric, verified: check}   # IMU I2C pull-ups; CONFIRM value=4.7k
 r_5k1:   {lcsc: C25905,  footprint: R_0402_1005Metric, verified: prior}   # USB-C CC pulldowns
 r_10k:   {lcsc: C25804,  footprint: R_0402_1005Metric, verified: prior}   # RUN pullup, SW ON pulldown
 r_22k:   {lcsc: C25768,  footprint: R_0402_1005Metric, verified: check}   # R_PROG ~41mA; CONFIRM value=22k

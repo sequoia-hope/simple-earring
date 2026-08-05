@@ -234,12 +234,28 @@ def beautify_led_chain(board, rt, fps, n_leds):
         a = pad_of(fps[f"LED{i+1}"], 4).GetPosition()   # DO
         b = pad_of(fps[f"LED{i+2}"], 1).GetPosition()   # DI
         ar, br = rel(a), rel(b)
-        # sample the arc corridor: treat all LED_D* as friendly
-        n = 12
+        # sample the TRUE arc corridor (same geometry as true_arc below):
+        # at ring radius a chord sample was close enough, but interior hops
+        # bulge up to a few mm off the chord and sweep the r~9.4 annulus —
+        # a chord sample let an arc short a VBUS trace + R9's pad (seen
+        # live). Treat all LED_D* as friendly.
+        mxp, myp = (ar[0] + br[0]) / 2, (ar[1] + br[1]) / 2
+        dxc, dyc = br[0] - ar[0], br[1] - ar[1]
+        pxc, pyc = -dyc, dxc
+        pnorm = math.hypot(pxc, pyc) or 1e-9
+        pxc, pyc = pxc / pnorm, pyc / pnorm
+        sc = -(mxp * pxc + myp * pyc)
+        cx0, cy0 = mxp + sc * pxc, myp + sc * pyc
+        rr = math.hypot(ar[0] - cx0, ar[1] - cy0)
+        a0 = math.atan2(ar[1] - cy0, ar[0] - cx0)
+        a1 = math.atan2(br[1] - cy0, br[0] - cx0)
+        da = (a1 - a0 + math.pi) % (2 * math.pi) - math.pi
+        n = max(12, int(abs(da) * rr / 0.3))
         clear = True
         for k in range(n + 1):
-            x = ar[0] + (br[0] - ar[0]) * k / n
-            y = ar[1] + (br[1] - ar[1]) * k / n
+            am = a0 + da * k / n
+            x = cx0 + rr * math.cos(am)
+            y = cy0 + rr * math.sin(am)
             for hx, hy, hr in npth:
                 if math.hypot(hx - x, hy - y) < hr + 0.075 + 0.3:
                     clear = False
@@ -484,6 +500,109 @@ def main():
     # higher priority carves VLED back automatically
     rt.zone(pcbnew.In2_Cu, "3V3", rt.circle_poly(9.55), priority=2,
             name="p3v3_disc")
+    # In4: solid VLED plane (6-layer). The In2 interior is the 3V3 disc, so
+    # the interior LED ring's VCC fanout drops through to In4 instead —
+    # through vias reach it anywhere clear of the clip back pad (r>4.6).
+    rt.zone(pcbnew.In4_Cu, "VLED", outer, name="vled_plane")
+    # In3: mostly freerouting's interior signal layer, EXCEPT a 3V3 pour
+    # under the back-east IMU cluster: its nine 3V3 pads sit at r 11-14
+    # while the nearest 3V3 copper (In2 disc) ends at r 9.55 — without
+    # this, freerouting strands the whole cluster (seen live: 18 unrouted
+    # plateau, all east-pocket nets). The pour overlaps the disc in plan;
+    # the pre-placed via below bridges the two layers.
+    # (keep this polygon in sync with finish.py E3V3_POUR; the south lobe
+    # reaches R15's 3V3 pad at (6.3,-13.86) while keeping 1.4mm from the
+    # J1 shell leg hole at (4.33,-14.88))
+    rt.zone(pcbnew.In3_Cu, "3V3",
+            [(4.2, -4.8), (11.2, -4.8), (11.2, -8.44), (8.9, -13.3),
+             (7.4, -14.3), (5.6, -14.3), (4.6, -13.3), (4.2, -9.5)],
+            name="p3v3_east")
+    # bridge via: inside both the In2 disc (r<9.55) and the In3 east pour;
+    # front side clear of LED45/C20/C13 pads (checked with the pre-route
+    # DRC pass), back side r>4.6 and off the clip feet
+    rt.via((6.6, -5.6), "3V3")
+    # Right-column IOVDD decaps (C2/C4/C6/C7): dedicated 3V3 disc vias
+    # 0.75mm east of each 3V3 pad. Their old fanout ran laterally along
+    # the escape corridor — the IMU-signal escapes below now own those
+    # lanes, and a first attempt at a single x=5.6 via column walled the
+    # caps off instead (seen live: every right-column decap 3V3 pad
+    # stranded). Self-served pads need no lateral lanes at all.
+    # (each via sits beside its cap's 3V3 pad, ring clear of the escape
+    # gaps; y values track the right-column decap positions in place.py.
+    # C7 lives out east by the (6.2,2.6) 3V3 via and needs no via of its
+    # own.)
+    for pos in ((5.45, -3.45), (5.55, -1.0), (5.55, 1.35)):
+        rt.via(pos, "3V3")
+    # Channel vias for the IMU signals + LED_EN: the U1 right-side escape
+    # is only ~2mm of clear F.Cu before the decap column; the long haul to
+    # the back-east cluster must happen on B (open over the cell region).
+    # Without a committed layer change freerouting strands all four nets
+    # (seen live: deterministic 16-unrouted plateau). Same trick as the
+    # USB duplicate-pad joins. Staggered east of the decap-via column so
+    # the escapes thread the gaps between the 3V3 vias; all spots r>4.6,
+    # north of the In3 pour (y>-4.8) and DRC-verified pre-route.
+    # Gap plan (right column, caps at -3.6/-1.2/+1.2) — every passage has
+    # exactly ONE user, with disjoint runs in the single-lane pin-tip
+    # corridor: LED_EN (pin3, y1.5) north of C6; SDA (pin9, y-0.9) the
+    # middle gap; INT1 (pin12, y-2.1) the lower gap; SCL (pin15, y-3.3)
+    # the south passage between C2 and C13.
+    rt.via((6.3, -0.75), "IMU_SDA")
+    rt.via((5.15, -5.7), "IMU_SCL")
+    rt.via((5.55, -2.35), "IMU_INT1")
+    rt.via((7.35, -2.35), "LED_EN")
+    # R14 (SDA pull-up) 3V3 pad: via-in-pad into the In3 pour's south
+    # lobe (tented — C30's VLED via-in-pad is the precedent). The pad
+    # sits deep in the tip lobe where no scanned adjacent via spot
+    # clears R10's pads, the J1 leg keepout and the front LED chain
+    # simultaneously (seen live as the last stuck edge, 6/6 seeds).
+    rt.via(rel(pad_of(fps["R14"], 2).GetPosition()), "3V3")
+    # NB: no channel vias for the USB_DM/DP escapes. The escapes' front
+    # loop (DM upper row, DP looping east around R6/R7) only failed when
+    # BOOTSEL's route to a back-side R3 squatted the loop lane — R3 is
+    # back on the front for exactly that reason. Via pairs for DM/DP were
+    # tried and are UNFIXABLE: the pin order (51 west of 52) vs any
+    # legal via spots forces a same-layer crossing (the only west via
+    # slot at r>4.45 belongs to the (-0.35,4.5) 3V3 via).
+    # SWDIO to TP3 (back lower-left shoulder): the locked USB-pair rails
+    # at x -5.1/-5.4 wall the west back from y -8 to +6.9, so the wire
+    # must cross to B WEST of them — commit that with a via left of the
+    # chip (TP3's D1-era shoulder move put it past freerouting's patience)
+    rt.via((-6.0, -3.1), "SWDIO")
+    # SWCLK to TP2 (back east shoulder): same story on the east — the
+    # IMU cluster + pour traffic put the long haul past freerouting's
+    # plateau; commit the B transition NE of the chip corner
+    rt.via((5.3, -4.6), "SWCLK")
+    # CHRG_DONE (U1 pin 42, west column +y end -> U2 pin 6): the only
+    # charger-status pin with a free escape — the NE corner passage fits
+    # two tracks and LED_EN + CHRG own them (pin-4/pin-16 attempts both
+    # plateaued). Exit west through the C5/C22 window (VBSENSE's lane
+    # stays north of y1.5), cross on In3 (empty in the +y half), pop up
+    # NE of the cluster at (7.8,6.6), OUTSIDE the beautify annulus
+    # (r10.23+0.2 > 9.76): the hop drops into the 0.64mm U2-C16 lane
+    # from the NORTH (center x 7.05-7.29 legal) and enters pad 6 from
+    # the east between pins 5/7. Two dead ends, both seen live 6/6:
+    # (5.6,6.6) NW of U2 — pin-5 pad + EP wall that approach and the
+    # thrash strands LED_EN/RUN/IMU_SDA; (7.0,3.7) south — freerouting
+    # self-blocks the lane's south half with C16.2's GND fanout via at
+    # (7.45,4.84) (plus CHRG's own B-transition at (6.8,4.75)). The
+    # lane's NORTH half has no via-worthy pads, so it stays open. Both
+    # spots r>4.6, >=0.25 to U2/C16 pads, >2mm from the octagon LEDs.
+    rt.via((-4.6, 1.35), "CHRG_DONE")
+    rt.via((7.8, 6.6), "CHRG_DONE")
+    # CHRG (U1 pin 31 -> U2 pin 7): private SW exit. East-side homes
+    # are over capacity (29/29 attempts stranded a rotating east net)
+    # and pairing CHRG into CHRG_DONE's C5/C22 window jams it (two
+    # committed via discs wall the window mouth; the pad-tip corridor
+    # is single-lane past pin 42 — seen live as a 5-unc plateau with
+    # CHRG_DONE/VBSENSE/USB_DP stranded). Pins 31-36 are all NC, so
+    # the lane past their tips down to C1's south corner has no other
+    # user. Via at (-4.6,-5.8): 0.225 off the locked USB B rail at
+    # x-5.1 (keep CHRG-side vias x >= -4.69), below C1 (courtyard ends
+    # y-5.23), well west of the crystal cluster. Then In3 across the
+    # center to the landing: via-in-pad dead center in pad 7 (tented;
+    # R14.2/C30 precedent), 0.175 clear of pads 6/8.
+    rt.via((-4.6, -5.8), "CHRG")
+    rt.via((6.5, 4.75), "CHRG")
     # NB: do NOT put a rule area over the In2 disc to stop wire crossings —
     # freerouting treats the DSN keepout as a hard obstacle and loses the
     # whole center region (18 unrouted vs the usual 6). Disc splits are
@@ -508,9 +627,9 @@ def main():
                 if abs(x) > half_width_at(load_design(), y) - 0.45:
                     continue
                 if net == "VLED":
-                    # within the outer In2 VLED band
-                    if abs(x) < half_width_at(load_design(), y) - 4.5:
-                        continue
+                    # In4 is a full VLED plane: any through via clear of the
+                    # clip pad (r>4.6, checked above) reaches VLED
+                    pass
                 elif net == "3V3":
                     # inside the In2 3V3 disc (r=9.55)
                     if math.hypot(x, y) > 9.55 - 0.45:
@@ -579,11 +698,22 @@ def main():
             sys.exit(1)
         cmd = ["java", "-jar", str(JAR), "-de", str(dsn), "-do", str(ses),
                "-mp", "40", "--gui.enabled=false"]
-        print("running freerouting…")
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=900)
+        # freerouting v2 occasionally live-locks in trace normalization
+        # (seen: millions of PolylineTrace.normalize retries on one net
+        # until the 900s timeout) — it is nondeterministic, so retry
+        r = None
+        for fr_try in range(2):
+            print("running freerouting…")
+            try:
+                r = subprocess.run(cmd, capture_output=True, text=True,
+                                   timeout=900)
+                break
+            except subprocess.TimeoutExpired:
+                print(f"freerouting timed out (try {fr_try + 1}); retrying")
         if not ses.exists():
-            print(r.stdout[-3000:])
-            print(r.stderr[-2000:])
+            if r is not None:
+                print(r.stdout[-3000:])
+                print(r.stderr[-2000:])
             print("freerouting produced no SES")
             sys.exit(1)
         board = pcbnew.LoadBoard(str(PCB))
@@ -652,6 +782,8 @@ def main():
 
     pour_keepout(pcbnew.In1_Cu, -3.35, 5.65, -0.65, 8.00)  # In1 under L1
     pour_keepout(pcbnew.In1_Cu, -2.60, 2.60, -1.80, 5.65)  # In1 under LX
+    # In4 VLED plane: same cut under the inductor (far plane, belt+braces)
+    pour_keepout(pcbnew.In4_Cu, -3.35, 5.65, -0.65, 8.00)
     # (no F.Cu rule-area under L1 any more: the transplanted 1V1/LX pours
     # own that area, and gnd_front is kept out by the cluster hole below)
     _pour = _offp(design, 0.3, 80)

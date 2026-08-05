@@ -100,16 +100,30 @@ def main():
     # Coordinates clear the USB shell THT legs (±4.33, -14.88/-19.06) by
     # >2.1mm — the margin the existing path-end LEDs already prove out.
     TIP_PTS = [(2.45, -17.85), (0.0, -18.6), (-2.45, -17.85)]
+    # interior ring around the CPU (chain continues from the tip): mirror-
+    # symmetric octagon at r 9.2-9.7, threaded between the fixed ICs
+    # (Y1/SW1 top, U3 left, U2 right, L1 bottom-left), inside the
+    # perimeter bypass-cap band at r~11.35 and — critically — clear of the
+    # locked USB pair's front-side crossing hop at (-4.34,-9.40)->
+    # (-5.40,-8.75) + its vias (a locked-copper clearance violation makes
+    # freerouting burn its whole budget; seen live with a top pair at
+    # (+-5.0,-8.3)). Chain order: counterclockwise on screen from
+    # top-left, so the hop from the tip chevron's last LED is shortest.
+    INNER_PTS = [(-6.2, -6.8), (-9.3, -0.5), (-6.0, 7.6), (-2.2, 9.3),
+                 (2.2, 9.3), (6.0, 7.6), (9.3, -0.5), (6.2, -6.8)]
+    n_inner = design["leds"].get("inner_count", 0)
     if n > n_ring:
-        assert n - n_ring == len(TIP_PTS), "tip closure expects 3 LEDs"
-        pts += TIP_PTS
+        assert n - n_ring == len(TIP_PTS) + n_inner, "chain group counts"
+        assert n_inner in (0, len(INNER_PTS)), "inner ring is all-or-nothing"
+        chain_tail = TIP_PTS + INNER_PTS[:n_inner]
+        pts += chain_tail
         # tangents by finite difference along the extended chain
-        # (neighbors: LED22 -> tip -> LED1, travelling right to left)
-        ext = [pts[n_ring - 1]] + TIP_PTS + [pts[0]]
+        # (duplicated last point -> one-sided difference at the chain end)
+        ext = [pts[n_ring - 1]] + chain_tail + [chain_tail[-1]]
         for i in range(1, len(ext) - 1):
             dx = ext[i + 1][0] - ext[i - 1][0]
             dy = ext[i + 1][1] - ext[i - 1][1]
-            L = math.hypot(dx, dy)
+            L = math.hypot(dx, dy) or 1.0
             tangs.append((dx / L, dy / L))
     # pseudo polar angle matching the old circular convention
     pthetas = [math.degrees(math.atan2(t[1], t[0])) - 90 for t in tangs]
@@ -157,6 +171,18 @@ def main():
     for ref, x in ((f"C{30 + n_ring}", 1.30), (f"C{30 + n_ring + 2}", -1.30)):
         if ref in fps:
             place(fps[ref], x, -16.30, rot=0)
+    # interior-ring bypass caps (every 2nd inner LED gets one in circuit.py):
+    # spread around the inner octagon, clear of the ICs and pre-placed vias
+    for ref, (x, y, rot) in {
+            f"C{30 + n_ring + 4}": (-7.6, -0.6, 90),   # beside LED39
+            f"C{30 + n_ring + 6}": (0.0, 8.55, 0),     # between LED41/LED42
+            # (8.55 not 9.2: pads must stay off the r~9.4 annulus the
+            # beautified chain arcs sweep between interior LEDs)
+            f"C{30 + n_ring + 8}": (7.6, -0.6, 90),    # beside LED44
+            f"C{30 + n_ring + 10}": (3.6, -6.9, 0),    # beside LED45
+    }.items():
+        if ref in fps:
+            place(fps[ref], x, y, rot=rot)
 
     # ---------------- MCU + core cluster (front) ----------------
     place(fps["U1"], 0, -0.5, rot=180)  # USB pins (51/52) toward bottom
@@ -166,7 +192,10 @@ def main():
     place(fps["Y1"], 0, -6.7, rot=180)
     place(fps["C14"], 2.4, -6.7, rot=90)   # XIN load cap, right
     place(fps["C15"], -4.05, -6.9, rot=90) # XTAL_R load cap, left
-    place(fps["R1"], -2.4, -6.7, rot=90)   # XOUT series R beside crystal
+    # R1 rot 270 (not 90): XOUT pad on the chip side of the crystal
+    # channel — facing away, the XOUT link deterministically lost the
+    # single-lane channel under the denser top-left routing
+    place(fps["R1"], -2.4, -6.7, rot=270)  # XOUT series R beside crystal
     # VREG cluster mirrors the official RPI-RP2350A-MINIMAL R4 layout
     # (rotated 180° to match U1): pins 46-50 sit at y=+2.94, x -2.8..-1.2.
     # CIN/COUT are CENTERED on the LX pin column at x=-2.00 exactly like the
@@ -189,21 +218,24 @@ def main():
     # keeps a >=0.5mm lateral escape channel above its courtyard
     place(fps["C13"], 3.9, -5.45, rot=0)
     # IOVDD decoupling: explicit pockets around the QFN courtyard (its
-    # corners reach r≈6.2, so a uniform ring does not fit)
-    DECAP = [(-4.8, -4.0, 90), (4.8, -3.9, 90),
-             (-4.8, -2.0, 90), (4.8, -1.9, 90),
-             (-4.8, 0.0, 90), (4.8, 0.1, 90),
-             (4.8, 2.1, 90), (0, -9.3, 0),
-             (-2.0, -9.6, 0), (-6.3, 5.7, 90)]
+    # corners reach r≈6.2, so a uniform ring does not fit).
+    # Left column pitch 2.2 (was 2.0): a rot-90 0402's pads span y +-0.83,
+    # so 2.0 pitch left 0.40mm gaps — 4um less than a 0.15 track with two
+    # 0.127 clearances needs; SWDIO crosses there.
+    # Right column: only THREE caps at 2.4 pitch — the IMU-signal +
+    # LED_EN escapes need one gap each (single-lane pin corridor, see the
+    # GPIO note in circuit.py), and a fourth cap walled off both chip
+    # corners (the 10th decap is gone from circuit.py for the same
+    # reason: no free real estate remained on the east side).
+    DECAP = [(-4.8, -4.3, 90), (4.8, -3.6, 90),
+             (-4.8, -2.1, 90), (4.8, -1.2, 90),
+             (-4.8, 0.1, 90), (4.8, 1.2, 90),
+             (0, -9.3, 0), (-2.0, -9.6, 0), (-6.3, 5.7, 90)]
     for i, (x, y, rot) in enumerate(DECAP):
         place(fps[f"C{i+1}"], x, y, rot=rot)
-    # RUN pullup + divider near left
-    place(fps["R2"], -6.8, -4.8, rot=0)
-    place(fps["R11"], -8.6, -1.2, rot=90)
-    place(fps["R12"], -7.4, -1.2, rot=90)
-    place(fps["C21"], -8.0, -3.0, rot=0)
-    # BOOTSEL series R
-    place(fps["R3"], 6.3, -6.1, rot=0)
+    # RUN pullup, BOOTSEL series R, VBSENSE divider: moved to the BACK
+    # (freeing the front interior for the inner LED ring) — see the
+    # back-side block below.
 
     # ---------------- USB (back, at the teardrop tip) + charger ----------------
     og = geometry(design)
@@ -228,20 +260,25 @@ def main():
     place(fps["R4"], -2.0, -14.6, rot=90)
     place(fps["R5"], 2.0, -14.6, rot=90)
     place(fps["U2"], 5.5, 5.0, rot=0)
-    place(fps["R8"], 9.0, -0.9, rot=90)
+    # R8 (PROG) stays front near U2 (precision current-set node) but moves
+    # up out of inner LED44's spot at (9.3,-0.5)
+    place(fps["R8"], 8.6, 2.4, rot=90)
     place(fps["C16"], 8.3, 3.9, rot=90)
     place(fps["C17"], 7.9, 0.7, rot=90)
-    # charge LED + resistor: front upper-left interior (clear of ring cap C32)
-    place(fps["R9"], -7.35, -5.7, rot=90)
-    place(fps["D1"], -5.55, -6.6, rot=90)
+    # (charge LED D1 + series R9 removed: CHRG/DONE now route to GPIOs)
 
     # ---------------- power left/right (front) ----------------
     place(fps["U3"], -6.6, 3.4, rot=0)  # shifted left: clears CFILT (C22)
     place(fps["C18"], -8.5, 1.2, rot=90)
     place(fps["C19"], -8.3, 3.6, rot=90)
     place(fps["U4"], 6.6, -1.6, rot=0)
-    place(fps["R10"], 8.55, -2.0, rot=90)
     place(fps["C20"], 6.3, -3.8, rot=90)  # tight to U4 output
+    # R10 (LED_EN pulldown): moved to the BACK east pocket (below).
+    # BOOTSEL series R stays FRONT: with R3 on the back, BOOTSEL's route
+    # to it squatted USB_DP's loop lane below the bottom pin row (seen
+    # live: deterministic DP residual). Pads at r<9.0 keep it out of the
+    # LED44->LED45 beautify-arc band.
+    place(fps["R3"], 7.7, -3.85, rot=90)
 
     # ---------------- power slide switch (back, left tip straight) ----------------
     # Body inboard, actuator knob (fp +y) overhanging the left straight edge
@@ -261,6 +298,39 @@ def main():
     l4x, l4y = pts[3]                   # LED4 (path-derived, margin 2.0)
     place(fps["SW2"], l4x + 0.30 * nx_, l4y + 0.30 * ny_, rot=56.4, back=True)
 
+    # ---------------- IMU (back, right tip straight, opposite SW2) ----------
+    # Mirror of SW2's anchor across x=0; rot=-56.4 mirrors SW2's scan-found
+    # orientation (the back-flip negates the rotation sense). Body center
+    # sits 2.3mm inboard of the right straight edge: 1.05mm edge margin for
+    # the 2.5mm-across LGA, inboard face at r~12 — outside the cell disc.
+    ux_, uy_ = 0.553, 0.833             # along the right straight, downhill
+    imu_x, imu_y = -(l4x + 0.30 * nx_), l4y + 0.30 * ny_
+    place(fps["U6"], imu_x, imu_y, rot=-56.4, back=True)
+    # VDD decap up-straight of the IMU, VDDIO decap radially inboard of it
+    # (measured courtyards: IMU across-half 1.25, 0402 across-half 0.47 ->
+    # 2.1mm center offset leaves 0.38 gap; C24 lands at r11.5, off the
+    # cell disc)
+    place(fps["C23"], imu_x + 2.2 * ux_, imu_y + 2.2 * uy_, rot=-56.4,
+          back=True)
+    place(fps["C24"], imu_x - 1.75, imu_y + 1.16, rot=-56.4, back=True)
+    # Relocated passives, back east pocket, rot=90 single-file rows (0402
+    # courtyards are 1.86x0.94 — rot90 packs 1.3mm x-pitch): clear of the
+    # battery insertion sweep (y<0), the cell disc, U5, the locked USB
+    # pair (x<=1.7 verticals), the IMU courtyard (x>=6.79) and the J1
+    # shell legs (2.3mm THT keepout at (+-4.33,-14.88)).
+    place(fps["R2"], 4.6, -11.3, rot=90, back=True)   # RUN pullup
+    # SDA pull-up on row B, SCL pull-up on row A (not the reverse): the
+    # row-A spot sits behind C24, and U6's SDA pad deterministically
+    # failed to reach it; the row-B approach around the IMU's SW corner
+    # is open
+    place(fps["R15"], 5.9, -11.3, rot=90, back=True)  # IMU SCL pull-up
+    place(fps["R14"], 6.3, -13.35, rot=90, back=True) # IMU SDA pull-up
+    place(fps["R10"], 7.6, -13.35, rot=90, back=True) # LED_EN pulldown
+    # VBSENSE divider: back lower-right shoulder, single-file (mirror band)
+    place(fps["C21"], 12.3, 4.5, rot=90, back=True)
+    place(fps["R11"], 11.65, 6.55, rot=90, back=True)
+    place(fps["R12"], 11.55, 8.1, rot=0, back=True)
+
     # ---------------- back side ----------------
     # feet at ±x; rot=180 points the spring-finger mouth toward +y (the
     # round end / insertion corridor) — at rot=0 it faces the USB tip and
@@ -271,8 +341,9 @@ def main():
     # (VREG cluster + USB series Rs + 3V3 vias all live there now).
     place(fps["SW1"], 0, -11.3, rot=0)
     # testpoints: back shoulders, clear of the battery insertion corridor
-    # (|x|<10.5, y>9.7) and the clip feet
-    for i, (x, y) in enumerate([(-11.8, -5.0), (11.8, -5.0), (-13.1, 4.9)]):
+    # (|x|<10.5, y>9.7) and the clip feet. TP3 sits on the lower-left
+    # shoulder (flush pad: may overhang the cell insertion sweep).
+    for i, (x, y) in enumerate([(-11.8, -5.0), (11.8, -5.0), (-12.15, 7.15)]):
         place(fps[f"TP{i+1}"], x, y, back=True)
 
     resolve_overlaps(board, fps)
@@ -286,7 +357,7 @@ def resolve_overlaps(board, fps, max_iter=300):
     import re as _re
 
     # outer-wedge parts + the VREG reference-layout cluster stay exactly put
-    EXEMPT = {"R4", "R5", "R8", "R9", "C11", "C12", "R13", "C22"}
+    EXEMPT = {"R4", "R5", "R8", "C11", "C12", "R13", "C22"}
 
     def movable(ref):
         if ref in EXEMPT:
@@ -342,30 +413,45 @@ def resolve_overlaps(board, fps, max_iter=300):
                 stepv = pcbnew.VECTOR2I(int(dx / norm * mm(0.15)),
                                         int(dy / norm * mm(0.15)))
                 nx, ny = tp.x + stepv.x, tp.y + stepv.y
-                # clamp movable passives to the center cluster (r <= 9.3mm):
-                # beyond that lies the LED ring via band
                 rx, ry = nx - mm(CX), ny - mm(CY)
                 rr = (rx * rx + ry * ry) ** 0.5
-                lim = mm(9.3)
-                if rr > lim:
-                    nx = mm(CX) + int(rx / rr * lim)
-                    ny = mm(CY) + int(ry / rr * lim)
+                if tgt.GetLayer() == pcbnew.B_Cu:
+                    # back-side passives in the round region (y > -9.5) must
+                    # stay OFF the cell disc + insertion sweep: r >= 11.0
+                    lim = mm(11.0)
+                    if ry > mm(-9.5) and rr < lim:
+                        nx = mm(CX) + int(rx / rr * lim)
+                        ny = mm(CY) + int(ry / rr * lim)
+                else:
+                    # front: clamp movable passives to the center cluster
+                    # (r <= 9.3mm): beyond that lies the LED ring via band
+                    lim = mm(9.3)
+                    if rr > lim:
+                        nx = mm(CX) + int(rx / rr * lim)
+                        ny = mm(CY) + int(ry / rr * lim)
                 tgt.SetPosition(pcbnew.VECTOR2I(int(nx), int(ny)))
                 moved = True
         if not moved:
             if it:
                 print(f"overlap relaxation converged after {it} iterations")
-            return
-    # report what is still colliding
+            break
+    else:
+        print("WARNING: overlap relaxation did not converge")
+    # full-pair audit, fixed parts included: a courtyard overlap between
+    # two non-movable parts (e.g. a mis-placed inner LED against an IC)
+    # would otherwise surface only at DRC time
     items = list(fps.items())
+    bad = 0
     for i in range(len(items)):
         for j in range(i + 1, len(items)):
             (ra, fa), (rb, fb) = items[i], items[j]
             if fa.GetLayer() != fb.GetLayer():
                 continue
             if collide(fa, fb):
-                print(f"  STILL OVERLAPPING: {ra} <-> {rb}")
-    print("WARNING: overlap relaxation did not converge")
+                print(f"  COURTYARD OVERLAP: {ra} <-> {rb}")
+                bad += 1
+    if bad:
+        print(f"WARNING: {bad} courtyard overlaps remain after relaxation")
 
 
 if __name__ == "__main__":

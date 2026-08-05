@@ -25,8 +25,8 @@ ROOT = Path(__file__).resolve().parent.parent
 PCB = ROOT / "out" / "earring.kicad_pcb"
 OUT = ROOT / "out" / "jlcpcb"
 
-LAYERS = ("F.Cu,In1.Cu,In2.Cu,B.Cu,F.Mask,B.Mask,F.Paste,B.Paste,"
-          "F.Silkscreen,B.Silkscreen,Edge.Cuts")
+LAYERS = ("F.Cu,In1.Cu,In2.Cu,In3.Cu,In4.Cu,B.Cu,F.Mask,B.Mask,"
+          "F.Paste,B.Paste,F.Silkscreen,B.Silkscreen,Edge.Cuts")
 
 
 def run(cmd):

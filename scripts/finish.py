@@ -29,7 +29,37 @@ from route import Router, vec, mm  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 PCB = ROOT / "out" / "earring.kicad_pcb"
 
-PLANE_NETS = {"3V3": (0.0, 8.7), "GND": (0.0, 14.0), "VLED": (9.7, 14.0)}
+# VLED lower bound 4.75 not 9.7: In4 is a full VLED plane (6-layer), so a
+# through via anywhere outside the clip back pad reaches it
+PLANE_NETS = {"3V3": (0.0, 8.7), "GND": (0.0, 14.0), "VLED": (4.75, 14.0)}
+# 3V3 also lives on the In3 east pour under the IMU cluster (route.py
+# p3v3_east) — keep this polygon in sync with route.py
+E3V3_POUR = [(4.2, -4.8), (11.2, -4.8), (11.2, -8.44), (8.9, -13.3),
+             (7.4, -14.3), (5.6, -14.3), (4.6, -13.3), (4.2, -9.5)]
+
+
+def _in_poly(q, poly):
+    x, y = q
+    inside = False
+    for (x0, y0), (x1, y1) in zip(poly, poly[1:] + poly[:1]):
+        if (y0 > y) != (y1 > y) and x < x0 + (x1 - x0) * (y - y0) / (y1 - y0):
+            inside = not inside
+    return inside
+
+
+def in_plane(net, q):
+    """Would a via at q land inside net's plane copper (0.35mm margin)?"""
+    band = PLANE_NETS.get(net)
+    if band is None:
+        return False
+    lo, hi = band
+    r = math.hypot(*q)
+    if lo + 0.35 < r < hi - 0.35:
+        return True
+    if net == "3V3" and _in_poly(q, E3V3_POUR):
+        return all(seg_pt_dist(p0, p1, q) > 0.35 for p0, p1 in
+                   zip(E3V3_POUR, E3V3_POUR[1:] + E3V3_POUR[:1]))
+    return False
 BATT_PAD_R = 4.6
 CLR = 0.13          # sampled clearance target (rule is 0.127)
 TRACK_W = 0.15
@@ -132,9 +162,11 @@ class Obstacles:
         return (self.items[i]
                 for i in self.bins.get((int(math.floor(x)), int(math.floor(y))), ()))
 
-    def clear_point(self, x, y, layer, net, need, is_via=False):
+    def clear_point(self, x, y, layer, net, need, is_via=False, pads=True):
         for it in self.near_items(x, y):
             kind = it[0]
+            if kind == "padc" and not pads:
+                continue
             if kind == "seg":
                 _, lay, inet, a, b, hw = it
                 if inet == net:
@@ -148,27 +180,72 @@ class Obstacles:
                 d = math.hypot(ix - x, iy - y)
                 if is_via and d < 0.55:      # hole-to-hole
                     return False
-                if inet != net and d < need + r:
+                # +0.02: segment sampling can step over a via ring by a
+                # few um (seen live: 0.117 actual vs 0.127 rule)
+                if inet != net and d < need + r + 0.02:
                     return False
             else:
                 _, layers, inet, a, b, hw, th = it
                 if inet == net:
                     continue
                 relevant = is_via or th or (layer in layers)
-                if relevant and seg_pt_dist(a, b, (x, y)) < need + hw:
+                # +0.05: the capsule strips under-cover rectangular pad
+                # CORNERS (rotated LGA/0402 pads grazed at 0.113-0.119
+                # actual vs the 0.127 rule, seen live)
+                if relevant and seg_pt_dist(a, b, (x, y)) < need + hw + 0.05:
                     return False
         return True
 
-    def clear_seg(self, a, b, layer, net, need):
-        n = max(2, int(math.hypot(b[0] - a[0], b[1] - a[1]) / 0.25))
+    def clear_seg(self, a, b, layer, net, need, pads=True):
+        n = max(2, int(math.hypot(b[0] - a[0], b[1] - a[1]) / 0.15))
         return all(self.clear_point(a[0] + (b[0] - a[0]) * i / n,
                                     a[1] + (b[1] - a[1]) * i / n,
-                                    layer, net, need)
+                                    layer, net, need, pads=pads)
                    for i in range(n + 1))
 
 
 def to_rel(p):
     return (p.x / 1e6 - 100.0, p.y / 1e6 - 100.0)
+
+
+def endpoint_layer(board, net, p):
+    """Copper layer (F or B) of net's copper at DRC-edge endpoint p.
+    Back-side pads (the IMU, relocated passives) need their stubs on B —
+    the old finisher assumed F everywhere and reported 'no candidate' for
+    every back-side edge. Vias/plane endpoints fall back to F."""
+    F, B = pcbnew.F_Cu, pcbnew.B_Cu
+    pos = pcbnew.VECTOR2I(int((p[0] + 100.0) * 1e6), int((p[1] + 100.0) * 1e6))
+    on_f = on_b = False
+    for fp in board.GetFootprints():
+        for pad in fp.Pads():
+            if pad.GetNetname() == net and pad.HitTest(pos):
+                on_f |= pad.IsOnLayer(F)
+                on_b |= pad.IsOnLayer(B)
+    if not (on_f or on_b):
+        for t in board.GetTracks():
+            if t.GetNetname() != net:
+                continue
+            if isinstance(t, pcbnew.PCB_VIA):
+                if t.HitTest(pos):
+                    return "any"   # via endpoint: any layer works
+                continue
+            for e in (t.GetStart(), t.GetEnd()):
+                if abs(e.x - pos.x) < 50000 and abs(e.y - pos.y) < 50000:
+                    if t.GetLayer() == F:
+                        on_f = True
+                    elif t.GetLayer() == B:
+                        on_b = True
+                    else:
+                        return "any"   # inner-layer end (freerouting
+                        # parks wires on plane layers): via-reachable
+    if on_f:
+        return F
+    if on_b:
+        return B
+    return None
+    # NB: F_Cu == 0 is FALSY — callers must compare against None
+    # explicitly, never truth-test a returned layer (seen live: every
+    # front-pad endpoint silently adopted the other side's layer)
 
 
 def seg_pt_dist(a, b, p):
@@ -191,22 +268,21 @@ def back_zone_ok(x, y):
     return True
 
 
-def find_via_spot(obs, p, net, plane=None):
-    """Search a clear via location near p (optionally inside a plane band)."""
+def find_via_spot(obs, p, net, plane_net=None, stub_layer=None):
+    """Search a clear via location near p (optionally inside net's plane
+    copper). The stub from p is checked on stub_layer (default F)."""
+    lay = stub_layer or pcbnew.F_Cu
     for r in (0.55, 0.8, 1.1, 1.5, 2.0):
         for k in range(16):
             th = 2 * math.pi * k / 16
             q = (p[0] + r * math.cos(th), p[1] + r * math.sin(th))
-            if plane:
-                lo, hi = plane
-                if not (lo + 0.35 < math.hypot(*q) < hi - 0.35):
-                    continue
+            if plane_net and not in_plane(plane_net, q):
+                continue
             if not back_zone_ok(*q):
                 continue
             if not obs.clear_point(*q, None, net, CLR + VIA_R, is_via=True):
                 continue
-            # the stub must also be clear on F
-            if not obs.clear_seg(p, q, pcbnew.F_Cu, net, CLR + TRACK_W / 2):
+            if not obs.clear_seg(p, q, lay, net, CLR + TRACK_W / 2):
                 continue
             return q
     return None
@@ -235,43 +311,63 @@ def samenet_targets(obs, net, p, radius=3.0):
     return out[:5]
 
 
-def candidates(obs, net, a, b):
+def candidates(obs, net, a, b, la=None, lb=None):
+    """Candidate link generators between endpoints a (on layer la) and b
+    (on layer lb). la/lb default to F — B-side endpoints (back passives,
+    the IMU) get their stubs and paths on B instead."""
     F, B = pcbnew.F_Cu, pcbnew.B_Cu
+    la = la or F
+    lb = lb or F
     need = CLR + TRACK_W / 2
-    # stub to nearby same-net copper (vias reach all layers; track ends
-    # must be on F to join with a front stub)
-    for p in (a, b):
+
+    def seg_ok(p0, p1, lay):
+        if lay == B and not (back_zone_ok(*p0) and back_zone_ok(*p1)):
+            return False
+        return obs.clear_seg(p0, p1, lay, net, need)
+
+    # stub to nearby same-net copper on the endpoint's own layer
+    # (vias reach all layers; track ends must match the stub layer)
+    for p, lp in ((a, la), (b, lb)):
         for d, q, lay in samenet_targets(obs, net, p):
-            if lay is not None and lay != F:
+            if lay is not None and lay != lp:
                 continue
-            if obs.clear_seg(p, q, F, net, need):
-                yield [("track", p, q, F)]
-    plane = PLANE_NETS.get(net)
-    if plane:
-        for p in (a, b):
-            q = find_via_spot(obs, p, net, plane)
+            if seg_ok(p, q, lp):
+                yield [("track", p, q, lp)]
+    if net in PLANE_NETS:
+        for p, lp in ((a, la), (b, lb)):
+            q = find_via_spot(obs, p, net, plane_net=net, stub_layer=lp)
             if q:
-                yield [("track", p, q, F), ("via", q)]
-    # front: direct, corner doglegs, and Z-paths with escape offsets
-    paths = [[a, b], [a, (a[0], b[1]), b], [a, (b[0], a[1]), b],
-             [a, ((a[0] + b[0]) / 2, a[1]), b],
-             [a, ((a[0] + b[0]) / 2, b[1]), b]]
-    for off in (0.7, 1.0, 1.4):
-        for s in (1, -1):
-            ex = a[0] + s * off
-            paths.append([a, (ex, a[1]), (ex, b[1]), b])
-            ey = a[1] + s * off
-            paths.append([a, (a[0], ey), (b[0], ey), b])
-            ex = b[0] + s * off
-            paths.append([a, (ex, a[1]), (ex, b[1]), b])
-    for pts in paths:
-        if all(obs.clear_seg(p0, p1, F, net, need)
-               for p0, p1 in zip(pts, pts[1:])):
-            yield [("track", p0, p1, F) for p0, p1 in zip(pts, pts[1:])]
-    # back hop: via near each end, optional ring waypoint to skirt the
-    # battery pad circle
-    va = find_via_spot(obs, a, net)
-    vb = find_via_spot(obs, b, net)
+                yield [("track", p, q, lp), ("via", q)]
+    if la == lb:
+        # same layer: direct, corner doglegs, and Z-paths with offsets
+        paths = [[a, b], [a, (a[0], b[1]), b], [a, (b[0], a[1]), b],
+                 [a, ((a[0] + b[0]) / 2, a[1]), b],
+                 [a, ((a[0] + b[0]) / 2, b[1]), b]]
+        for off in (0.7, 1.0, 1.4):
+            for s in (1, -1):
+                ex = a[0] + s * off
+                paths.append([a, (ex, a[1]), (ex, b[1]), b])
+                ey = a[1] + s * off
+                paths.append([a, (a[0], ey), (b[0], ey), b])
+                ex = b[0] + s * off
+                paths.append([a, (ex, a[1]), (ex, b[1]), b])
+        for pts in paths:
+            if all(seg_ok(p0, p1, la) for p0, p1 in zip(pts, pts[1:])):
+                yield [("track", p0, p1, la) for p0, p1 in zip(pts, pts[1:])]
+    else:
+        # mixed layers: single via joining the two endpoint layers
+        for v in (find_via_spot(obs, a, net, stub_layer=la),
+                  find_via_spot(obs, b, net, stub_layer=lb)):
+            if v and seg_ok(a, v, la) and seg_ok(v, b, lb):
+                yield [("track", a, v, la), ("via", v), ("track", v, b, lb)]
+    # other-layer hop: via near each end, optional ring waypoint to skirt
+    # the battery pad circle (only defined for same-layer endpoints; mixed
+    # pairs are covered by the single-via case above)
+    if la != lb:
+        return
+    hop = B if la == F else F
+    va = find_via_spot(obs, a, net, stub_layer=la)
+    vb = find_via_spot(obs, b, net, stub_layer=lb)
     if va and vb:
         mid_cands = [None]
         tha = math.atan2(va[1], va[0])
@@ -283,26 +379,26 @@ def candidates(obs, net, a, b):
         mid_cands += [(va[0], vb[1]), (vb[0], va[1])]
         for m in mid_cands:
             pts = [va, vb] if m is None else [va, m, vb]
-            if not all(back_zone_ok(*p) for p in pts):
-                continue
             segs = list(zip(pts, pts[1:]))
-            if not all(obs.clear_seg(p0, p1, B, net, need) for p0, p1 in segs):
+            if not all(seg_ok(p0, p1, hop) for p0, p1 in segs):
                 continue
-            if not (obs.clear_seg(a, va, F, net, need)
-                    and obs.clear_seg(vb, b, F, net, need)):
+            if not (seg_ok(a, va, la) and seg_ok(vb, b, lb)):
                 continue
-            yield ([("track", a, va, F), ("via", va)]
-                   + [("track", p0, p1, B) for p0, p1 in segs]
-                   + [("via", vb), ("track", vb, b, F)])
+            yield ([("track", a, va, la), ("via", va)]
+                   + [("track", p0, p1, hop) for p0, p1 in segs]
+                   + [("via", vb), ("track", vb, b, lb)])
 
 
-def astar_route(obs, net, a, b, r_board=14.4):
+def astar_route(obs, net, a, b, la=None, lb=None, r_board=14.4):
     """Coarse-grid A* over F.Cu/B.Cu with via transitions. Start/goal are
-    handled as clear-cell rings around the endpoints; the first/last hops
-    are straight unchecked segments (the DRC gate validates them)."""
+    handled as clear-cell rings around the endpoints (seeded on layer la,
+    goal reached on layer lb); the first/last hops are straight unchecked
+    segments (the DRC gate validates them)."""
     import heapq
     STEP = 0.1
     F, B = pcbnew.F_Cu, pcbnew.B_Cu
+    la = la or F
+    lb = lb or F
     need = CLR + TRACK_W / 2
 
     def ok(x, y, layer):
@@ -333,20 +429,25 @@ def astar_route(obs, net, a, b, r_board=14.4):
         for k in range(nseed):
             th = 2 * math.pi * k / nseed
             c = snap((a[0] + r * math.cos(th), a[1] + r * math.sin(th)))
-            node = (c[0], c[1], F)
-            if node in parents or not ok(*c, F):
+            node = (c[0], c[1], la)
+            if node in parents or not ok(*c, la):
                 continue
-            # the implicit straight hop a->cell: unchecked only when very
-            # short (own-pad shadow); longer hops must be clear
+            # the implicit straight hop a->cell: short hops skip only PAD
+            # clearance (own-pad shadow) — vias/tracks always checked (a
+            # foreign via 0.6mm from an endpoint slipped through the old
+            # fully-unchecked hop and cost a gate rejection every round)
             g = math.hypot(c[0] - a[0], c[1] - a[1])
-            if g > 0.45 and not obs.clear_seg(a, c, F, net, need):
+            if g > 0.45 and not obs.clear_seg(a, c, la, net, need):
+                continue
+            if g <= 0.45 and not obs.clear_seg(a, c, la, net, need,
+                                               pads=False):
                 continue
             parents[node] = None
             push(g + h(*c), g, node, None)
     if not openq:
         # endpoint completely shadowed: seed the raw snapped endpoint
         c = snap(a)
-        push(h(*c), 0.0, (c[0], c[1], F), None)
+        push(h(*c), 0.0, (c[0], c[1], la), None)
     seen = {}
     goal_node = None
     while openq:
@@ -356,8 +457,10 @@ def astar_route(obs, net, a, b, r_board=14.4):
         seen[node] = g
         parents[node] = par
         x, y, lay = node
-        if lay == F and h(x, y) < 1.2 and (
-                h(x, y) < 0.45 or obs.clear_seg((x, y), b, F, net, need)):
+        if lay == lb and h(x, y) < 1.2 and (
+                (h(x, y) < 0.45 and obs.clear_seg((x, y), b, lb, net, need,
+                                                  pads=False))
+                or obs.clear_seg((x, y), b, lb, net, need)):
             goal_node = node
             break
         if len(seen) > 250000:
@@ -382,7 +485,7 @@ def astar_route(obs, net, a, b, r_board=14.4):
         path.append(parents[path[-1]])
     path.reverse()
     items = []
-    prev = (a[0], a[1], F)   # implicit straight hop from a to the seed cell
+    prev = (a[0], a[1], la)  # implicit straight hop from a to the seed cell
     for nx, ny, nlay in path:
         px, py, play = prev
         if nlay != play:
@@ -390,7 +493,7 @@ def astar_route(obs, net, a, b, r_board=14.4):
         elif (nx, ny) != (px, py):
             items.append(("track", (px, py), (nx, ny), nlay))
         prev = (nx, ny, nlay)
-    items.append(("track", (prev[0], prev[1]), b, F))
+    items.append(("track", (prev[0], prev[1]), b, lb))
     # merge collinear runs
     merged = []
     for it in items:
@@ -449,42 +552,65 @@ LX_PATH = [(-2.00, 2.94), (-2.00, 6.82), (-2.70, 6.82)]
 
 
 def synth_zone_edges(board, net="3V3"):
-    """A split In2 3V3 disc reports a degenerate zone<->zone unconnected
-    edge that A* can't act on. Synthesize real edges instead: from each
-    same-net via inside a minority fragment to the nearest same-net
-    via/pad inside the largest fragment — both are actual F/B copper the
-    normal candidate machinery can bridge."""
-    z = None
-    for zz in board.Zones():
-        if zz.GetZoneName() == "p3v3_disc":
-            z = zz
-    if z is None:
+    """Split plane copper reports zone<->zone unconnected edges whose
+    endpoints are zone anchor vertices A* can't act on. Works across ALL
+    of net's zones/layers (In2 disc + In3 east pour + ...): cluster the
+    filled fragments via the through-vias they share, then synthesize
+    real edges from each via in a minority cluster to the nearest
+    same-net via/pad of the rest — actual copper the normal candidate
+    machinery can bridge. (Island removal is ALWAYS, so any surviving
+    fragment contains at least one via.)"""
+    ni = board.FindNet(net)
+    if ni is None:
         return []
-    polys = z.GetFilledPolysList(pcbnew.In2_Cu)
-    nf = polys.OutlineCount()
-    if nf < 2:
-        return []
+    code = ni.GetNetCode()
     frags = []
-    for i in range(nf):
-        sp = pcbnew.SHAPE_POLY_SET()
-        sp.AddOutline(polys.Outline(i))
-        frags.append(sp)
-    main = max(range(nf), key=lambda i: abs(polys.Outline(i).Area()))
-    code = board.FindNet(net).GetNetCode()
+    for zz in board.Zones():
+        if zz.GetNetCode() != code or zz.GetIsRuleArea():
+            continue
+        for lay in (pcbnew.F_Cu, pcbnew.In1_Cu, pcbnew.In2_Cu,
+                    pcbnew.In3_Cu, pcbnew.In4_Cu, pcbnew.B_Cu):
+            if not zz.IsOnLayer(lay):
+                continue
+            polys = zz.GetFilledPolysList(lay)
+            for i in range(polys.OutlineCount()):
+                sp = pcbnew.SHAPE_POLY_SET()
+                sp.AddOutline(polys.Outline(i))
+                frags.append(sp)
+    if len(frags) < 2:
+        return []
     vias = [t for t in board.GetTracks() if isinstance(t, pcbnew.PCB_VIA)
             and t.GetNetCode() == code]
-    anchors_main = []   # (x, y) of items in the main fragment
-    minority = []       # (x, y) of vias in minority fragments
+    parent = list(range(len(frags)))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    via_frags = []      # (via rel pos, [fragment indices containing it])
     for v in vias:
         pos = v.GetPosition()
-        for i, sp in enumerate(frags):
-            if sp.Contains(pos):
-                (minority, anchors_main)[i == main].append(to_rel(pos))
-                break
+        touched = [i for i, sp in enumerate(frags) if sp.Contains(pos)]
+        for i, j in zip(touched, touched[1:]):
+            parent[find(i)] = find(j)
+        via_frags.append((to_rel(pos), touched))
+    clusters = {}
+    for i in range(len(frags)):
+        clusters.setdefault(find(i), []).append(i)
+    if len(clusters) < 2:
+        return []
+    main = max(clusters, key=lambda c: sum(
+        abs(frags[i].Outline(0).Area()) for i in clusters[c]))
+    anchors_main = [p for p, touched in via_frags
+                    if any(find(i) == main for i in touched)]
     for fp in board.GetFootprints():
-        for p in fp.Pads():
-            if p.GetNetCode() == code:
-                anchors_main.append(to_rel(p.GetPosition()))
+        for pad in fp.Pads():
+            if pad.GetNetCode() == code:
+                anchors_main.append(to_rel(pad.GetPosition()))
+    minority = [p for p, touched in via_frags
+                if touched and all(find(i) != main for i in touched)]
     out = []
     for a in minority:
         srt = sorted(anchors_main,
@@ -492,7 +618,8 @@ def synth_zone_edges(board, net="3V3"):
         for b in srt[:3]:   # gate rejects useless bridges; try a few
             out.append((net, a, b))
     if out:
-        print(f"zone-split: {nf} fragments, synthesized {len(out)} edges")
+        print(f"zone-split {net}: {len(frags)} fragments in "
+              f"{len(clusters)} clusters, synthesized {len(out)} edges")
     return out
 
 
@@ -591,22 +718,46 @@ def main():
         board = pcbnew.LoadBoard(str(PCB))
         rt = Router(board, design)
         obs = Obstacles(board)
-        # degenerate zone<->zone edges (split In2 disc) -> real copper pairs
+        # zone<->zone edges (degenerate same-point, or cross-zone with
+        # both endpoints on zone anchors, e.g. In3 pour <-> split In2
+        # disc) -> real copper pairs
         todo2 = []
+        synthed = set()
         for net, a, b in todo:
-            if abs(a[0] - b[0]) < 0.01 and abs(a[1] - b[1]) < 0.01:
-                todo2.extend(synth_zone_edges(board, net))
+            degen = abs(a[0] - b[0]) < 0.01 and abs(a[1] - b[1]) < 0.01
+            zonly = (endpoint_layer(board, net, a) is None
+                     and endpoint_layer(board, net, b) is None)
+            if degen or zonly:
+                if net not in synthed:
+                    synthed.add(net)
+                    todo2.extend(synth_zone_edges(board, net))
             else:
                 todo2.append((net, a, b))
         todo = todo2
         progress = False
         for net, a, b in todo:
             fixed = False
-            def anchors(p):
+            # a via/zone endpoint (None) adopts the other side's layer so
+            # same-layer candidates and A* stay available. Compare against
+            # None explicitly: F_Cu == 0 is falsy!
+            la = endpoint_layer(board, net, a)
+            lb = endpoint_layer(board, net, b)
+            if la == "any":
+                la = None
+            if lb == "any":
+                lb = None
+            if la is None:
+                la = lb if lb is not None else pcbnew.F_Cu
+            if lb is None:
+                lb = la
+
+            def anchors(p, lp):
                 # 4.6mm radius: an endpoint's fragment can extend well past
                 # 2mm (e.g. LED2's VCC reaches the plane only via LED1's
                 # fanout, one LED pitch + pad offset away). Dedupe: padc
-                # strips of one pad share near-identical centers.
+                # strips of one pad share near-identical centers. Each
+                # anchor carries the layer of its pad copper.
+                F, B = pcbnew.F_Cu, pcbnew.B_Cu
                 cands = []
                 for it in obs.items:
                     if it[0] == "padc" and it[2] == net:
@@ -614,20 +765,29 @@ def main():
                              (it[3][1] + it[4][1]) / 2)
                         d = math.hypot(c[0] - p[0], c[1] - p[1])
                         if d < 4.6:
-                            cands.append((d, c))
+                            lay = F if F in it[1] or it[6] else B
+                            cands.append((d, c, lay))
+                    elif it[0] == "via" and it[2] == net:
+                        # same-net vias anchor on any layer — the only
+                        # reachable copper when freerouting dead-ends a
+                        # net on an inner plane layer
+                        c = (it[3], it[4])
+                        d = math.hypot(c[0] - p[0], c[1] - p[1])
+                        if d < 4.6:
+                            cands.append((d, c, lp))
                 cands.sort()
-                out = [p]
-                for d, c in cands:
-                    if all(math.hypot(c[0] - o[0], c[1] - o[1]) > 0.6
+                out = [(p, lp)]
+                for d, c, lay in cands:
+                    if all(math.hypot(c[0] - o[0][0], c[1] - o[0][1]) > 0.6
                            for o in out):
-                        out.append(c)
+                        out.append((c, lay))
                 return out[:4]
 
             def all_cands():
-                yield from candidates(obs, net, a, b)
-                for aa in anchors(a):
-                    for bb in anchors(b):
-                        c = astar_route(obs, net, aa, bb)
+                yield from candidates(obs, net, a, b, la, lb)
+                for aa, laa in anchors(a, la):
+                    for bb, lbb in anchors(b, lb):
+                        c = astar_route(obs, net, aa, bb, laa, lbb)
                         if c:
                             yield c
                             return
@@ -649,6 +809,8 @@ def main():
                     print(f"  {net}: {desc} OK")
                     fixed = progress = True
                     break
+                print(f"  {net}: gate rejected "
+                      f"(errs {errs0}->{errs}, unc {unc0}->{unc})")
                 for c in created:
                     board.Delete(c)
             if not fixed:

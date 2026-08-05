@@ -67,13 +67,44 @@ GPIO = {n: n + 2 if n <= 15 else n + 11 for n in range(0, 26)}  # GPIO0->pin2 ..
 # NOTE: QFN-60 GPIO pins are irregular; explicit map below overrides the naive one.
 GPIO = {0: 2, 1: 3, 2: 4, 3: 5, 4: 7, 5: 8, 6: 9, 7: 10, 8: 12, 9: 13,
         10: 14, 11: 15, 12: 16, 13: 17, 14: 18, 15: 19, 16: 27, 17: 28,
-        18: 29, 19: 31, 20: 32, 21: 33, 22: 34, 23: 35, 24: 36, 25: 37}
+        18: 29, 19: 31, 20: 32, 21: 33, 22: 34, 23: 35, 24: 36, 25: 37,
+        26: 40, 27: 41, 28: 42}
 
 # GPIO roles
 GP_LED_DATA = 18  # pin 29: lands top-left after the 180deg MCU rotation,
                   # right next to LED1 at the start of the ring
 GP_LED_EN = 1     # -> TPS22913 ON
 ADC_VBSENSE = 43  # GPIO29_ADC3 pin number
+# IMU on I2C1 + INT1: all on the chip's right side after the 180deg
+# rotation, facing the IMU's back-east spot. The exact GPIOs are picked so
+# each escape lines up with its own gap in the right IOVDD-decap column
+# (pin9/pin5 straddle the middle gap, pin12 exits through the lower gap):
+# at 0.4mm pin pitch the pin-to-decap corridor is single-lane, so escapes
+# must not share corridor segments.
+GP_I2C_SDA = 6    # I2C1 SDA, pin 9  (middle decap gap)
+GP_I2C_SCL = 11   # I2C1 SCL, pin 15 (south passage below C2)
+GP_IMU_INT1 = 8   # pin 12           (lower decap gap)
+# Charger status: LGS4056H CHRG/DONE are open-drain -> GPIOs, read with
+# internal pull-ups (low = active). The charge LED (old D1/R9) is gone —
+# status is displayed in software.
+# BOTH exit the WEST column and cross to U2 on In3 with committed vias
+# (route.py). The east side has no spare capacity for even one newcomer:
+# tip-row pins (GPIO12/13) cut SWCLK's lane; the NE corner fits two
+# tracks and LED_EN owns them with margin only for itself (CHRG there
+# routed, but pushed the east half over capacity — 29 attempts across 7
+# builds always stranded one east net: SWCLK/IMU_SDA/IMU_INT1/USB_DM
+# rotating by seed); pin 4 behind C6 can't escape at all.
+# CHRG = GPIO19 (pin 31): west column SOUTH end — pins 31-36 are all
+# unused, so the lane past their tips down around C1's south corner is
+# private. In3 via (-4.6,-5.8), landing via-in-pad in U2 pad 7. (Trying
+# to pair CHRG through the same C5/C22 window as CHRG_DONE jammed it:
+# two committed via discs walled the window mouth and the pad-tip
+# corridor is single-lane past pin 42 — CHRG_DONE/VBSENSE/USB_DP all
+# stranded, 5-unc plateau.)
+# CHRG_DONE = GPIO28 (pin 42): straight west out the window (only
+# VBSENSE shares it), In3 vias (-4.6,1.35) -> (7.8,6.6) NE of U2/C16.
+GP_CHRG = 19      # pin 31: low while charging
+GP_CHRG_DONE = 28 # pin 42: low when charge complete
 
 
 def load_parts():
@@ -118,12 +149,21 @@ def build_circuit(design=None):
     u1[GPIO[GP_LED_DATA]] = "LED_D0"
     u1[GPIO[GP_LED_EN]] = "LED_EN"
     u1[ADC_VBSENSE] = "VBSENSE"
-    for p in list(GPIO.values()) + [40, 41, 42]:  # GPIO26/27/28 = pins 40-42
+    u1[GPIO[GP_I2C_SDA]] = "IMU_SDA"
+    u1[GPIO[GP_I2C_SCL]] = "IMU_SCL"
+    u1[GPIO[GP_IMU_INT1]] = "IMU_INT1"
+    u1[GPIO[GP_CHRG]] = "CHRG"
+    u1[GPIO[GP_CHRG_DONE]] = "CHRG_DONE"
+    for p in GPIO.values():
         u1.setdefault(p, "")  # unused GPIOs NC
     c.add("U1", "mcu", "RP2354A", u1)
 
     # --- IOVDD / rail decoupling on MCU ---
-    for i, _ in enumerate(RP_PINS["IOVDD"] + [53, 54, 44, 46]):
+    # (9 caps: 6 IOVDD + OTP_VDD + QSPI_IOVDD + ADC_AVDD. VREG_AVDD's
+    # per-pin 100n was dropped — it has the dedicated 4u7 CFILT C22, and
+    # a 10th cap made the right-side decap column wall off every escape
+    # corridor to the back-east IMU cluster.)
+    for i, _ in enumerate(RP_PINS["IOVDD"] + [53, 54, 44]):
         c.add(f"C{i+1}", "c_100n", "100n", {1: "3V3", 2: "GND"})
     # VREG per RP2350 ds §6.3.8: CIN at VIN/PGND, COUT at the inductor,
     # C13 = second VDD_CORE cap near a DVDD pin, AVDD RC-filtered (33R+4u7)
@@ -177,17 +217,16 @@ def build_circuit(design=None):
         3: "GND",
         4: "VBUS",       # VCC
         5: "VBATT",      # BAT
-        6: "",           # DONE NC
-        7: "CHRG",
+        6: "CHRG_DONE",  # DONE open-drain -> GPIO28 (low = charge complete)
+        7: "CHRG",       # CHRG open-drain -> GPIO0 (low = charging)
         8: "VBUS",       # CE high = enabled
         9: "GND",        # EP
     })
     c.add("R8", "r_22k", rprog_val, {1: "PROG", 2: "GND"})
     c.add("C16", "c_10u_0603", "10u", {1: "VBUS", 2: "GND"})
     c.add("C17", "c_10u_0603", "10u", {1: "VBATT", 2: "GND"})
-    # charge LED: VBUS -> R -> LED -> CHRG (lights while charging)
-    c.add("R9", "r_1k", "1k", {1: "VBUS", 2: "CHRG_A"})
-    c.add("D1", "chrg_led", "RED", {2: "CHRG_A", 1: "CHRG"})  # 2=A, 1=K per 0603 LED fp
+    # (no charge LED: CHRG/DONE go straight to GPIOs with internal
+    # pull-ups; software owns the charge indication)
 
     # --- battery ---
     c.add("BT1", "battery_clip", "LIR2032", {1: "VBATT", 2: "GND"})
@@ -208,6 +247,28 @@ def build_circuit(design=None):
     })
     c.add("R10", "r_10k", "10k", {1: "LED_EN", 2: "GND"})  # off at boot
     c.add("C20", "c_10u_0603", "10u", {1: "VLED", 2: "GND"})
+
+    # --- IMU (LSM6DS3TR-C LGA-14, back side, I2C mode 1) ---
+    # ds application hints: CS->VDDIO selects I2C, SDx/SCx (unused aux
+    # master) tied to VDDIO for lowest power, SDO/SA0->GND = addr 0x6A,
+    # INT2 + NC pins left floating. INT1 = wake-on-motion to GPIO.
+    c.add("U6", "imu", "LSM6DS3TR-C", {
+        1: "GND",        # SDO/SA0
+        2: "3V3",        # SDx
+        3: "3V3",        # SCx
+        4: "IMU_INT1",
+        5: "3V3",        # VDDIO
+        6: "GND", 7: "GND",
+        8: "3V3",        # VDD
+        9: "",           # INT2 NC
+        10: "", 11: "",  # NC
+        12: "IMU_SCL", 13: "IMU_SDA",
+        14: "3V3",       # CS
+    })
+    c.add("C23", "c_100n", "100n", {1: "3V3", 2: "GND"})  # IMU VDD decap
+    c.add("C24", "c_100n", "100n", {1: "3V3", 2: "GND"})  # IMU VDDIO decap
+    c.add("R14", "r_4k7", "4.7k", {1: "IMU_SDA", 2: "3V3"})
+    c.add("R15", "r_4k7", "4.7k", {1: "IMU_SCL", 2: "3V3"})
 
     # --- battery voltage sense ---
     c.add("R11", "r_1m", "1M", {1: "VBATT", 2: "VBSENSE"})
