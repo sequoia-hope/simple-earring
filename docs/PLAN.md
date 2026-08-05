@@ -24,11 +24,17 @@ warnings only) build of a Ø30.5mm teardrop earring:
   below): SDA=GPIO6, SCL=GPIO11, INT1=GPIO8. Decaps C23 (up-straight)
   + C24 (inboard); pull-ups R14/R15 in the back-east pocket.
 - **Back-side passives** (freeing the front interior): R2, R10, R14,
-  R15 (east pocket rows, rot 90), D1 (lower-left shoulder), R11/R12/C21
-  (lower-right shoulder single-file). R3, R8, R9 stay FRONT (see
-  landmines). All clear of the battery insertion sweep — a REAL part on
-  the back must satisfy y<0 or |x|>10.5 (courtyard-wise) or sit outside
-  r~11; flush TP pads are exempt.
+  R15 (east pocket rows, rot 90), R11/R12/C21 (lower-right shoulder
+  single-file). R3, R8 stay FRONT (see landmines). All clear of the
+  battery insertion sweep — a REAL part on the back must satisfy y<0 or
+  |x|>10.5 (courtyard-wise) or sit outside r~11; flush TP pads are
+  exempt.
+- **Charger status → GPIOs (Aug 2026)**: the charge LED D1 + series R9
+  are GONE. LGS4056H CHRG (pin 7) → **GPIO19** (pin 31, private SW exit
+  past the NC pins 31-36, committed vias (-4.6,-5.8) + via-in-pad U2.7
+  (6.5,4.75)); DONE (pin 6) → **GPIO28** (pin 42, west C5/C22 window,
+  committed vias (-4.6,1.35) + (7.8,6.6)). Open-drain active-low,
+  internal pull-ups, no new parts. 121 components / 76 nets.
 - Right IOVDD decap column is now **three** caps (C2/C4/C6 at
   y -3.6/-1.2/+1.2, 2.4 pitch) with dedicated 3V3 vias; the 10th decap
   (VREG_AVDD's per-pin 100n) was DELETED from circuit.py — C22 (4u7
@@ -52,7 +58,9 @@ from the exported PNGs, so they track kicad-cli's theme automatically.
   to default constraints (min via 0.5!) and reports garbage. Copy both
   files when probing.
 - **0402 courtyards are 1.86×0.94mm** (not body size); BT1's foot-arm
-  courtyards reach |y|=3.39, x 10.5-14.09; D1 (0603 LED) is 1.46×2.96.
+  courtyards reach |y|=3.39, x 10.5-14.09. **SW1's pads (1.2×1.0 at
+  x±3.7) stick OUT past its courtyard bbox (x±3.05)** — courtyard
+  checks alone will happily park a part on them (seen live, chrg10).
 - **The pin-tip corridor next to the QFN is single-lane** (0.65mm), and
   each decap-column gap fits ONE finisher track. Every escape
   (LED_EN pin3→north passage, SDA pin9→middle gap, INT1 pin12→lower
@@ -63,9 +71,9 @@ from the exported PNGs, so they track kicad-cli's theme automatically.
   for USB_DM/DP are UNFIXABLE (pin order vs available via spots forces
   a same-layer crossing; the only west via slot belongs to 3V3).
 - **Interior-LED beautify arcs sweep the r≈9.06-9.76 annulus** between
-  neighbors: no pads may sit in the swept angular range (R9, C70, R3
-  and R8 placements are all constrained by this). beautify_led_chain
-  now samples the TRUE arc, not the chord.
+  neighbors: no pads may sit in the swept angular range (C70, R3 and R8
+  placements are all constrained by this). beautify_led_chain now
+  samples the TRUE arc, not the chord.
 - **R1 rot=270** so its XOUT pad faces the chip side of the single-lane
   crystal channel.
 - **Long cross-board nets need a committed B-transition via** once the
