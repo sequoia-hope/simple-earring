@@ -25,8 +25,16 @@ ROOT = Path(__file__).resolve().parent.parent
 PCB = ROOT / "out" / "earring.kicad_pcb"
 OUT = ROOT / "out" / "jlcpcb"
 
-LAYERS = ("F.Cu,In1.Cu,In2.Cu,In3.Cu,In4.Cu,B.Cu,F.Mask,B.Mask,"
-          "F.Paste,B.Paste,F.Silkscreen,B.Silkscreen,Edge.Cuts")
+def _copper_layers():
+    """Inner copper layer names for the configured stackup (4 or 6)."""
+    from circuit import load_design
+    n = load_design()["board"]["layers"]
+    return ["F.Cu"] + [f"In{i}.Cu" for i in range(1, n - 1)] + ["B.Cu"]
+
+
+LAYERS = ",".join(_copper_layers() + [
+    "F.Mask", "B.Mask", "F.Paste", "B.Paste",
+    "F.Silkscreen", "B.Silkscreen", "Edge.Cuts"])
 
 
 def run(cmd):

@@ -15,6 +15,7 @@ sampled, then the authoritative DRC gates every accepted candidate.
 """
 import json
 import math
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -29,13 +30,27 @@ from route import Router, vec, mm  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 PCB = ROOT / "out" / "earring.kicad_pcb"
 
-# VLED lower bound 4.75 not 9.7: In4 is a full VLED plane (6-layer), so a
-# through via anywhere outside the clip back pad reaches it
-PLANE_NETS = {"3V3": (0.0, 8.7), "GND": (0.0, 14.0), "VLED": (4.75, 14.0)}
-# 3V3 also lives on the In3 east pour under the IMU cluster (route.py
-# p3v3_east) — keep this polygon in sync with route.py
-E3V3_POUR = [(4.2, -4.8), (11.2, -4.8), (11.2, -8.44), (8.9, -13.3),
-             (7.4, -14.3), (5.6, -14.3), (4.6, -13.3), (4.2, -9.5)]
+# Canonical In3 east-pour polygon (6-layer only). route.py builds the zone
+# from this; the south lobe reaches R15's 3V3 pad at (6.3,-13.86) while
+# keeping 1.4mm from the J1 shell leg hole at (4.33,-14.88).
+E3V3_POUR_PTS = [(4.2, -4.8), (11.2, -4.8), (11.2, -8.44), (8.9, -13.3),
+                 (7.4, -14.3), (5.6, -14.3), (4.6, -13.3), (4.2, -9.5)]
+
+# Radial bands where a through via lands in plane copper, per stackup.
+# 6-layer: VLED lower bound 4.75 not 9.7 because In4 is a full VLED plane,
+# so a via anywhere outside the clip back pad reaches it; 3V3 upper 8.7 is
+# the In2 disc (9.55) less margin.
+# 4-layer: no In4 and no In3, so VLED exists only as the In2 annulus
+# (hole pulled in to r 9.35) and the 3V3 disc shrinks to 9.15 — see the
+# zone block in route.py, which is the source of both radii.
+_LAYER_PLANES = {
+    6: ({"3V3": (0.0, 8.7), "GND": (0.0, 14.0), "VLED": (4.75, 14.0)},
+        E3V3_POUR_PTS),
+    4: ({"3V3": (0.0, 8.3), "GND": (0.0, 14.0), "VLED": (9.35, 14.0)},
+        None),
+}
+_n_layers = load_design()["board"]["layers"]
+PLANE_NETS, E3V3_POUR = _LAYER_PLANES[6 if _n_layers >= 6 else 4]
 
 
 def _in_poly(q, poly):
@@ -56,7 +71,7 @@ def in_plane(net, q):
     r = math.hypot(*q)
     if lo + 0.35 < r < hi - 0.35:
         return True
-    if net == "3V3" and _in_poly(q, E3V3_POUR):
+    if net == "3V3" and E3V3_POUR and _in_poly(q, E3V3_POUR):
         return all(seg_pt_dist(p0, p1, q) > 0.35 for p0, p1 in
                    zip(E3V3_POUR, E3V3_POUR[1:] + E3V3_POUR[:1]))
     return False
@@ -77,6 +92,45 @@ def drc_counts(pcb_path):
     d = json.loads(Path(rep).read_text())
     Path(rep).unlink()
     return len(d["violations"]), len(d["unconnected_items"]), d
+
+
+BEST = PCB.parent / "earring-best.kicad_pcb"
+BEST_JSON = PCB.parent / "earring-best.json"
+
+
+def keep_if_best(unc, errs, drc_data):
+    """Snapshot this attempt if it beats the best one so far.
+
+    build.py re-rolls route+finish on a new freerouting seed when the
+    board doesn't converge, overwriting out/earring.kicad_pcb each time —
+    so without this the LAST attempt survives, not the best one. When a
+    stackup can't be closed automatically, the best partial plus a punch
+    list is exactly what gets handed over for manual finishing.
+    """
+    score = (errs, unc)
+    prev = None
+    if BEST_JSON.exists():
+        try:
+            p = json.loads(BEST_JSON.read_text())
+            prev = (p["errors"], p["unconnected"])
+        except (ValueError, KeyError):
+            prev = None
+    if prev is not None and prev <= score:
+        print(f"  (best so far stays {prev[1]} unconnected / "
+              f"{prev[0]} errors)")
+        return
+    shutil.copyfile(PCB, BEST)
+    stranded = sorted({net for net, _, _ in edges(drc_data)})
+    BEST_JSON.write_text(json.dumps({
+        "unconnected": unc, "errors": errs,
+        "stranded_nets": stranded,
+        "unconnected_edges": [
+            {"net": net, "from": list(a), "to": list(b)}
+            for net, a, b in edges(drc_data)],
+    }, indent=2))
+    print(f"  -> new best: {unc} unconnected / {errs} errors "
+          f"saved to {BEST.name}"
+          + (f" (stranded: {', '.join(stranded)})" if stranded else ""))
 
 
 def edges(drc_data):
@@ -825,8 +879,9 @@ def main():
     filler = pcbnew.ZONE_FILLER(board)
     filler.Fill(board.Zones())
     pcbnew.SaveBoard(str(PCB), board)
-    errs, unc, _ = drc_counts(PCB)
+    errs, unc, unc_nets = drc_counts(PCB)
     print(f"finish: {unc} unconnected, {errs} errors remain")
+    keep_if_best(unc, errs, unc_nets)
     sys.exit(0 if unc == 0 and errs == 0 else 1)
 
 

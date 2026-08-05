@@ -9,18 +9,24 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PCB = ROOT / "out" / "earring.kicad_pcb"
 
+def _copper_layers():
+    """Copper layer names F->B for the configured stackup (4 or 6)."""
+    from circuit import load_design
+    n = load_design()["board"]["layers"]
+    return ["F.Cu"] + [f"In{i}.Cu" for i in range(1, n - 1)] + ["B.Cu"]
+
+
+_COPPER = _copper_layers()
+
 # layers listed back-to-front; kicad-cli draws them in list order
 LAYOUT_VIEWS = {
-    "top": ("B.Cu,In4.Cu,In3.Cu,In2.Cu,In1.Cu,F.Cu,F.Silkscreen,Edge.Cuts",
-            False),
-    "bottom": ("F.Cu,In1.Cu,In2.Cu,In3.Cu,In4.Cu,B.Cu,B.Silkscreen,Edge.Cuts",
-               True),
+    "top": (",".join(_COPPER[::-1] + ["F.Silkscreen", "Edge.Cuts"]), False),
+    "bottom": (",".join(_COPPER + ["B.Silkscreen", "Edge.Cuts"]), True),
 }
 
 # individual copper layers (all drawn from the top, unmirrored, so the
 # transparent PNGs stack in register in the grid and the layer viewer)
-LAYER_STACK = [("F.Cu", "fcu"), ("In1.Cu", "in1"), ("In2.Cu", "in2"),
-               ("In3.Cu", "in3"), ("In4.Cu", "in4"), ("B.Cu", "bcu")]
+LAYER_STACK = [(ly, ly.split(".")[0].lower()) for ly in _COPPER]
 
 INDEX_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>simple_earring renders</title>

@@ -493,22 +493,36 @@ def main():
     from outline import outline_points, offset_polygon
     margin = design["leds"]["ring_margin_mm"]
     outer = outline_points(design, 100)
+    n_layers = design["board"]["layers"]
     zp = rt.zone(pcbnew.In1_Cu, "GND", outer, name="gnd_plane")
     zp.SetPadConnection(pcbnew.ZONE_CONNECTION_FULL)
     z = rt.zone(pcbnew.In2_Cu, "VLED", outer, priority=1, name="vled_annulus")
-    hole = offset_polygon(design, margin + 3.0, 80)
+    if n_layers >= 6:
+        hole = offset_polygon(design, margin + 3.0, 80)
+        disc_r = 9.55
+    else:
+        # 4-layer: there is no In4 VLED plane, so In2's annulus is the ONLY
+        # plane VLED. Pull its hole in to a circle just inside the interior
+        # LED octagon (VCC pads at r 9.64-9.79, measured) so those eight
+        # LEDs keep a plane drop, and shrink the 3V3 disc to clear it.
+        # The inner VLED consumers below r 9.3 (U4, C20, C68-C74 at
+        # r 6.6-8.6) fall back to routed traces either way.
+        hole = rt.circle_poly(9.35)
+        disc_r = 9.15
     ol = z.Outline()
     ol.NewHole()
     for x, y in hole:
         ol.Append(mm(CX + x), mm(CY + y), 0, 0)
     # circle disc; overlaps the narrow tip part of the VLED hole, where its
     # higher priority carves VLED back automatically
-    rt.zone(pcbnew.In2_Cu, "3V3", rt.circle_poly(9.55), priority=2,
+    rt.zone(pcbnew.In2_Cu, "3V3", rt.circle_poly(disc_r), priority=2,
             name="p3v3_disc")
-    # In4: solid VLED plane (6-layer). The In2 interior is the 3V3 disc, so
-    # the interior LED ring's VCC fanout drops through to In4 instead —
-    # through vias reach it anywhere clear of the clip back pad (r>4.6).
-    rt.zone(pcbnew.In4_Cu, "VLED", outer, name="vled_plane")
+    # In4: solid VLED plane (6-layer only). The In2 interior is the 3V3
+    # disc, so the interior LED ring's VCC fanout drops through to In4
+    # instead — through vias reach it anywhere clear of the clip back pad
+    # (r>4.6).
+    if n_layers >= 6:
+        rt.zone(pcbnew.In4_Cu, "VLED", outer, name="vled_plane")
     # In3: mostly freerouting's interior signal layer, EXCEPT a 3V3 pour
     # under the back-east IMU cluster: its nine 3V3 pads sit at r 11-14
     # while the nearest 3V3 copper (In2 disc) ends at r 9.55 — without
@@ -518,14 +532,16 @@ def main():
     # (keep this polygon in sync with finish.py E3V3_POUR; the south lobe
     # reaches R15's 3V3 pad at (6.3,-13.86) while keeping 1.4mm from the
     # J1 shell leg hole at (4.33,-14.88))
-    rt.zone(pcbnew.In3_Cu, "3V3",
-            [(4.2, -4.8), (11.2, -4.8), (11.2, -8.44), (8.9, -13.3),
-             (7.4, -14.3), (5.6, -14.3), (4.6, -13.3), (4.2, -9.5)],
-            name="p3v3_east")
-    # bridge via: inside both the In2 disc (r<9.55) and the In3 east pour;
-    # front side clear of LED45/C20/C13 pads (checked with the pre-route
-    # DRC pass), back side r>4.6 and off the clip feet
-    rt.via((6.6, -5.6), "3V3")
+    # (4-layer has no In3: the cluster's 3V3 has to be routed as ordinary
+    # B.Cu traces from the disc. That is one of the two things the 4-layer
+    # attempt is testing — see docs/HANDOFF.md Task 5.)
+    if n_layers >= 6:
+        from finish import E3V3_POUR_PTS
+        rt.zone(pcbnew.In3_Cu, "3V3", E3V3_POUR_PTS, name="p3v3_east")
+        # bridge via: inside both the In2 disc (r<9.55) and the In3 east
+        # pour; front side clear of LED45/C20/C13 pads (checked with the
+        # pre-route DRC pass), back side r>4.6 and off the clip feet
+        rt.via((6.6, -5.6), "3V3")
     # Right-column IOVDD decaps (C2/C4/C6/C7): dedicated 3V3 disc vias
     # 0.75mm east of each 3V3 pad. Their old fanout ran laterally along
     # the escape corridor — the IMU-signal escapes below now own those

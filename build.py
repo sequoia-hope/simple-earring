@@ -62,6 +62,11 @@ def main():
         # route+finish are a retry unit: freerouting is seed-dependent, so
         # a failed finish re-rolls the routing (up to 4 attempts)
         if s == "route" and i + 1 < len(stages) and stages[i + 1] == "finish":
+            # Drop any best-attempt snapshot from an earlier run: it was
+            # scored against a different netlist, and a stale one would
+            # silently veto this run's real best.
+            for stale in ("earring-best.kicad_pcb", "earring-best.json"):
+                (ROOT / "out" / stale).unlink(missing_ok=True)
             done = False
             for attempt in range(6):
                 if not run_stage("route"):
