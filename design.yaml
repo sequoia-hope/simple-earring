@@ -51,7 +51,7 @@ jlcpcb:
   min_track_mm: 0.127
   min_clearance_mm: 0.127
   default_track_mm: 0.15
-  power_track_mm: 0.3
+  power_track_mm: 0.4    # VBUS netclass width (Sequoia's hand-routed In3 trunk)
   via_drill_mm: 0.2
   via_diameter_mm: 0.4
   assembly_side: both    # MCU front, holder back — JLC does 2-sided SMT

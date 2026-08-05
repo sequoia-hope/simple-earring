@@ -194,19 +194,19 @@ def build_circuit(design=None):
         "A1B12": "GND", "B1A12": "GND",
         "A4B9": "VBUS", "B4A9": "VBUS",
         "A5": "CC1", "B5": "CC2",
-        "A6": "USB_DP_C", "B6": "USB_DP_C",
-        "A7": "USB_DM_C", "B7": "USB_DM_C",
+        "A6": "USB_C_DP", "B6": "USB_C_DP",
+        "A7": "USB_C_DN", "B7": "USB_C_DN",
         "A8": "", "B8": "",
         1: "GND", 2: "GND", 3: "GND", 4: "GND",  # shell legs
     })
     c.add("R4", "r_5k1", "5.1k", {1: "CC1", 2: "GND"})
     c.add("R5", "r_5k1", "5.1k", {1: "CC2", 2: "GND"})
     c.add("U5", "usb_esd", "USBLC6-2P6", {
-        1: "USB_DP_C", 6: "USB_DP_C", 3: "USB_DM_C", 4: "USB_DM_C",
+        1: "USB_C_DP", 6: "USB_C_DP", 3: "USB_C_DN", 4: "USB_C_DN",
         5: "VBUS", 2: "GND",
     })
-    c.add("R6", "r_27", "27", {1: "USB_DP_C", 2: "USB_DP"})
-    c.add("R7", "r_27", "27", {1: "USB_DM_C", 2: "USB_DM"})
+    c.add("R6", "r_27", "27", {1: "USB_C_DP", 2: "USB_DP"})
+    c.add("R7", "r_27", "27", {1: "USB_C_DN", 2: "USB_DM"})
 
     # --- charger (LGS4056H DFN2x2-8) ---
     rprog = design["power"].get("charge_current_ma", 40)

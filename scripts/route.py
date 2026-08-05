@@ -391,9 +391,9 @@ def main():
     # channel the HRO connector's interleaved duplicate-pad joins through
     # the front layer: DM hops inboard of the pad row, DP outboard
     for pos in ((-0.75, -13.55), (0.25, -13.55)):
-        rt.via(pos, "USB_DM_C")
+        rt.via(pos, "USB_C_DN")
     for pos in ((-0.25, -15.0), (0.75, -15.0)):
-        rt.via(pos, "USB_DP_C")
+        rt.via(pos, "USB_C_DP")
     # ---------- USB differential pair (canonical, locked) ----------
     # J1 -> U5 (flow-through ESD) -> down the back WEST of the battery
     # clip's 8x8 back pad, around its SW corner with concentric-C parity
@@ -421,7 +421,7 @@ def main():
     # tip bypass, so it gets a locked link too: via-in-pad on U5.5 (same
     # trick as C30) and an F.Cu trunk over U5's body joining both ties.
     USB_PAIR = {
-        "USB_DM_C": [
+        "USB_C_DN": [
             # J1's pad row + tie pads + shell legs form an unbroken wall
             # across the back at y -14.8..-13.4 — the ONLY legal vertical
             # corridors are through your own net's pads. DM rises through
@@ -442,7 +442,7 @@ def main():
             ("F", (2.10, 5.35), (1.80, 5.05)),
             ("F", (1.80, 5.05), (1.59, 4.75)),        # R7 pad 1 (upper)
         ],
-        "USB_DP_C": [
+        "USB_C_DP": [
             ("B", (-0.25, -14.60), (-0.25, -15.00)),  # pad stubs to vias
             ("B", (0.75, -14.60), (0.75, -15.00)),
             ("F", (-0.25, -15.00), (0.75, -15.00)),   # duplicate-pad join
@@ -478,10 +478,10 @@ def main():
         for layer, a, bpt in segs:
             ly = pcbnew.F_Cu if layer == "F" else pcbnew.B_Cu
             rt.track(a, bpt, net, layer=ly, width=0.15)
-    rt.via((2.45, 7.05), "USB_DM_C")
-    rt.via((1.05, 7.05), "USB_DP_C")
-    rt.via((-4.34, -9.40), "USB_DP_C")
-    rt.via((-5.40, -8.75), "USB_DP_C")
+    rt.via((2.45, 7.05), "USB_C_DN")
+    rt.via((1.05, 7.05), "USB_C_DP")
+    rt.via((-4.34, -9.40), "USB_C_DP")
+    rt.via((-5.40, -8.75), "USB_C_DP")
     rt.via((-2.35, -13.45), "VBUS")  # via-in-pad on tie A4B9
     rt.via((0.92, -11.50), "VBUS")   # via-in-pad on U5.5 (tented)
     rt.via((2.35, -13.45), "VBUS")   # via-in-pad on tie B4A9
@@ -754,8 +754,14 @@ def main():
                   ((0.92, -11.50), (1.60, -12.20)),
                   ((1.60, -12.20), (2.35, -13.45))]
     vb_blocked = 0
+    pw = design["jlcpcb"]["power_track_mm"]
     for a, b2 in VBUS_TRUNK:
-        if obs2.clear_seg(a, b2, pcbnew.F_Cu, "VBUS", 0.127 + 0.075):
+        # fat first (power netclass width), thin fallback: the corridor
+        # over U5's body was verified for 0.15 — the fat variant only goes
+        # in when it clears everything too.
+        if obs2.clear_seg(a, b2, pcbnew.F_Cu, "VBUS", 0.127 + pw / 2):
+            rt2.track(a, b2, "VBUS", width=pw)
+        elif obs2.clear_seg(a, b2, pcbnew.F_Cu, "VBUS", 0.127 + 0.075):
             rt2.track(a, b2, "VBUS", width=0.15)
         else:
             vb_blocked += 1

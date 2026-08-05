@@ -86,13 +86,13 @@ FB = [
     (F, (-1.20, 3.66), (-1.02, 3.66)),
     (F, (-1.02, 3.66), (-1.02, 4.44)),
 ]
-VIAS = [("USB_DP_C", (-4.34, -9.40)), ("USB_DP_C", (-5.40, -8.75)),
-        ("USB_DM_C", (2.45, 7.05)), ("USB_DP_C", (1.05, 7.05)),
+VIAS = [("USB_C_DP", (-4.34, -9.40)), ("USB_C_DP", (-5.40, -8.75)),
+        ("USB_C_DN", (2.45, 7.05)), ("USB_C_DP", (1.05, 7.05)),
         ("VBUS", (-2.35, -13.45)), ("VBUS", (0.92, -11.50)),
         ("VBUS", (2.35, -13.45)),
         # duplicate-pad channel vias at the connector
-        ("USB_DM_C", (-0.75, -13.55)), ("USB_DM_C", (0.25, -13.55)),
-        ("USB_DP_C", (-0.25, -15.0)), ("USB_DP_C", (0.75, -15.0)),
+        ("USB_C_DN", (-0.75, -13.55)), ("USB_C_DN", (0.25, -13.55)),
+        ("USB_C_DP", (-0.25, -15.0)), ("USB_C_DP", (0.75, -15.0)),
         # committed plane-access + channel vias from route.py main().
         # KEEP IN SYNC — chrg10 shipped C5's pad 0.041 from the
         # CHRG_DONE via at (-4.6,1.35) because these were missing here.
@@ -105,7 +105,7 @@ VIAS = [("USB_DP_C", (-4.34, -9.40)), ("USB_DP_C", (-5.40, -8.75)),
         ("CHRG", (-4.6, -5.8)), ("CHRG", (6.5, 4.75)),
         ("IMU_SDA", (6.3, -0.75)), ("IMU_SCL", (5.15, -5.7)),
         ("IMU_INT1", (5.55, -2.35)), ("LED_EN", (7.35, -2.35))]
-CHAINS = [("USB_DM_C", DM_C), ("USB_DP_C", DP_C),
+CHAINS = [("USB_C_DN", DM_C), ("USB_C_DP", DP_C),
           ("USB_DM", DM), ("USB_DP", DP), ("VBUS", VBUS),
           ("VDD_CORE", FB)]
 
@@ -137,11 +137,11 @@ for fp in b.GetFootprints():
 for t in b.GetTracks():
     if isinstance(t, pcbnew.PCB_VIA):
         x, y = rel(t.GetPosition())
-        if t.GetNetname() in ("USB_DM_C", "USB_DP_C") and y > 4:
+        if t.GetNetname() in ("USB_C_DN", "USB_C_DP") and y > 4:
             continue  # superseded end vias
         for L in (F, B): obs[L].append(('disc', x, y, 0.2, "via", t.GetNetname()))
     else:
-        if t.GetNetname() in ("USB_DM_C", "USB_DP_C", "USB_DM", "USB_DP", "VDD_CORE", "VBUS"):
+        if t.GetNetname() in ("USB_C_DN", "USB_C_DP", "USB_DM", "USB_DP", "VDD_CORE", "VBUS"):
             continue  # replacing all locked USB tracks
         a, e = rel(t.GetStart()), rel(t.GetEnd())
         L = F if t.GetLayer() == pcbnew.F_Cu else B

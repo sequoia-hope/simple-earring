@@ -41,6 +41,31 @@ def setup_rules(board, design):
     default.SetClearance(mm(j["min_clearance_mm"]))
     default.SetViaDiameter(mm(j["via_diameter_mm"]))
     default.SetViaDrill(mm(j["via_drill_mm"]))
+    # "power" class: fat VBUS (Sequoia hand-routed it 0.4mm on In3; the
+    # netclass width flows into the freerouting DSN so generated builds
+    # keep it). VBATT/VLED/3V3 stay default — they feed from planes.
+    power = pcbnew.NETCLASS("power")
+    power.SetTrackWidth(mm(j["power_track_mm"]))
+    power.SetClearance(mm(j["min_clearance_mm"]))
+    power.SetViaDiameter(mm(j["via_diameter_mm"]))
+    power.SetViaDrill(mm(j["via_drill_mm"]))
+    ns.SetNetclass("power", power)
+    ns.SetNetclassPatternAssignment("VBUS", "power")
+    # "usb" class: same geometry as default, but carries diff-pair
+    # width/gap so KiCad's interactive router pairs USB_C_DP/USB_C_DN
+    # (trailing-p/n names) when hand-finishing. Freerouting ignores it;
+    # the locked pre-routes in route.py do the pairing for generated
+    # builds. Gap 0.25 = the 0.40mm centers Sequoia used minus width.
+    usb = pcbnew.NETCLASS("usb")
+    usb.SetTrackWidth(mm(j["default_track_mm"]))
+    usb.SetClearance(mm(j["min_clearance_mm"]))
+    usb.SetViaDiameter(mm(j["via_diameter_mm"]))
+    usb.SetViaDrill(mm(j["via_drill_mm"]))
+    usb.SetDiffPairWidth(mm(j["default_track_mm"]))
+    usb.SetDiffPairGap(mm(0.25))
+    usb.SetDiffPairViaGap(mm(0.25))
+    ns.SetNetclass("usb", usb)
+    ns.SetNetclassPatternAssignment("USB_C_D*", "usb")
 
 
 def main():
