@@ -125,11 +125,44 @@ Recommended approach: a new `scripts/gen_schematic.py` stage that emits
   net-to-pin mapping is what matters. Add it to `build.py` STAGES so it
   regenerates with the board.
 
+## Task 5 — attempt a 4-layer version (timeline-driven)
+
+Sequoia has a tight timeline: 6-layer (JLC06161H-3313) isn't much more
+expensive but has a longer JLCPCB lead time; 4-layer ships faster. Try to
+get the design to converge on 4 layers.
+
+- Current 6-layer plane roles are documented in `design.yaml` /
+  `docs/PLAN.md` (In1 = GND, In2 = power VLED-annulus + 3V3 disc, In4 =
+  solid VLED). A 4-layer stackup (e.g. JLC04161H-7628 or 3313) leaves only
+  In1 + In2: the obvious split is In1 = GND, In2 = shared power (VLED
+  annulus + 3V3 disc merged onto one plane), with VLED interior drops
+  rerouted or moved to outer-layer copper. Expect the interior-LED VLED
+  feed (previously "anywhere via drop into solid In4") to be the hard part.
+- The board converged on 4 layers in an earlier revision (pre-IMU, 121
+  parts) — the IMU/interior-LED revision is what went to 6. It may fit
+  again; freerouting effort will tell.
+- Implementation: make layer count / stackup a `design.yaml` switch if it
+  isn't already, so 4- and 6-layer builds can be generated side by side and
+  compared on the dashboard. Keep the 6-layer config as fallback — if
+  4-layer won't converge DRC-clean in a few attempts, ship 6-layer and eat
+  the lead time (Sequoia's call; present both results).
+- **Interaction with Task 1**: a 4-layer reroute discards all hand-edit
+  copper. So back-port the hand edits as *generator rules* (net names,
+  VBUS width class, diff-pair handling) — those carry over to any stackup —
+  and only rely on verbatim locked-copper preservation for the 6-layer
+  fallback. Do Task 1's rule-level work first, then the 4-layer attempt
+  includes those rules from the start.
+- **Interaction with Tasks 2/3**: do the part swaps before the 4-layer
+  attempt so you only fight convergence once, with the final netlist
+  (incl. QSPI flash).
+
 ## Suggested order & verification
 
-1 (back-port, protects the hand edits) → 3 (RP2350A+flash, changes netlist &
-placement) → 2 (LED swap, may also touch placement/footprint) → rebuild
-through `python3 build.py` (0 DRC) → 4 (schematic) → commit tracked outputs.
+1 (back-port as generator rules, protects the hand edits) → 3 (RP2350A+flash,
+changes netlist & placement) → 2 (LED swap, may also touch
+placement/footprint) → 5 (4-layer attempt with the final netlist; 6-layer
+fallback stays available) → rebuild through `python3 build.py` (0 DRC) →
+4 (schematic) → commit tracked outputs.
 
 Every board-touching task ends with: `python3 build.py` clean, DRC 0 errors,
 renders reviewed on the :8618 dashboard, then commit `out/earring.kicad_pcb`

@@ -6,7 +6,8 @@ LED ring + back-side passives.** Review surface: the web dashboard
 
 **NEXT (2026-08-05): see `docs/HANDOFF.md`** — back-port Sequoia's hand edits
 (USB diff pair, fat USB power, under-CPU cleanup), LED + RP2354A out-of-stock
-replacements (RP2350A + QSPI flash), and schematic generation. The tracked
+replacements (RP2350A + QSPI flash), 4-layer attempt for faster JLC lead
+time (tight timeline; 6-layer fallback), and schematic generation. The tracked
 `out/earring.kicad_pcb` contains hand edits a rebuild would destroy.
 
 ## Current state
