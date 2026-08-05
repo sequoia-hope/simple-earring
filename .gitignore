@@ -1,4 +1,7 @@
-out/
+out/*
+!out/earring.kicad_pcb
+!out/earring.kicad_pro
+logs/
 tools/freerouting.jar
 __pycache__/
 *.lck
