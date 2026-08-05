@@ -18,7 +18,9 @@ the snapshot taken AFTER place.py moved them, or use --swap to relocate
 R6/R7 pads in the model before checking."""
 import pcbnew, math, sys
 
-SNAP = sys.argv[1] if len(sys.argv) > 1 else "out/earring.kicad_pcb"
+SWAP = "--swap" in sys.argv
+ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
+SNAP = ARGS[0] if ARGS else "out/earring.kicad_pcb"
 TH, CL = 0.075, 0.127
 F, B = "F", "B"
 
@@ -87,7 +89,22 @@ FB = [
 VIAS = [("USB_DP_C", (-4.34, -9.40)), ("USB_DP_C", (-5.40, -8.75)),
         ("USB_DM_C", (2.45, 7.05)), ("USB_DP_C", (1.05, 7.05)),
         ("VBUS", (-2.35, -13.45)), ("VBUS", (0.92, -11.50)),
-        ("VBUS", (2.35, -13.45))]
+        ("VBUS", (2.35, -13.45)),
+        # duplicate-pad channel vias at the connector
+        ("USB_DM_C", (-0.75, -13.55)), ("USB_DM_C", (0.25, -13.55)),
+        ("USB_DP_C", (-0.25, -15.0)), ("USB_DP_C", (0.75, -15.0)),
+        # committed plane-access + channel vias from route.py main().
+        # KEEP IN SYNC — chrg10 shipped C5's pad 0.041 from the
+        # CHRG_DONE via at (-4.6,1.35) because these were missing here.
+        ("3V3", (-5.9, -1.2)), ("3V3", (6.2, 2.6)), ("3V3", (0.9, 5.0)),
+        ("3V3", (-0.35, 4.5)), ("3V3", (-1.2, -8.3)), ("3V3", (6.6, -5.6)),
+        ("3V3", (5.45, -3.45)), ("3V3", (5.55, -1.0)), ("3V3", (5.55, 1.35)),
+        ("GND", (-3.10, 4.40)), ("GND", (-3.10, 5.00)), ("GND", (-4.65, 3.20)),
+        ("SWDIO", (-6.0, -3.1)), ("SWCLK", (5.3, -4.6)),
+        ("CHRG_DONE", (-4.6, 1.35)), ("CHRG_DONE", (7.8, 6.6)),
+        ("CHRG", (-4.6, -5.8)), ("CHRG", (6.5, 4.75)),
+        ("IMU_SDA", (6.3, -0.75)), ("IMU_SCL", (5.15, -5.7)),
+        ("IMU_INT1", (5.55, -2.35)), ("LED_EN", (7.35, -2.35))]
 CHAINS = [("USB_DM_C", DM_C), ("USB_DP_C", DP_C),
           ("USB_DM", DM), ("USB_DP", DP), ("VBUS", VBUS),
           ("VDD_CORE", FB)]
@@ -99,9 +116,10 @@ obs = {F: [], B: []}
 for fp in b.GetFootprints():
     for p in fp.Pads():
         x, y = rel(p.GetPosition())
-        # apply the R6/R7 swap to the model
-        if fp.GetReference() == "R6": y += 1.15
-        elif fp.GetReference() == "R7": y -= 1.15
+        # --swap: relocate R6/R7 in the model (for pre-swap snapshots only;
+        # post-place boards already have them at final positions)
+        if SWAP and fp.GetReference() == "R6": y += 1.15
+        elif SWAP and fp.GetReference() == "R7": y -= 1.15
         sz = p.GetSize(pcbnew.F_Cu); w, h = sz.x/1e6, sz.y/1e6
         rot = p.GetOrientationDegrees() % 180
         name = fp.GetReference()+"."+p.GetNumber(); net = p.GetNetname()
@@ -149,6 +167,15 @@ def segseg(a1, e1, a2, e2):
         return -1
     return min(pdist(*a1, a2, e2), pdist(*e1, a2, e2),
                pdist(*a2, a1, e1), pdist(*e2, a1, e1))
+
+# dynamic via-in-pads — their spots track place.py (chrg10: R14 moved
+# 0.4 down and its 3V3 via landed 0.0mm from front LED33.1)
+for _ref, _num, _vnet in (("R14", "2", "3V3"), ("C30", "1", "VLED")):
+    for _fp in b.GetFootprints():
+        if _fp.GetReference() == _ref:
+            for _p in _fp.Pads():
+                if _p.GetNumber() == _num:
+                    VIAS.append((_vnet, rel(_p.GetPosition())))
 
 bad = []
 for net, chain in CHAINS:

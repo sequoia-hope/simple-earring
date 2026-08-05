@@ -219,18 +219,28 @@ def main():
     place(fps["C13"], 3.9, -5.45, rot=0)
     # IOVDD decoupling: explicit pockets around the QFN courtyard (its
     # corners reach r≈6.2, so a uniform ring does not fit).
-    # Left column pitch 2.2 (was 2.0): a rot-90 0402's pads span y +-0.83,
-    # so 2.0 pitch left 0.40mm gaps — 4um less than a 0.15 track with two
-    # 0.127 clearances needs; SWDIO crosses there.
+    # Left column: a rot-90 0402's pads span y +-0.83; the pad gaps are
+    # SWDIO's crossing corridor (see the pitch note on DECAP below).
     # Right column: only THREE caps at 2.4 pitch — the IMU-signal +
     # LED_EN escapes need one gap each (single-lane pin corridor, see the
     # GPIO note in circuit.py), and a fourth cap walled off both chip
     # corners (the 10th decap is gone from circuit.py for the same
     # reason: no free real estate remained on the east side).
-    DECAP = [(-4.8, -4.3, 90), (4.8, -3.6, 90),
+    # C1 down to -4.55 (was -4.3): 0.79mm pad gap to C3 = two 0.15 lanes
+    # (SWDIO's crossing kept losing a single lane, chrg9 6/6). Keeps 0.22
+    # to the committed CHRG via at (-4.6,-5.8). C5 only to 0.15: at 0.35
+    # its pad came 0.041 from the committed CHRG_DONE via at (-4.6,1.35).
+    # C7/C8 moved from (0,-9.3)/(-2.0,-9.6) to the band's east/west ends:
+    # centered they filled the crystal->SW1 corridor wall-to-wall (chrg10
+    # routed both stuck nets with it open). Do NOT flank SW1 instead —
+    # its pad copper is 1.2mm wide at (+-3.7,-11.6), OUTSIDE its
+    # courtyard bbox, and (+-3.6,-11.2) shorted onto it (chrg10's 5-unc
+    # collateral); anything with cy x<3.05 and y<-9.75 hits SW1's
+    # courtyard and gets relaxation-drifted.
+    DECAP = [(-4.8, -4.55, 90), (4.8, -3.6, 90),
              (-4.8, -2.1, 90), (4.8, -1.2, 90),
-             (-4.8, 0.1, 90), (4.8, 1.2, 90),
-             (0, -9.3, 0), (-2.0, -9.6, 0), (-6.3, 5.7, 90)]
+             (-4.8, 0.15, 90), (4.8, 1.2, 90),
+             (3.2, -8.8, 0), (-3.2, -8.8, 0), (-6.3, 5.7, 90)]
     for i, (x, y, rot) in enumerate(DECAP):
         place(fps[f"C{i+1}"], x, y, rot=rot)
     # RUN pullup, BOOTSEL series R, VBSENSE divider: moved to the BACK
@@ -257,6 +267,8 @@ def main():
     place(fps["U5"], 0, -11.5, rot=0, back=True)
     # CC pulldowns: pulled down-board from the tip strip — LED21/LED22 now
     # live on the tip straights behind the USB connector
+    # (rot0 variants closer to the tip all clip locked copper or the NPTH
+    # pegs — the checker caught R5.1 0.03 into the DP join at y=-15)
     place(fps["R4"], -2.0, -14.6, rot=90)
     place(fps["R5"], 2.0, -14.6, rot=90)
     place(fps["U2"], 5.5, 5.0, rot=0)
@@ -324,8 +336,14 @@ def main():
     # failed to reach it; the row-B approach around the IMU's SW corner
     # is open
     place(fps["R15"], 5.9, -11.3, rot=90, back=True)  # IMU SCL pull-up
+    # R10 at y -13.75 (was -13.35): opens the 0.42mm slot over its column
+    # that IMU_INT1's proven route (In2 down x7.4, B entry from the
+    # south) threads to reach U6.4 — at -13.35 the slot was 0.10mm.
+    # R14 must STAY at -13.35: route.py puts a 3V3 via-in-pad in R14.2,
+    # and at -13.75 that via lands 0.0mm from front LED33.1 (chrg10:
+    # shorting_items + LED_D32 stranded).
     place(fps["R14"], 6.3, -13.35, rot=90, back=True) # IMU SDA pull-up
-    place(fps["R10"], 7.6, -13.35, rot=90, back=True) # LED_EN pulldown
+    place(fps["R10"], 7.6, -13.75, rot=90, back=True) # LED_EN pulldown
     # VBSENSE divider: back lower-right shoulder, single-file (mirror band)
     place(fps["C21"], 12.3, 4.5, rot=90, back=True)
     place(fps["R11"], 11.65, 6.55, rot=90, back=True)
@@ -339,7 +357,11 @@ def main():
     # BOOTSEL: small top-actuated switch, front top-center — the spot the
     # hanger used to occupy. Also decongests the bottom-center routing zone
     # (VREG cluster + USB series Rs + 3V3 vias all live there now).
-    place(fps["SW1"], 0, -11.3, rot=0)
+    # -11.6 (was -11.3): with C7/C8 gone this opens a 1.5mm-tall front
+    # highway (crystal cy -8.25 to SW1 cy -9.75) for the IMU_INT1 run
+    # east; SW1 cy top -13.44 keeps 0.18 to R4/R5 (cy bottom -13.62),
+    # which cannot move tipward — locked USB copper + NPTH pegs.
+    place(fps["SW1"], 0, -11.6, rot=0)
     # testpoints: back shoulders, clear of the battery insertion corridor
     # (|x|<10.5, y>9.7) and the clip feet. TP3 sits on the lower-left
     # shoulder (flush pad: may overhang the cell insertion sweep).
