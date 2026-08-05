@@ -8,8 +8,9 @@ Pin references verified against:
   - LGS4056H datasheet rev C (TEMP->GND disables NTC, I=900/R_PROG <300mA)
   - NCP730 WDFN-6, TPS22913 YZV 4-ball, USBLC6-2P6 SOT-666 (from earring)
   - TBA-C1010MB-J2I16 datasheet (1=DI, 2=VCC, 3=GND, 4=DO)
-RP2354A == RP2350A pinout; QSPI pins NC (internal flash) except QSPI_SS
-which stays as the BOOTSEL strap (button + 1k to GND).
+RP2350A (RP2354A pinout, no internal flash): QSPI bus wired to external
+W25Q16JVUXIQ (U7) per the official RPI-RP2350A-MINIMAL R4 (docs/);
+QSPI_SS doubles as the BOOTSEL strap (button + 1k to GND) and U7's /CS.
 """
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -59,7 +60,10 @@ RP_PINS = {
     "VREG_LX": 48, "VREG_VIN": 49, "VREG_FB": 50,
     "USB_DM": 51, "USB_DP": 52, "USB_OTP_VDD": 53,
     "QSPI_IOVDD": 54, "QSPI_SS": 60,
-    "QSPI_NC": [55, 56, 57, 58, 59],
+    # QSPI bus (RP2350A: external flash; pin map verified against the
+    # official RPI-RP2350A-MINIMAL R4 board in docs/)
+    "QSPI_SD3": 55, "QSPI_SCLK": 56, "QSPI_SD0": 57,
+    "QSPI_SD2": 58, "QSPI_SD1": 59,
     "GND": 61,  # EP
     "GPIO29_ADC3": 43,
 }
@@ -127,8 +131,9 @@ def build_circuit(design=None):
         u1[p] = "3V3"
     for p in RP_PINS["DVDD"]:
         u1[p] = "VDD_CORE"
-    for p in RP_PINS["QSPI_NC"]:
-        u1[p] = ""  # NC — internal flash
+    for name in ("QSPI_SD0", "QSPI_SD1", "QSPI_SD2", "QSPI_SD3",
+                 "QSPI_SCLK"):
+        u1[RP_PINS[name]] = name
     u1[RP_PINS["XIN"]] = "XIN"
     u1[RP_PINS["XOUT"]] = "XOUT"
     u1[RP_PINS["SWCLK"]] = "SWCLK"
@@ -156,7 +161,26 @@ def build_circuit(design=None):
     u1[GPIO[GP_CHRG_DONE]] = "CHRG_DONE"
     for p in GPIO.values():
         u1.setdefault(p, "")  # unused GPIOs NC
-    c.add("U1", "mcu", "RP2354A", u1)
+    c.add("U1", "mcu", "RP2350A", u1)
+
+    # --- QSPI flash (RP2350A has none internally; RP2354A went OOS) ---
+    # W25Q16JVUXIQ USON-8 2x3mm. /CS shares the BOOTSEL net with the
+    # QSPI_SS strap (button + 1k), Pico-style — no series link. /WP and
+    # /HOLD are QSPI_SD2/SD3: wired for quad-SPI XIP like the official
+    # RPI-RP2350A-MINIMAL (docs/), which is also where the pin mapping
+    # was taken from.
+    c.add("U7", "flash", "W25Q16JVUXIQ", {
+        1: "BOOTSEL",     # /CS
+        2: "QSPI_SD1",    # DO (IO1)
+        3: "QSPI_SD2",    # /WP (IO2)
+        4: "GND",
+        5: "QSPI_SD0",    # DI (IO0)
+        6: "QSPI_SCLK",   # CLK
+        7: "QSPI_SD3",    # /HOLD (IO3)
+        8: "3V3",         # VCC
+        9: "GND",         # center EP strip
+    })
+    c.add("C25", "c_100n", "100n", {1: "3V3", 2: "GND"})  # flash VCC decap
 
     # --- IOVDD / rail decoupling on MCU ---
     # (9 caps: 6 IOVDD + OTP_VDD + QSPI_IOVDD + ADC_AVDD. VREG_AVDD's

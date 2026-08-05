@@ -359,7 +359,12 @@ def main():
     # top-center displaced the corridor they used to tap)
     # ((-0.35,4.5) not (-0.6,4.5): shifted right so the locked FB link can
     # enter the switcher pour's lobe at x=-1.0 with 0.127 via clearance)
-    for pos in ((-5.9, -1.2), (6.2, 2.6), (0.9, 5.0), (-0.35, 4.5),
+    # ((-5.85,-1.60) not (-5.9,-1.2): the QSPI flash U7 (RP2350A revision)
+    # took the pocket north of it and its pad-5 tip lands 0.07 from the old
+    # spot. Grid-scanned (0.05mm, all pads both sides + locked tracks +
+    # vias + 3V3-disc/clip-pad radii): this is the nearest legal spot, 0.40
+    # away. Re-scan rather than nudge by eye if anything here moves.
+    for pos in ((-5.85, -1.60), (6.2, 2.6), (0.9, 5.0), (-0.35, 4.5),
                 (-1.2, -8.3)):
         rt.via(pos, "3V3")
     # VREG single-point ground return: two vias INSIDE the transplanted
@@ -666,8 +671,11 @@ def main():
     # fanout at the 2.4mm-pitch seeds — the finisher finds no candidate,
     # so give it a scanned 3V3-disc via up front
     px, py = rel(pad_of(fps["U3"], 1).GetPosition())
+    # radii extended past 1.85: the QSPI flash U7 now fills the pocket
+    # south of U3, so the near ring often has no legal spot
     spot = safe_via_spot(px, py, "3V3",
-                         radii=(0.7, 0.9, 1.1, 1.35, 1.6, 1.85))
+                         radii=(0.7, 0.9, 1.1, 1.35, 1.6, 1.85, 2.15,
+                                2.45, 2.75))
     if spot:
         rt.via(spot, "3V3")
     else:

@@ -5,11 +5,25 @@
 #           check = plausible but must be validated before ordering (see notes)
 
 mcu:
-  mpn: RP2354A
-  lcsc: C41378174
+  mpn: RP2350A
+  lcsc: C42411118
   footprint: RP2350-QFN-60-1EP_7x7_P0.4mm_EP3.4x3.4mm_ThermalVias
-  verified: yes          # confirmed at LCSC, QFN-60 identical to RP2350A
-  notes: 2MB internal flash; QSPI pins NC except QSPI_SS (BOOTSEL strap)
+  verified: yes          # 2026-08-05: LCSC 7251 in stock, $1.71@1; QFN-60-EP(7x7)
+  notes: no internal flash (RP2354A C41378174 was OOS) -> external QSPI
+    flash U6; pinout identical to RP2354A, same footprint. QSPI_SS still
+    doubles as the BOOTSEL strap (button + 1k), flash /CS rides the same
+    net (Pico-style, no series link).
+
+flash:
+  mpn: W25Q16JVUXIQ
+  lcsc: C2843335
+  footprint: USON-8_L3.0-W2.0-P0.50-BL-EP
+  verified: yes          # 2026-08-05: LCSC 16994 in stock, $1.63@1/$0.85@1k
+  notes: 16Mbit (2MB, same as RP2354A internal) QSPI NOR, 2.7-3.6V, 133MHz,
+    USON-8-EP 2x3mm. Footprint+WRL via easyeda2kicad C2843335; pads
+    0.6x0.28 @ 0.5mm pitch, rows 3.02mm apart, 0.3x1.7 center EP (GND).
+    Pinout 1=/CS 2=DO(IO1) 3=/WP(IO2) 4=GND 5=DI(IO0) 6=CLK 7=/HOLD(IO3)
+    8=VCC — wiring copied from RPI-RP2350A-MINIMAL R4 (docs/).
 
 led:
   mpn: TBA-C1010MB-J2I16

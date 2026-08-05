@@ -174,7 +174,12 @@ def main():
     # interior-ring bypass caps (every 2nd inner LED gets one in circuit.py):
     # spread around the inner octagon, clear of the ICs and pre-placed vias
     for ref, (x, y, rot) in {
-            f"C{30 + n_ring + 4}": (-7.6, -0.6, 90),   # beside LED39
+            # C68 moved off (-7.6,-0.6) to make room for the QSPI flash
+            # U7 (RP2350A revision): now SW of LED39, rot 90. Pads at
+            # r 8.6-8.9 — inboard of the r9.06-9.76 beautify annulus; its
+            # courtyard corner pokes the annulus radially but arcs only
+            # care about pads.
+            f"C{30 + n_ring + 4}": (-8.35, -2.65, 90),
             f"C{30 + n_ring + 6}": (0.0, 8.55, 0),     # between LED41/LED42
             # (8.55 not 9.2: pads must stay off the r~9.4 annulus the
             # beautified chain arcs sweep between interior LEDs)
@@ -344,6 +349,21 @@ def main():
     # shorting_items + LED_D32 stranded).
     place(fps["R14"], 6.3, -13.35, rot=90, back=True) # IMU SDA pull-up
     place(fps["R10"], 7.6, -13.75, rot=90, back=True) # LED_EN pulldown
+    # QSPI flash (RP2350A revision, no internal flash): FRONT, the pocket
+    # west of the C3/C5 decap column that C68 used to occupy (C68 moved SW,
+    # see the interior-bypass table). This was the ONLY legal spot found:
+    # a full-front 0.1mm grid scan of the 2.24x3.86 pad envelope had zero
+    # hits, the back is walled by BT1's 20.8mm cell-disc courtyard, and the
+    # back tip band shorts J1's tie pads / violates the shell-leg keepouts.
+    # Box: x -8.06..-6.06 (C18 east face .. C3/C5 column west face),
+    # y -1.23..1.77 (drawn 2x3 courtyard); pad tips reach y -1.54/2.08 —
+    # 0.03 from U3's courtyard EDGE but ~0.4 from its pads. QSPI wiring:
+    # freerouting owns it (6-layer: In3 west run; 4-layer: B.Cu around the
+    # locked USB rails' south end, y~7.3, then north along x~-6.2).
+    # y 0.40 not 0.27: at 0.27 pad 5's tip sat 0.07mm from the C3/C5
+    # column's 3V3 via at (-5.9,-1.2) (needs 0.127)
+    place(fps["U7"], -7.06, 0.40, rot=0)
+    place(fps["C25"], -6.75, -2.7, rot=90)   # flash VCC decap, below U7
     # VBSENSE divider: back lower-right shoulder, single-file (mirror band)
     place(fps["C21"], 12.3, 4.5, rot=90, back=True)
     place(fps["R11"], 11.65, 6.55, rot=90, back=True)
