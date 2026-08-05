@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent
 STAGES = ["board", "place", "preview", "route", "finish", "drc", "render",
-          "export"]
+          "schematic", "export"]
 SCRIPTS = {
     "board": "gen_board.py",
     "place": "place.py",
@@ -23,6 +23,7 @@ SCRIPTS = {
     "finish": "finish.py",
     "drc": "drc.py",
     "render": "render.py",
+    "schematic": "gen_schematic.py",
     "export": "export.py",
 }
 
