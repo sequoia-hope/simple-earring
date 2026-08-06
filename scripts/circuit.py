@@ -196,13 +196,24 @@ def build_circuit(design=None):
     # per-pin 100n was dropped — it has the dedicated 4u7 CFILT C22, and
     # a 10th cap made the right-side decap column wall off every escape
     # corridor to the back-east IMU cluster.)
+    # C5 and C6 are NOT IOVDD decoupling. They already sit 1.39mm from DVDD
+    # 39 and 1.63mm from DVDD 6 — the two core pins nearest the regulator —
+    # so they are the 100n pair ds §6.1.3 asks for on the core rail, which
+    # otherwise had only bulk 4u7 on it. IOVDD 38 and 1 fall back on C3
+    # (2.10mm) and C4: the same "share a capacitor where the escape fan-out
+    # leaves no room" trade the RP2350 hardware design guide §2.2.1
+    # documents making on the official minimal board.
+    CORE_DECAP = {5, 6}
     for i, _ in enumerate(RP_PINS["IOVDD"] + [53, 54, 44]):
-        c.add(f"C{i+1}", "c_100n", "100n", {1: "3V3", 2: "GND"})
+        rail = "VDD_CORE" if i + 1 in CORE_DECAP else "3V3"
+        c.add(f"C{i+1}", "c_100n", "100n", {1: rail, 2: "GND"})
     # VREG per RP2350 ds §6.3.8: CIN at VIN/PGND, COUT at the inductor,
     # C13 = second VDD_CORE cap near a DVDD pin, AVDD RC-filtered (33R+4u7)
     c.add("C11", "c_4u7", "4.7u", {1: "3V3", 2: "GND"})       # CIN
     c.add("C12", "c_4u7", "4.7u", {1: "VDD_CORE", 2: "GND"})  # COUT
     c.add("C13", "c_4u7", "4.7u", {1: "VDD_CORE", 2: "GND"})  # 2nd VOUT cap
+    # (the 100n HF pair ds §6.1.3 wants on the core rail is C5/C6 above —
+    # they were already sitting on the DVDD pins, just netted to 3V3)
     # L1 pad 1 = polarity-dot end; ds Fig 23 wants the dot on the VOUT side
     c.add("L1", "vreg_inductor", "3.3uH", {1: "VDD_CORE", 2: "VREG_LX"})
     c.add("R13", "r_33", "33", {1: "3V3", 2: "VREG_AVDD"})
@@ -216,10 +227,18 @@ def build_circuit(design=None):
 
     # --- RUN / BOOTSEL / SWD ---
     c.add("R2", "r_10k", "10k", {1: "RUN", 2: "3V3"})
-    # SKRPAME010 is a 4-pin tact: 1-2 are one contact, 3-4 the other, so
-    # both pads of each pair carry the same net (redundant, not a short).
+    # SKRPAME010 is a 4-terminal SPST tact. Only pads 1 and 4 are netted,
+    # and that is deliberate: the LCSC footprint puts pads 1/3 on one side
+    # of the body and 2/4 on the other, so the two contacts are the
+    # SAME-SIDE pairs {1,3} and {2,4} — not {1,2}/{3,4} as the LCSC symbol
+    # implies. Driving both pads of an assumed pair would have shorted
+    # BOOTSEL_SW straight to GND and left the chip permanently strapped
+    # into the USB bootloader. Pads 1 and 4 are diagonal, so they land on
+    # opposite contacts under EITHER numbering convention; 2 and 3 are left
+    # unnetted (still soldered, and internally tied to their partner) so the
+    # strap is correct without needing the ALPS drawing to settle it.
     c.add("SW1", "bootsel_button", "BOOTSEL",
-          {1: "BOOTSEL_SW", 2: "BOOTSEL_SW", 3: "GND", 4: "GND"})
+          {1: "BOOTSEL_SW", 2: "", 3: "", 4: "GND"})
     c.add("R3", "r_1k", "1k", {1: "BOOTSEL", 2: "BOOTSEL_SW"})
     c.add("TP1", "testpoint", "RUN", {1: "RUN"})
     c.add("TP2", "testpoint", "SWCLK", {1: "SWCLK"})
@@ -241,6 +260,11 @@ def build_circuit(design=None):
         1: "USB_C_DP", 6: "USB_C_DP", 3: "USB_C_DN", 4: "USB_C_DN",
         5: "VBUS", 2: "GND",
     })
+    # ST's USBLC6-2 ds §3: the rail-to-rail clamp only works if VBUS is a
+    # stiff reference during the surge, so where the run from the VBUS pin
+    # to +VCC cannot be kept short they ask for a 100nF right at the part.
+    # Our only VBUS bulk (C16) sits over at the charger, so add a local one.
+    c.add("C28", "c_100n", "100n", {1: "VBUS", 2: "GND"})
     c.add("R6", "r_27", "27", {1: "USB_C_DP", 2: "USB_DP"})
     c.add("R7", "r_27", "27", {1: "USB_C_DN", 2: "USB_DM"})
 
@@ -254,7 +278,7 @@ def build_circuit(design=None):
         4: "VBUS",       # VCC
         5: "VBATT",      # BAT
         6: "CHRG_DONE",  # DONE open-drain -> GPIO28 (low = charge complete)
-        7: "CHRG",       # CHRG open-drain -> GPIO0 (low = charging)
+        7: "CHRG",       # CHRG open-drain -> GPIO19 (low = charging)
         8: "VBUS",       # CE high = enabled
         9: "GND",        # EP
     })
@@ -288,8 +312,14 @@ def build_circuit(design=None):
     # ds application hints: CS->VDDIO selects I2C, SDx/SCx (unused aux
     # master) tied to VDDIO for lowest power, SDO/SA0->GND = addr 0x6A,
     # INT2 + NC pins left floating. INT1 = wake-on-motion to GPIO.
+    # Pin numbers are from ST's Table 2 (DocID030071 rev 3) — the serial
+    # trio at the top of the package is 12=CS, 13=SCL, 14=SDA. It used to be
+    # entered here as 12=SCL/13=SDA/14=CS, which is the same three pins
+    # rotated by one and is fatal: CS would have been driven by the I2C
+    # clock (re-entering SPI mode on every edge) and SDA would have been
+    # strapped hard to 3V3, so the part could never pull it low to ACK.
     c.add("U6", "imu", "LSM6DS3TR-C", {
-        1: "GND",        # SDO/SA0
+        1: "GND",        # SDO/SA0 -> addr 0x6A
         2: "3V3",        # SDx
         3: "3V3",        # SCx
         4: "IMU_INT1",
@@ -297,9 +327,10 @@ def build_circuit(design=None):
         6: "GND", 7: "GND",
         8: "3V3",        # VDD
         9: "",           # INT2 NC
-        10: "", 11: "",  # NC
-        12: "IMU_SCL", 13: "IMU_SDA",
-        14: "3V3",       # CS
+        10: "", 11: "",  # NC — "leave unconnected, soldered to PCB"
+        12: "3V3",       # CS high = I2C mode
+        13: "IMU_SCL",
+        14: "IMU_SDA",
     })
     c.add("C23", "c_100n", "100n", {1: "3V3", 2: "GND"})  # IMU VDD decap
     c.add("C24", "c_100n", "100n", {1: "3V3", 2: "GND"})  # IMU VDDIO decap
