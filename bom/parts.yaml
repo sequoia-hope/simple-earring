@@ -170,7 +170,10 @@ testpoint:
 r_27:    {lcsc: C138021, footprint: R_0402_1005Metric, verified: yes}     # USB series (YAGEO RC0402FR-0727RL, 27R 1% 0402)
 r_33:    {lcsc: C25105,  footprint: R_0402_1005Metric, verified: yes}     # VREG_AVDD RC filter (0402WGF330JTCE)
 r_1k:    {lcsc: C11702,  footprint: R_0402_1005Metric, verified: yes}     # XOUT series (R1), BOOTSEL (R3) (0402WGF1001TCE)
-r_4k7:   {lcsc: C25900,  footprint: R_0402_1005Metric, verified: yes}     # IMU I2C pull-ups (0402WGF4701TCE, 4.7k 0402) -- LCSC showed OUT OF STOCK Aug 5
+r_4k7:   {lcsc: C105871, footprint: R_0402_1005Metric, verified: yes}     # IMU I2C pull-ups (YAGEO RC0402FR-074K7L, 4.7k 1% 0402)
+# ^ was C25900 (UNI-ROYAL 0402WGF4701TCE) until Aug 5 2026: same value/pkg but
+#   out of stock at LCSC. C105871 is the same YAGEO RC0402 series already used
+#   for r_27, 5.5M in stock, available for JLC SMT assembly.
 r_5k1:   {lcsc: C25905,  footprint: R_0402_1005Metric, verified: yes}     # USB-C CC pulldowns (0402WGF5101TCE)
 r_10k:   {lcsc: C25744,  footprint: R_0402_1005Metric, verified: yes}     # RUN pullup, SW ON pulldown (0402WGF1002TCE)
 # ^ was C25804 until Aug 5 2026: that is 0603WAF1002T5E, a 0603 part, on a
