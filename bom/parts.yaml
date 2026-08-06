@@ -92,13 +92,27 @@ vreg_inductor:
   mpn: AOTA-B201610S3R3-101-T
   lcsc: C42411119
   footprint: L_pol_2016
-  verified: check        # from funvill RP2350A minimal BOM; footprint from pendant
+  verified: yes          # Aug 5 2026: checked against "Hardware design with
+                         # RP2350" (RP-008280-DS-1) AND the official
+                         # RPI-RP2350A-MINIMAL R4 board in docs/
   notes: >-
-    3.3uH for RP2350 internal VREG. POLARITY MATTERS (ds §6.3.8.3 / Fig 23):
-    orientation dot must land on the VOUT pad = L1 pad 1 (netlist swapped
-    accordingly). Footprint L_pol_2016 draws its dot at pad 1 — confirm
-    against the Abracon drawing that the physical dot end maps to pad 1 in
-    JLC assembly orientation before ordering.
+    3.3uH for RP2350 internal VREG. This IS the part Raspberry Pi specifies:
+    the guide §2.1 recap names "L1 - Abracon AOTA-B201610S3R3-101-T (0806,
+    2016 metric)" verbatim, and LCSC/JLCPCB C42411119 resolves to that exact
+    MPN (Abracon, 3.3uH, 0806, Isat 2.4A, DCR 115mR typ; JLC lists it as an
+    Extended part available for SMT assembly). Our L_pol_2016 land pattern is
+    pad-for-pad identical to the official R4 board's
+    abracon_aota-b201610s3r3-101-t: pads at (+-0.7, 0), 0.7 x 1.7mm.
+    RPi worked with Abracon specifically so this part ships on reel with all
+    dots aligned — a generic 3.3uH has randomly distributed winding direction
+    and the guide is blunt that a "wrong way round" inductor lets the coil's
+    stray field upset COUT and the regulator control loop ("if you choose not
+    to use our example, then you do so at your own risk"). JLCPCB is known to
+    challenge RP2350 designs that substitute a different inductor. Do NOT let
+    a substitution through.
+    POLARITY MATTERS (ds §6.3.8.3 / Fig 23): the dot must land on the VOUT
+    pad = L1 pad 1 (netlist swapped accordingly); L_pol_2016 draws its dot at
+    pad 1. Still worth an eyeball on the JLC assembly preview before ordering.
 
 battery_clip:
   mpn: CR2032-W
@@ -148,17 +162,24 @@ testpoint:
   verified: yes          # bare pad, not assembled
 
 # --- passives (0402 unless noted) ---
-r_27:    {lcsc: C138021, footprint: R_0402_1005Metric, verified: prior}   # USB series
+# Every entry below was re-checked against its LCSC/JLCPCB product page on
+# Aug 5 2026: value, tolerance and PACKAGE all confirmed. The one that was
+# wrong was r_10k (see below) -- a 0603 part sitting on a 0402 land, which is
+# exactly the class of error a value-only review misses. Re-check the package,
+# not just the value, whenever an LCSC code changes.
+r_27:    {lcsc: C138021, footprint: R_0402_1005Metric, verified: yes}     # USB series (YAGEO RC0402FR-0727RL, 27R 1% 0402)
 r_33:    {lcsc: C25105,  footprint: R_0402_1005Metric, verified: yes}     # VREG_AVDD RC filter (0402WGF330JTCE)
-r_1k:    {lcsc: C11702,  footprint: R_0402_1005Metric, verified: prior}   # XOUT series (R1), BOOTSEL (R3)
-r_4k7:   {lcsc: C25900,  footprint: R_0402_1005Metric, verified: check}   # IMU I2C pull-ups; CONFIRM value=4.7k
-r_5k1:   {lcsc: C25905,  footprint: R_0402_1005Metric, verified: prior}   # USB-C CC pulldowns
-r_10k:   {lcsc: C25804,  footprint: R_0402_1005Metric, verified: prior}   # RUN pullup, SW ON pulldown
-r_22k:   {lcsc: C25768,  footprint: R_0402_1005Metric, verified: check}   # R_PROG ~41mA; CONFIRM value=22k
-r_1m:    {lcsc: C26083,  footprint: R_0402_1005Metric, verified: check}   # VBATT sense divider; CONFIRM value=1M
-c_100n:  {lcsc: C1525,   footprint: C_0402_1005Metric, verified: prior}
-c_15p:   {lcsc: C1548,   footprint: C_0402_1005Metric, verified: prior}   # crystal load
-c_1u:    {lcsc: C52923,  footprint: C_0402_1005Metric, verified: check}   # CONFIRM value=1uF 0402
-c_4u7:   {lcsc: C23733,  footprint: C_0402_1005Metric_small_pads, verified: prior}  # VREG in/out
-c_10u_0805: {lcsc: C15850, footprint: C_0805_2012Metric, verified: prior} # charger VCC/BAT
-c_10u_0603: {lcsc: C19702, footprint: C_0603_1608Metric, verified: check}  # CL10A106KP8NNNC 10uF 6.3V; CONFIRM
+r_1k:    {lcsc: C11702,  footprint: R_0402_1005Metric, verified: yes}     # XOUT series (R1), BOOTSEL (R3) (0402WGF1001TCE)
+r_4k7:   {lcsc: C25900,  footprint: R_0402_1005Metric, verified: yes}     # IMU I2C pull-ups (0402WGF4701TCE, 4.7k 0402) -- LCSC showed OUT OF STOCK Aug 5
+r_5k1:   {lcsc: C25905,  footprint: R_0402_1005Metric, verified: yes}     # USB-C CC pulldowns (0402WGF5101TCE)
+r_10k:   {lcsc: C25744,  footprint: R_0402_1005Metric, verified: yes}     # RUN pullup, SW ON pulldown (0402WGF1002TCE)
+# ^ was C25804 until Aug 5 2026: that is 0603WAF1002T5E, a 0603 part, on a
+#   0402 land -- JLCPCB flagged the footprint mismatch. C25744 is the 0402.
+r_22k:   {lcsc: C25768,  footprint: R_0402_1005Metric, verified: yes}     # R_PROG ~41mA (0402WGF2202TCE, 22k 0402)
+r_1m:    {lcsc: C26083,  footprint: R_0402_1005Metric, verified: yes}     # VBATT sense divider (0402WGF1004TCE, 1M 0402) -- LCSC showed OUT OF STOCK Aug 5
+c_100n:  {lcsc: C1525,   footprint: C_0402_1005Metric, verified: yes}     # CL05B104KO5NNNC 100nF 16V X7R 0402
+c_15p:   {lcsc: C1548,   footprint: C_0402_1005Metric, verified: yes}     # crystal load (0402CG150J500NT, 15pF 50V C0G)
+c_1u:    {lcsc: C52923,  footprint: C_0402_1005Metric, verified: yes}     # CL05A105KA5NQNC 1uF 25V X5R 0402
+c_4u7:   {lcsc: C23733,  footprint: C_0402_1005Metric_small_pads, verified: yes}  # VREG in/out: CL05A475MP5NRNC 4.7uF 10V X5R 0402
+c_10u_0805: {lcsc: C15850, footprint: C_0805_2012Metric, verified: yes}   # charger VCC/BAT: CL21A106KAYNNNE 10uF 25V X5R 0805
+c_10u_0603: {lcsc: C19702, footprint: C_0603_1608Metric, verified: yes}   # CL10A106KP8NNNC 10uF 10V (not 6.3V) X5R 0603
