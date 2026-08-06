@@ -22693,7 +22693,7 @@
 		(path "/b329763b-6892-56f5-b86b-24059b7c837e")
 		(sheetname "/")
 		(sheetfile "earring.kicad_sch")
-		(attr exclude_from_pos_files)
+		(attr exclude_from_pos_files exclude_from_bom)
 		(fp_line
 			(start -0.95 -0.95)
 			(end -0.95 0.95)
@@ -23037,7 +23037,7 @@
 		(path "/752a5abd-53d2-5275-86fa-51ee0bcb272a")
 		(sheetname "/")
 		(sheetfile "earring.kicad_sch")
-		(attr exclude_from_pos_files)
+		(attr exclude_from_pos_files exclude_from_bom)
 		(fp_line
 			(start -0.95 -0.95)
 			(end -0.95 0.95)
@@ -24004,7 +24004,7 @@
 		(path "/f2848967-d6bd-5e62-8fcd-0d512c81588e")
 		(sheetname "/")
 		(sheetfile "earring.kicad_sch")
-		(attr exclude_from_pos_files)
+		(attr exclude_from_pos_files exclude_from_bom)
 		(fp_line
 			(start -0.95 -0.95)
 			(end -0.95 0.95)
