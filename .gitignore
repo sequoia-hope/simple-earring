@@ -3,6 +3,7 @@ out/*
 !out/earring.kicad_pro
 !out/earring.kicad_sch
 !out/earring-best.json
+!out/earring-schematic.pdf
 logs/
 tools/freerouting.jar
 __pycache__/

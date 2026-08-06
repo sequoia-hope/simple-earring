@@ -406,6 +406,16 @@ def main():
     OUT.write_text(sch.render())
     print(f"wrote {OUT}: {len(sch.lib)} symbols, "
           f"{len(comps)} components, {len(cir.nets)} nets")
+    # SVG + PDF beside it: the .kicad_sch needs KiCad to open, but the
+    # review dashboard is a browser on :8618, so it links these.
+    import subprocess
+    for args, label in (
+            (["--exclude-drawing-sheet", "-o", str(OUT.parent)], "svg"),
+            (["-o", str(OUT.parent / "earring-schematic.pdf")], "pdf")):
+        r = subprocess.run(["kicad-cli", "sch", "export", label] + args
+                           + [str(OUT)], capture_output=True, text=True)
+        if r.returncode:
+            print(f"  WARNING: {label} export failed: {r.stderr.strip()}")
 
 
 if __name__ == "__main__":

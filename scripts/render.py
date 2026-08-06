@@ -67,6 +67,18 @@ INDEX_HTML = """<!DOCTYPE html>
   <figure><img class="rf" id="laytop" src="layout_top.png"><figcaption>layout top (F.Cu over In1/In2/B.Cu)</figcaption></figure>
   <figure><img class="rf" id="laybot" src="layout_bottom.png"><figcaption>layout bottom, mirrored (B.Cu over In2/In1/F.Cu)</figcaption></figure>
 </div>
+<h2>Schematic</h2>
+<div class="row">
+  <div style="font-size:.9rem">
+    <a href="earring.svg" style="color:#8bf">open schematic (SVG, zoomable)</a>
+    &nbsp;·&nbsp;
+    <a href="earring-schematic.pdf" style="color:#8bf">PDF</a>
+    <div style="color:#888;margin-top:.3rem">
+      generated from scripts/circuit.py — connections are global net
+      labels, not wires; LED chain and decap bank are collapsed
+    </div>
+  </div>
+</div>
 <h2>Copper layers</h2>
 <div class="row">
   <figure><img class="rf" id="grid" src="layout_layers.png" style="max-width:min(92vw,1400px)"><figcaption>individual copper layers (top view)</figcaption></figure>
