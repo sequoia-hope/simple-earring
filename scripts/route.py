@@ -148,7 +148,9 @@ class Router:
     def in_feet_keepout(x, y):
         """Back-side keepouts for through vias:
         - battery clip feet: |x| 10.2..14.3, |y| < 3.3
-        - BOOTSEL button SW1 at the top: |x| < 3.3, y -14.5..-10.3"""
+        (The SW1 range this used to also list was never implemented, and
+        was stale anyway: SW1 is now the smaller SKRPAME010 at y=-11.2,
+        courtyard |x|<2.10, y -12.8..-9.6.)"""
         if abs(y) < 3.3 and 10.2 < abs(x) < 14.3:
             return True
         return False
@@ -364,8 +366,16 @@ def main():
     # spot. Grid-scanned (0.05mm, all pads both sides + locked tracks +
     # vias + 3V3-disc/clip-pad radii): this is the nearest legal spot, 0.40
     # away. Re-scan rather than nudge by eye if anything here moves.
+    # ((-4.25,-7.55) not (-1.2,-8.3): the Aug 5 2026 ABM8-272-T3 swap grew
+    # the crystal to a 3225 and moved Y1 to (0,-8.02), which swallowed the
+    # old spot — it lands inside Y1's courtyard, ON its GND pad 2. Re-scanned
+    # with safe_via_spot()'s constraint model rather than nudged by eye, as
+    # the note below says to. The nearest legal spot (-2.42,-7.86) clears by
+    # only 0.02 against Y1 pad 3, so this takes the best-clearance spot in
+    # the pocket instead: 0.96mm margin, and its tightest neighbour is C8
+    # pad 1 — which is 3V3 itself, i.e. it sits right on the decap it feeds.)
     for pos in ((-5.85, -1.60), (6.2, 2.6), (0.9, 5.0), (-0.35, 4.5),
-                (-1.2, -8.3)):
+                (-4.25, -7.55)):
         rt.via(pos, "3V3")
     # VREG single-point ground return: two vias INSIDE the transplanted
     # local GND pour, at the official minimal design's spots (rotated);

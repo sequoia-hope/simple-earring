@@ -184,23 +184,38 @@ def main():
             # (8.55 not 9.2: pads must stay off the r~9.4 annulus the
             # beautified chain arcs sweep between interior LEDs)
             f"C{30 + n_ring + 8}": (7.6, -0.6, 90),    # beside LED44
-            f"C{30 + n_ring + 10}": (3.6, -6.9, 0),    # beside LED45
+            # 4.06 (was 3.6): nudged east in the Aug 5 2026 crystal repack,
+            # clearing the 3225's wider courtyard (Y1 cy right +1.925)
+            f"C{30 + n_ring + 10}": (4.06, -6.9, 0),   # beside LED45
     }.items():
         if ref in fps:
             place(fps[ref], x, y, rot=rot)
 
     # ---------------- MCU + core cluster (front) ----------------
     place(fps["U1"], 0, -0.5, rot=180)  # USB pins (51/52) toward bottom
-    # crystal above MCU (QFN courtyard reaches y=-4.62; keep clear)
-    # Y1 rotated 180 so pad1 (XIN) sits on the right, under MCU pin 21 —
-    # unrotated, XIN/XOUT arrive crossed and jam the crystal channel
-    place(fps["Y1"], 0, -6.7, rot=180)
-    place(fps["C14"], 2.4, -6.7, rot=90)   # XIN load cap, right
-    place(fps["C15"], -4.05, -6.9, rot=90) # XTAL_R load cap, left
-    # R1 rot 270 (not 90): XOUT pad on the chip side of the crystal
-    # channel — facing away, the XOUT link deterministically lost the
-    # single-lane channel under the denser top-left routing
-    place(fps["R1"], -2.4, -6.7, rot=270)  # XOUT series R beside crystal
+    # Crystal pocket — HAND-REPACKED Aug 5 2026 for the ABM8-272-T3 swap.
+    # The RP2350-recommended crystal is a 3225, not the 2520 that used to
+    # sit here: courtyard grew to +-1.925 x +-1.575, which broke the old
+    # arrangement outright (the 2520's caps/R fouled the bigger pads).
+    # These coordinates are MEASURED off Sequoia's routed board, not
+    # re-derived. This is the tightest cluster on the front — every value
+    # is load-bearing, and resolve_overlaps() below is a verified no-op
+    # here (nothing collides), so they pass through unchanged.
+    #
+    # Y1 pushed north to -8.02 (was -6.7) to open room south of it; its
+    # courtyard now spans y -9.595..-6.445. Rotation stays 180 so pad1
+    # (XIN) lands at (+1.1,-8.87) and pad3 (XTAL_R) at (-1.1,-7.17) —
+    # unrotated, XIN/XOUT arrive crossed and jam the crystal channel.
+    place(fps["Y1"], 0, -8.02, rot=180)
+    # C15 / R1 / C14 now sit in ONE ROW at y~-5.9, in the gap between the
+    # crystal and U1 (QFN courtyard top -4.665). Both load caps face their
+    # GND pad outboard and their signal pad inboard, keeping the crystal
+    # loops short and pushing the returns out to the sides.
+    # (C14's odd decimals are inherited from an earlier relaxation drift
+    # and are kept verbatim so the generator reproduces the routed board.)
+    place(fps["C15"], -2.74, -5.9, rot=180)    # XTAL_R load cap, west
+    place(fps["R1"], -0.88, -5.9, rot=0)       # XOUT series R, centre
+    place(fps["C14"], 1.2881, -5.9329, rot=0)  # XIN load cap, east
     # VREG cluster mirrors the official RPI-RP2350A-MINIMAL R4 layout
     # (rotated 180° to match U1): pins 46-50 sit at y=+2.94, x -2.8..-1.2.
     # CIN/COUT are CENTERED on the LX pin column at x=-2.00 exactly like the
@@ -237,11 +252,18 @@ def main():
     # its pad came 0.041 from the committed CHRG_DONE via at (-4.6,1.35).
     # C7/C8 moved from (0,-9.3)/(-2.0,-9.6) to the band's east/west ends:
     # centered they filled the crystal->SW1 corridor wall-to-wall (chrg10
-    # routed both stuck nets with it open). Do NOT flank SW1 instead —
-    # its pad copper is 1.2mm wide at (+-3.7,-11.6), OUTSIDE its
-    # courtyard bbox, and (+-3.6,-11.2) shorted onto it (chrg10's 5-unc
-    # collateral); anything with cy x<3.05 and y<-9.75 hits SW1's
-    # courtyard and gets relaxation-drifted.
+    # routed both stuck nets with it open). They now flank the 3225 crystal
+    # (Y1 cy right +1.925, C7 cy left +2.245 -> 0.32 gap) and C8 is what the
+    # re-scanned 3V3 pocket via at (-4.25,-7.55) in route.py feeds.
+    # The old "do NOT flank SW1" warning STILL APPLIES, with new numbers:
+    # SW1 is the SKRPAME010 at y=-11.2, and its pad copper reaches x
+    # +-2.625 while its courtyard is only +-2.10 — so 0.53mm of copper
+    # sticks out past the courtyard on each side (it was 1.3mm on the old
+    # TS-1101). Anything placed on x 2.10..2.63 at y -12.62..-9.78 clears
+    # the courtyard, survives relaxation, and shorts onto a switch pad.
+    # The courtyard is deliberately NOT widened to cover the pads: at
+    # +-2.75 x +-1.725 it would overlap Y1's courtyard (they sit 0.005mm
+    # apart after the crystal repack) and trip courtyards_overlap.
     DECAP = [(-4.8, -4.55, 90), (4.8, -3.6, 90),
              (-4.8, -2.1, 90), (4.8, -1.2, 90),
              (-4.8, 0.15, 90), (4.8, 1.2, 90),
@@ -257,15 +279,16 @@ def main():
     overhang = design.get("usb", {}).get("overhang_mm", 1.3)
     j1_y = -og["tip_y"] + (5.21 - overhang)  # footprint +y extent = 5.21
     place(fps["J1"], 0, j1_y, rot=0, back=True)  # rot0: pads inboard, mouth out
-    # USB series Rs shifted right of the VREG cluster and the 3V3 access
-    # vias (keep the FB channel at x~-1.15 and the L1 area clear)
-    # (0.45 lower than the pin row allows: their pads pinched the pin-row
-    # escape channel to 0.35mm — traces need 0.404)
-    # R7 (DM) on top, R6 (DP) below: DM escapes from the WEST pin (51) so
-    # it takes the upper row; DP (pin 52) loops east around both. With
-    # R6 on top the two locked escapes would have to cross on F.Cu.
-    place(fps["R7"], 2.1, 4.75, rot=0)    # DM series R
-    place(fps["R6"], 2.1, 5.90, rot=0)    # DP series R below it
+    # USB series Rs: moved to the BACK, alongside the ESD chip and the
+    # connector they serve, instead of the old front spot at (2.1, 4.75/5.90)
+    # right of the VREG cluster. Measured off Sequoia's routed board.
+    # The old front rationale ("R7/DM on top so the two locked escapes don't
+    # cross on F.Cu") is dead with them on B.Cu — the escapes no longer
+    # share a layer with the VREG cluster's front copper at all. The freed
+    # front strip right of the VREG cluster is now unoccupied; if anything
+    # is ever placed back there, keep the FB channel at x~-1.15 clear.
+    place(fps["R7"], -2.56, -12.05, rot=180, back=True)  # DM series R
+    place(fps["R6"], -2.56, -10.90, rot=180, back=True)  # DP series R
     # ESD chip on-axis right behind the connector (back top-center freed
     # by the hanger removal) — also clears the right-edge annulus band the
     # tip ring caps need for their VLED plane vias
@@ -377,15 +400,23 @@ def main():
     # BOOTSEL: small top-actuated switch, front top-center — the spot the
     # hanger used to occupy. Also decongests the bottom-center routing zone
     # (VREG cluster + USB series Rs + 3V3 vias all live there now).
-    # -11.6 (was -11.3): with C7/C8 gone this opens a 1.5mm-tall front
-    # highway (crystal cy -8.25 to SW1 cy -9.75) for the IMU_INT1 run
-    # east; SW1 cy top -13.44 keeps 0.18 to R4/R5 (cy bottom -13.62),
-    # which cannot move tipward — locked USB copper + NPTH pegs.
-    place(fps["SW1"], 0, -11.6, rot=0)
+    # -11.2 (was -11.6), and the part is now the 4-pin SKRPAME010, whose
+    # courtyard (+-2.10 x +-1.60) is smaller than the TS-1101 it replaced.
+    # SW1 cy top -12.8 leaves 0.8 to R4/R5 (cy bottom -13.6), which cannot
+    # move tipward — locked USB copper + NPTH pegs.
+    # NOTE: the old "1.5mm-tall front highway" between the crystal and SW1
+    # is GONE. The taller ABM8 crystal closed it to ~0.005mm (Y1 cy top
+    # -9.595 vs SW1 cy bottom -9.6), so nothing routes up the centre any
+    # more. IMU_INT1, which that corridor existed for, now runs east
+    # instead (x 3.4..8.6). Do NOT re-derive a centre corridor from this
+    # placement — if you need one back, SW1 and Y1 both have to move.
+    place(fps["SW1"], 0, -11.2, rot=0)
     # testpoints: back shoulders, clear of the battery insertion corridor
     # (|x|<10.5, y>9.7) and the clip feet. TP3 sits on the lower-left
     # shoulder (flush pad: may overhang the cell insertion sweep).
-    for i, (x, y) in enumerate([(-11.8, -5.0), (11.8, -5.0), (-12.15, 7.15)]):
+    # TP3 (-11.55, 7.0), was (-12.15, 7.15): pulled inboard off the edge
+    # during the Aug 5 2026 reroute. Measured off the routed board.
+    for i, (x, y) in enumerate([(-11.8, -5.0), (11.8, -5.0), (-11.55, 7.0)]):
         place(fps[f"TP{i+1}"], x, y, back=True)
 
     resolve_overlaps(board, fps)
