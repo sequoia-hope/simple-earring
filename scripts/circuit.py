@@ -216,7 +216,10 @@ def build_circuit(design=None):
 
     # --- RUN / BOOTSEL / SWD ---
     c.add("R2", "r_10k", "10k", {1: "RUN", 2: "3V3"})
-    c.add("SW1", "bootsel_button", "BOOTSEL", {1: "BOOTSEL_SW", 2: "GND"})
+    # SKRPAME010 is a 4-pin tact: 1-2 are one contact, 3-4 the other, so
+    # both pads of each pair carry the same net (redundant, not a short).
+    c.add("SW1", "bootsel_button", "BOOTSEL",
+          {1: "BOOTSEL_SW", 2: "BOOTSEL_SW", 3: "GND", 4: "GND"})
     c.add("R3", "r_1k", "1k", {1: "BOOTSEL", 2: "BOOTSEL_SW"})
     c.add("TP1", "testpoint", "RUN", {1: "RUN"})
     c.add("TP2", "testpoint", "SWCLK", {1: "SWCLK"})

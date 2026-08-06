@@ -108,10 +108,17 @@ battery_clip:
   notes: clip=+ (cell can/sides), center pad=-; cell inserted + marking outward
 
 bootsel_button:
-  mpn: TS-1101-C-W
-  lcsc: C318938
-  footprint: SW-SMD_L6.0-W3.3-LS8.0_TS-1101-C-W
-  verified: yes          # small top-actuated tact, proven on prior earring
+  mpn: SKRPAME010
+  lcsc: C19724063
+  footprint: KEY-SMD_4P-L4.2-W3.2-P2.20-LS4.6
+  verified: check        # ALPS SKRP 4-pin tact; footprint via easyeda2kicad
+  notes: >-
+    Replaces TS-1101-C-W (C318938, 2-pad, 8.0mm land span). Body 4.2x3.2mm,
+    lead span 4.6mm, pads at (+-2.10, +-1.07) — strictly smaller than the
+    part it replaced, so it fits the old placement with room to spare.
+    Pins 1-2 are one contact, 3-4 the other (per the LCSC symbol); confirm
+    against the ALPS drawing before ordering. 3D model is the vendor WRL in
+    parts/, not the easyeda2kicad-generated one.
 
 slide_switch:
   mpn: MSK12C02
