@@ -55,7 +55,8 @@ INDEX_HTML = """<!DOCTYPE html>
   .hint { color:#888; font-size:.75rem; margin-top:10px; }
 </style></head><body>
 <h1>simple_earring — latest outputs <span id="ts"></span>
-  &nbsp;·&nbsp; <a href="review/" style="color:#fc6;font-size:.9rem">layout review 2026-08-06</a></h1>
+  &nbsp;·&nbsp; <a href="review/" style="color:#fc6;font-size:.9rem">layout review 2026-08-06</a>
+  &nbsp;·&nbsp; <a href="review/fixes.html" style="color:#8f8;font-size:.9rem">fix pass + diffs</a></h1>
 <div class="row">
   <figure><img class="rf" id="ptop" src="render_place_top.png"><figcaption>placement preview front (unrouted, updates right after place)</figcaption></figure>
   <figure><img class="rf" id="pbot" src="render_place_bottom.png"><figcaption>placement preview back (unrouted)</figcaption></figure>
