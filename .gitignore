@@ -4,6 +4,7 @@ out/*
 !out/earring.kicad_sch
 !out/earring-best.json
 !out/earring-schematic.pdf
+!out/fp-lib-table
 logs/
 tools/freerouting.jar
 __pycache__/

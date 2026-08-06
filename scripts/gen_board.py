@@ -11,6 +11,7 @@ import pcbnew
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from circuit import build_circuit, load_design  # noqa: E402
+from gen_schematic import FP_LIB, SHEET_UUID, uid  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "out" / "earring.kicad_pcb"
@@ -21,6 +22,28 @@ CENTER = (100.0, 100.0)  # board center in sheet coords, mm
 
 def mm(v):
     return pcbnew.FromMM(v)
+
+
+def write_fp_lib_table():
+    """Register library/parts.pretty so the schematic's "earring:<fp>"
+    footprint references resolve. KiCad looks for this next to the
+    project file, which lives in out/."""
+    (OUT.parent / "fp-lib-table").write_text(
+        "(fp_lib_table\n  (version 7)\n"
+        f'  (lib (name "{FP_LIB}")(type "KiCad")'
+        '(uri "${KIPRJMOD}/../library/parts.pretty")'
+        '(options "")(descr "simple_earring generated footprints"))\n)\n')
+
+
+def link_to_schematic(fp, ref):
+    """Stamp the library nickname and the schematic symbol's UUID path.
+
+    "Update PCB from Schematic" matches footprints to symbols by this
+    path; without it KiCad can't tell that board R10 IS schematic R10.
+    gen_schematic.py derives its UUIDs deterministically, so both sides
+    compute the same value without either having to run first."""
+    fp.SetFPID(pcbnew.LIB_ID(FP_LIB, fp.GetFPID().GetLibItemName()))
+    fp.SetPath(pcbnew.KIID_PATH(f"/{SHEET_UUID}/{uid('sym', ref)}"))
 
 
 def setup_rules(board, design):
@@ -126,6 +149,7 @@ def main():
             continue
         fp.SetReference(ref)
         fp.SetValue(comp.value)
+        link_to_schematic(fp, ref)
         fp.SetField("LCSC", comp.lcsc or "")
         for field in fp.GetFields():
             if field.GetName() in ("LCSC", "Value"):
@@ -144,6 +168,7 @@ def main():
         sys.exit(1)
 
     pcbnew.SaveBoard(str(OUT), board)
+    write_fp_lib_table()
     print(f"wrote {OUT}: {len(cir.components)} footprints, {len(nets)} nets")
 
 

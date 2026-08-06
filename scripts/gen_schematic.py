@@ -33,6 +33,8 @@ OUT = ROOT / "out" / "earring.kicad_sch"
 NS = uuid.UUID("6f1c9d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f")
 SHEET_UUID = uuid.uuid5(NS, "sheet")
 
+FP_LIB = "earring"     # fp-lib-table nickname; gen_board.py writes the
+                       # table and stamps the same nickname on the board
 GRID = 2.54            # KiCad's 100mil pin pitch; everything snaps to it
 FONT = "(effects (font (size 1.27 1.27))"
 
@@ -64,17 +66,19 @@ SECTIONS = [
     ("Debug / test points", ["TP1", "TP2", "TP3"]),
 ]
 
-PAPER = "A2"           # 594 x 420 mm landscape
-PAGE_W, PAGE_H = 594.0, 420.0
+PAPER = "A1"           # 841 x 594 mm landscape — the full 45-LED chain
+PAGE_W, PAGE_H = 841.0, 594.0
 MARGIN_TOP = 42.0      # below the title block text
-MARGIN_BOT = 96.0      # leave the bottom band for the collapsed banks
+MARGIN_BOT = 250.0     # bottom band reserved for the repetitive banks
 COL_W = 92.0           # column pitch: widest box + its labels either side
 COL_X0 = 42.0
 
-# Banks collapsed on the sheet. Every member still exists on the board and
-# in the BOM — the note says how many.
-LED_SHOWN = 2          # first N and last N of the chain
-BANK_NOTE_Y = 300
+# Repetitive banks (LED chain, bypass caps) are drawn in FULL as grids:
+# the sheet drives the PCB, and KiCad deletes board footprints that have
+# no symbol. Grid pitch fits a 4-pin box plus a net label either side.
+BANK_Y = PAGE_H - MARGIN_BOT + 10
+BANK_COLS = 16
+BANK_PITCH_X = 48.0
 
 
 def esc(s):
@@ -130,6 +134,8 @@ class Sch:
                f'\t\t\t(property "Value" "{esc(value)}" '
                f'(at 0 {bot - 2.54:.2f} 0)',
                f'\t\t\t\t{FONT}))',
+               '\t\t\t(property "Footprint" "" (at 0 0 0)',
+               '\t\t\t\t(effects (font (size 1.27 1.27)) (hide yes)))',
                f'\t\t\t(symbol "{esc(name)}_0_1"',
                f'\t\t\t\t(rectangle (start {-half_w:.2f} {top:.2f}) '
                f'(end {half_w:.2f} {bot:.2f})',
@@ -154,7 +160,8 @@ class Sch:
         return self.geom[name]
 
     # -- placed instance ---------------------------------------------
-    def place(self, symname, ref, value, x, y, pins, wide=False):
+    def place(self, symname, ref, value, x, y, pins, wide=False,
+              footprint=""):
         """pins: list of (number, pinname, side, netname)."""
         defpins = [(n, pn, s) for n, pn, s, _ in pins]
         rows, half_w, top = self.define(symname, defpins, value, wide)
@@ -169,6 +176,12 @@ class Sch:
             f'(at {x:.2f} {y - top - 2.54:.2f} 0)\n\t\t\t{FONT}))\n'
             f'\t\t(property "Value" "{esc(value)}" '
             f'(at {x:.2f} {y + top + 2.54:.2f} 0)\n\t\t\t{FONT}))\n'
+            # Footprint is what lets "Update PCB from Schematic" bind a
+            # symbol to a board footprint; without it KiCad reports
+            # "Cannot update <ref> (no footprint assigned)".
+            f'\t\t(property "Footprint" "{FP_LIB}:{esc(footprint)}" '
+            f'(at {x:.2f} {y:.2f} 0)\n'
+            f'\t\t\t(effects (font (size 1.27 1.27)) (hide yes)))\n'
             + "".join(f'\t\t(pin "{esc(n)}" (uuid "{uid("pin", ref, n)}"))\n'
                       for n, _, _, _ in pins)
             + f'\t\t(instances\n\t\t\t(project "earring"\n'
@@ -179,14 +192,21 @@ class Sch:
         right = [p for p in pins if p[2] == "r"]
         for side, group in (("l", left), ("r", right)):
             for i, (num, _, _, net) in enumerate(group):
-                if not net:
-                    continue
                 py = y - (top - GRID - i * GRID)
                 if side == "l":
                     px, rot, just = x - half_w - 2.54, 180, "right"
                 else:
                     px, rot, just = x + half_w + 2.54, 0, "left"
-                self.label(net, px, py, rot, just, uid("lbl", ref, num))
+                if net:
+                    self.label(net, px, py, rot, just, uid("lbl", ref, num))
+                else:
+                    # Unused pin: flag it no-connect rather than leaving it
+                    # dangling. Otherwise the netlist invents a single-pin
+                    # net per pad (U1 alone has 22 unused GPIOs) and ERC
+                    # reports every one of them.
+                    self.body.append(
+                        f'\t(no_connect (at {px:.2f} {py:.2f})\n'
+                        f'\t\t(uuid "{uid("nc", ref, num)}"))')
 
     def label(self, net, x, y, rot, just, u):
         self.body.append(
@@ -303,20 +323,17 @@ def main():
 
     n_leds = design["leds"]["count"]
     led_refs = [f"LED{i+1}" for i in range(n_leds)]
-    shown_leds = led_refs[:LED_SHOWN] + led_refs[-LED_SHOWN:]
-    # bypass caps that ride the LED ring (C30+) — collapsed with the chain
+    # bypass caps that ride the LED ring (C30+)
     ring_caps = [r for r in comps
                  if r.startswith("C") and r[1:].isdigit()
                  and int(r[1:]) >= 30]
-    # decap bank: the 100n caps in the MCU cluster (C1..C10) are the ones
-    # a reader cares about individually; the rest are the ring bypasses.
-    laid_out = {r for _, refs in SECTIONS for r in refs}
 
     sch.text("simple_earring — generated schematic "
              "(regenerate: python3 build.py --only schematic)",
              20, 20, size=3.0, bold=True)
     sch.text("Connections are shown as GLOBAL NET LABELS, not wires — "
-             "same-named labels are the same net. "
+             "same-named labels are the same net. Every component is "
+             "drawn, so this sheet can drive the PCB. "
              "Generated from scripts/circuit.py; do not hand-edit.",
              20, 27, size=1.8)
     sch.text(f"{len(comps)} components / {len(cir.nets)} nets / "
@@ -350,62 +367,71 @@ def main():
                 comp.part, [(n, pn, s) for n, pn, s, _ in pins],
                 comp.value, comp.part == "mcu")
             sch.place(comp.part, ref, comp.value, sx, cursor + top + 2.54,
-                      pins, wide=comp.part == "mcu")
+                      pins, wide=comp.part == "mcu",
+                      footprint=comp.footprint)
             cursor += h
         cursor += 8.0
 
-    # ---- LED chain (collapsed) ----
-    lx, ly = COL_X0, PAGE_H - MARGIN_BOT + 34
-    sch.text("LED ring — SK6805-EC10 addressable chain", lx - 20, ly - 14,
-             size=2.0, bold=True)
-    x = lx
-    for i, ref in enumerate(shown_leds):
-        comp = comps[ref]
-        pins = pin_sides(comp, comp.pins)
-        sch.place(comp.part, ref, comp.value, x, ly, pins)
-        x += 46
-        if i == LED_SHOWN - 1:
-            sch.text(f"···  LED{LED_SHOWN+1}..LED{n_leds-LED_SHOWN} "
-                     f"({n_leds - 2*LED_SHOWN} more, identical)  ···",
-                     x - 4, ly, size=1.6, bold=True)
-            x += 66
-    sch.wrapped(
-        f"{n_leds} LEDs total: {design['leds']['ring_count']} on the "
-        f"perimeter + 3 tip chevron + {design['leds'].get('inner_count', 0)}"
-        " interior. DOUT(n) -> DIN(n+1) as LED_D<n>; chain head LED_D0 "
-        f"comes from U1. VDD = VLED (switched VBATT via U4), GND common. "
-        f"{len(ring_caps)} x 100n bypass caps ride the ring (one per 2 "
-        f"LEDs): {ring_caps[0]}..{ring_caps[-1]}, each VLED-GND.",
-        lx - 20, ly + 26, 2.5 * COL_W, size=1.5)
+    # ---- repetitive banks: drawn in FULL, laid out as grids ----
+    # These were collapsed to a representative + a note when the sheet was
+    # documentation-only. It has to drive the PCB ("Update PCB from
+    # Schematic"), and KiCad offers to DELETE any board footprint with no
+    # matching symbol — so every component gets drawn, banks included.
+    placed = {r for _, refs in SECTIONS for r in refs} & set(comps)
+    banks = [
+        ("LED ring — SK6805-EC10 chain (DOUT n -> DIN n+1 = LED_D<n>; "
+         "head LED_D0 from U1; VDD = VLED)", led_refs),
+        ("LED ring bypass caps — one per 2 LEDs, VLED-GND", ring_caps),
+        ("MCU decoupling — 3V3-GND, one per IOVDD/OTP_VDD/QSPI_IOVDD/"
+         "ADC_AVDD pin", [r for r in comps if r.startswith("C")
+                          and r[1:].isdigit() and int(r[1:]) <= 10]),
+    ]
+    gy = BANK_Y
+    for title, refs in banks:
+        refs = [r for r in refs if r in comps and r not in placed]
+        if not refs:
+            continue
+        sch.text(f"{title}  [{len(refs)}]", COL_X0 - 20, gy, size=2.0,
+                 bold=True)
+        gy += 9.0
+        rowh = 0.0
+        for i, ref in enumerate(refs):
+            comp = comps[ref]
+            pins = pin_sides(comp, comp.pins)
+            _, _, top = sch.define(
+                comp.part, [(n, pn, s) for n, pn, s, _ in pins],
+                comp.value, False)
+            cx = i % BANK_COLS
+            cy = i // BANK_COLS
+            rowh = (top * 2) + 10.16
+            sch.place(comp.part, ref, comp.value,
+                      COL_X0 + cx * BANK_PITCH_X,
+                      gy + top + 2.54 + cy * rowh,
+                      pins, footprint=comp.footprint)
+            placed.add(ref)
+        gy += ((len(refs) - 1) // BANK_COLS + 1) * rowh + 10.0
 
-    # ---- decoupling bank (collapsed) ----
-    dx, dy = COL_X0 + 3 * COL_W, PAGE_H - MARGIN_BOT + 34
-    sch.text("Decoupling (MCU cluster)", dx - 20, dy - 14, size=2.0,
-             bold=True)
-    mcu_decaps = [r for r in comps
-                  if r.startswith("C") and r[1:].isdigit()
-                  and int(r[1:]) <= 10]
-    if mcu_decaps:
-        comp = comps[mcu_decaps[0]]
-        pins = pin_sides(comp, comp.pins)
-        sch.place(comp.part, mcu_decaps[0], comp.value, dx, dy, pins)
-        sch.text(f"x{len(mcu_decaps)} in parallel 3V3-GND: "
-                 f"{', '.join(mcu_decaps)} — one per IOVDD/OTP_VDD/"
-                 "QSPI_IOVDD/ADC_AVDD pin.", dx + 20, dy, size=1.5)
-
-    # anything not placed anywhere: list it so the sheet is honest about
-    # what it is not showing
-    placed = set(laid_out) | set(shown_leds) | set(mcu_decaps)
     missing = sorted(r for r in comps if r not in placed)
-    if missing:
-        sch.wrapped("Not drawn individually (all present on the board and "
-                    "in the BOM): " + summarize(missing),
-                    dx - 20, dy + 16, 2.2 * COL_W, size=1.3)
+    assert not missing, ("every component must be drawn or the PCB link "
+                         f"breaks; missing: {missing}")
 
     OUT.parent.mkdir(exist_ok=True)
     OUT.write_text(sch.render())
     print(f"wrote {OUT}: {len(sch.lib)} symbols, "
           f"{len(comps)} components, {len(cir.nets)} nets")
+    # Register the root sheet in the project file, else KiCad opens the
+    # project with an empty sheet list and "Update PCB from Schematic"
+    # has nothing to read.
+    pro = OUT.parent / "earring.kicad_pro"
+    if pro.exists():
+        import json
+        d = json.loads(pro.read_text())
+        want = [[str(SHEET_UUID), ""]]
+        if d.get("sheets") != want:
+            d["sheets"] = want
+            pro.write_text(json.dumps(d, indent=2))
+            print(f"  registered root sheet in {pro.name}")
+
     # SVG + PDF beside it: the .kicad_sch needs KiCad to open, but the
     # review dashboard is a browser on :8618, so it links these.
     import subprocess
