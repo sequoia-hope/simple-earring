@@ -4,11 +4,14 @@
 LED ring + back-side passives.** Review surface: the web dashboard
 (`out/index.html`), served locally on port 8618.
 
-**NEXT (2026-08-05): see `docs/HANDOFF.md`** — back-port Sequoia's hand edits
-(USB diff pair, fat USB power, under-CPU cleanup), LED + RP2354A out-of-stock
-replacements (RP2350A + QSPI flash), 4-layer attempt for faster JLC lead
-time (tight timeline; 6-layer fallback), and schematic generation. The tracked
-`out/earring.kicad_pcb` contains hand edits a rebuild would destroy.
+**CURRENT (2026-08-05): 4-LAYER PARTIAL, hand-routing in progress.**
+The revision moved to RP2350A + external W25Q16JV QSPI flash and
+SK6805-EC10 LEDs (both originals went out of stock), and to a 4-layer
+stackup for JLC lead time. Auto-routing plateaus at 8 unconnected / 0 DRC
+errors, so the best attempt was handed to Sequoia to finish by hand:
+see **`docs/PUNCHLIST-4layer.md`**. `out/earring.kicad_pcb` is hand-edited
+copper — a rebuild destroys it. All of docs/HANDOFF.md is complete.
+There is now a generated schematic at `out/earring.kicad_sch`.
 
 ## Current state
 

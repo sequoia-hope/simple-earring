@@ -1,4 +1,18 @@
-# HANDOFF — next revision tasks (written 2026-08-05, for the next agent session)
+# HANDOFF — ALL FIVE TASKS COMPLETE (2026-08-05)
+
+> **Status: done.** 1 back-port `377d81b` · 3 RP2350A+flash `c4c675f` ·
+> 2 LED swap `4428941` · 4 schematic `a5cc59e` · 5 4-layer `0513be3`.
+> The 4-layer attempt did not converge and was handed to Sequoia as a
+> partial board at his request — see **`docs/PUNCHLIST-4layer.md`**, which
+> supersedes Task 5 below. `out/earring.kicad_pcb` is now hand-routed
+> territory: do not rebuild over it.
+>
+> The task descriptions below are kept for the reasoning and the
+> landmines, not as a work queue.
+
+---
+
+# (original) next revision tasks, written 2026-08-05
 
 Context: Sequoia hand-edited the routed board in KiCad and we started tracking
 PCB versions in git. This doc is the work queue for the next session. Read
