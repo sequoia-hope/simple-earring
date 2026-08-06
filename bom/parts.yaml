@@ -82,11 +82,27 @@ usb_esd:
   verified: prior        # earring
 
 crystal:
-  mpn: TXM12M0004252FBCEO00T
-  lcsc: C284155
-  footprint: Crystal_SMD_2520-4Pin_2.5x2.0mm
-  verified: prior        # earring; 12MHz 12pF SMD2520-4P
-  notes: pins 1/3 = crystal, 2/4 = GND (verify pad map at board gen)
+  mpn: ABM8-272-T3
+  lcsc: C20625731
+  footprint: Crystal_SMD_3225-4Pin_3.2x2.5mm_ABM8
+  verified: yes          # Aug 5 2026: the part RPi specifies, guide §4.1
+  notes: >-
+    Abracon ABM8-272-T3, 12MHz, +-30ppm, CL 10pF, max ESR 50R, 3.2x2.5mm.
+    Pins 1/3 = crystal terminals (diagonal), 2/4 = GND/shield — same
+    convention as the 2520 it replaced, so the netlist was unchanged.
+    Land pattern copied exactly from the official RPI-RP2350A-MINIMAL R4
+    board in docs/ (generic_xtalcc320x250x80-4).
+    WHY THIS PART: was C284155 (Yajingxin TXM12M0004252FBCEO00T, 2520)
+    until Aug 5 2026. That crystal is CL 12pF / max ESR 120R, but C14/C15
+    (15p) and R1 (1k) were copied from the RP2350 guide, which derives them
+    for a CL 10pF / ESR<=50R crystal: 15p/2 + 3p stray = 10.5pF ~ 10pF, and
+    1k is sized not to over-drive a <=50R crystal at 3.3V IOVDD. Against a
+    12pF/120R part the caps ran it fast (needs 18p) and the 1k ate startup
+    margin at cold. JLCPCB flagged it ("does not use the recommended crystal
+    and polarised inductor circuitry"). Switching the crystal makes the
+    existing 15p/1k correct again — do NOT retune them.
+    A drop-in 2520 was not an option: at 12MHz the smaller blank runs
+    ~100R+ ESR, which is why RPi chose a 3225.
 
 vreg_inductor:
   mpn: AOTA-B201610S3R3-101-T
