@@ -1,6 +1,7 @@
 out/*
 !out/earring.kicad_pcb
 !out/earring.kicad_pro
+!out/earring.kicad_dru
 !out/earring.kicad_sch
 !out/earring-best.json
 !out/earring-schematic.pdf

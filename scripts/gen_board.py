@@ -53,11 +53,16 @@ def setup_rules(board, design):
     bds.m_ViasMinSize = mm(j["via_diameter_mm"])
     bds.m_MinThroughDrill = mm(j["via_drill_mm"])
     bds.m_MinClearance = mm(j["min_clearance_mm"])
-    bds.m_HoleClearance = mm(0.15)  # freerouting only honors net clearance;\n    # its 0.127 spacing to the shell slots yields ~0.18 hole-copper
-    bds.m_ViasMinAnnularWidth = mm(0.05)  # USB shell slot pads are 0.05
-    # 0.1: the USB shell pads and side-button pads legitimately live at the
-    # edge (connector overhangs); JLC tolerates this.
-    bds.m_CopperEdgeClearance = mm(0.1)
+    # JLC 4-layer limits (capabilities page, checked 2026-08-07). Freerouting
+    # only honors net clearance, so a fresh auto-route can land ~0.18mm
+    # hole-to-copper at the USB shell slots — DRC will catch it; nudge by hand.
+    # PTH-specific tighter limits (0.28 hole-copper, 0.45 hole-hole) live in
+    # out/earring.kicad_dru.
+    bds.m_HoleClearance = mm(0.2)
+    bds.m_HoleToHoleMin = mm(0.2)
+    bds.m_ViasMinAnnularWidth = mm(0.05)  # JLC via min; USB shell slots are 0.05
+    bds.m_CopperEdgeClearance = mm(0.2)
+    bds.m_SolderMaskMinWidth = mm(0.1)  # JLC min mask dam
     ns = bds.m_NetSettings
     default = ns.GetDefaultNetclass()
     default.SetTrackWidth(mm(j["default_track_mm"]))
