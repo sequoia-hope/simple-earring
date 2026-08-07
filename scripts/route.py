@@ -499,7 +499,8 @@ def main():
     rt.via((-5.40, -8.75), "USB_C_DP")
     rt.via((-2.35, -13.45), "VBUS")  # via-in-pad on tie A4B9
     rt.via((0.92, -11.50), "VBUS")   # via-in-pad on U5.5 (tented)
-    rt.via((2.35, -13.45), "VBUS")   # via-in-pad on tie B4A9
+    rt.via((2.20, -12.99), "VBUS")   # SE of tie B4A9 — Sequoia moved it
+    # off-pad (Aug 7) to clear the tip; the tie pad still joins the trunk
     from outline import outline_points, offset_polygon
     margin = design["leds"]["ring_margin_mm"]
     outer = outline_points(design, 100)

@@ -172,6 +172,9 @@ def main():
             print(f"ERROR: footprint not found: {ref} -> {f}")
         sys.exit(1)
 
+    import silk_art
+    silk_art.add_art(board)
+
     pcbnew.SaveBoard(str(OUT), board)
     write_fp_lib_table()
     print(f"wrote {OUT}: {len(cir.components)} footprints, {len(nets)} nets")
