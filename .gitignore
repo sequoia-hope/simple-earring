@@ -6,6 +6,8 @@ out/*
 !out/earring-best.json
 !out/earring-schematic.pdf
 !out/fp-lib-table
+!out/production/
+out/production/backups/
 logs/
 tools/freerouting.jar
 __pycache__/
