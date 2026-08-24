@@ -131,11 +131,20 @@ vreg_inductor:
     pad 1. Still worth an eyeball on the JLC assembly preview before ordering.
 
 battery_clip:
-  mpn: CR2032-W
-  lcsc: C70373
-  footprint: BAT_CR2032_W
-  verified: yes          # datasheet fetched, footprint generated from drawing
-  notes: clip=+ (cell can/sides), center pad=-; cell inserted + marking outward
+  mpn: MY-2032-12-R
+  lcsc: C964834
+  footprint: BAT_MY2032_12R
+  verified: yes          # datasheet MY-CP-0120 fetched; flat-foot SMD, no holes
+  notes: >-
+    clip=+ (cell can/sides), center pad=-; cell inserted + marking outward.
+    Replaces QIJEY CR2032-W (C70373): that drawing's Ø3.5/3.6 holes are NOT
+    optional — its feet are bent for reverse-side soldering, and we can't
+    drill under the clip (LED ring on the front). Ordered rev 43eadc1 shipped
+    with the QIJEY footprint; salvage = flatten QIJEY feet or fit this part
+    (feet span 10.65..12.05, pads 10.9..13.9 -> 1.15mm on-pad) or DigiKey
+    MPD BC-2003 (feet to 12.7 -> 1.8mm on-pad). Copper kept identical to
+    ordered rev; rev-2 TODO: stretch pads inward toward datasheet land
+    (2.4x6.1 at +-11.35).
 
 bootsel_button:
   mpn: SKRPAME010

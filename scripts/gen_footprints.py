@@ -14,6 +14,20 @@
    cell's positive can sides) and an 8mm exposed-copper center pad (pin 2,
    battery − face). Datasheet's optional through-holes omitted: front side
    carries the LED ring, so no through-holes allowed under the clip feet.
+   RETIRED Aug 2026: the drawing's holes are NOT optional — the feet are
+   bent (弯脚) for through-hole reverse-side soldering; on a hole-less board
+   the clip rides on its foot tips and won't clamp the cell. Kept only
+   because the ordered rev (43eadc1) was fabbed with this footprint.
+
+3. BAT_MY2032_12R — MYOUNG MY-2032-12-R SMD retainer clip (LCSC C964834)
+   Flat-foot replacement for the QIJEY: no holes needed, so it coexists
+   with the front-side LED ring. Drawing MY-CP-0120: 24.1mm tip-to-tip,
+   body 15.22mm wide (wings stay inside the 20mm cell shadow — feet are
+   the only board contact), 3.6mm tall. Datasheet land: 2.4x6.1mm pads at
+   ±11.35 (foot metal spans 10.65..12.05). Copper here is kept IDENTICAL
+   to BAT_CR2032_W (3.0x4.5 pads at ±12.4, spanning 10.9..13.9) so the
+   routed/ordered layout is unchanged: 1.15mm of each foot lands on-pad.
+   Rev-2 TODO: widen pads inward to ~10.15 to match the datasheet land.
 """
 from pathlib import Path
 
@@ -139,6 +153,65 @@ def bat_cr2032_w():
     print("wrote BAT_CR2032_W.kicad_mod")
 
 
+def bat_my2032_12r():
+    foot_x = 12.4  # SAME copper as BAT_CR2032_W — see module docstring
+    lines = []
+    # cell outline on silk (20.3mm circle) + polarity marks
+    lines.append(
+        "  (fp_circle (center 0 0) (end 10.15 0)"
+        ' (stroke (width 0.15) (type default)) (fill none) (layer "F.SilkS"))'
+    )
+    # courtyard: disjoint feet rects + cell circle (see BAT_CR2032_W note).
+    # Feet rects trimmed to the shorter body: tips at ±12.05, pads to 13.9.
+    lines.append(
+        "  (fp_rect (start -14.1 -3.4) (end -10.5 3.4)"
+        ' (stroke (width 0.05) (type default)) (fill none) (layer "F.CrtYd"))'
+    )
+    lines.append(
+        "  (fp_rect (start 10.5 -3.4) (end 14.1 3.4)"
+        ' (stroke (width 0.05) (type default)) (fill none) (layer "F.CrtYd"))'
+    )
+    lines.append(
+        "  (fp_circle (center 0 0) (end 10.4 0)"
+        ' (stroke (width 0.05) (type default)) (fill none) (layer "F.CrtYd"))'
+    )
+    lines.append(
+        '  (fp_text user "+" (at 0 -11.5) (layer "F.SilkS")'
+        " (effects (font (size 1 1) (thickness 0.2))))"
+    )
+    pads = [
+        pad_smd(1, -foot_x, 0, 3.0, 4.5),
+        pad_smd(1, foot_x, 0, 3.0, 4.5),
+        # center contact: bare copper, no paste
+        '  (pad "2" smd circle (at 0 0) (size 8 8) (layers "F.Cu" "F.Mask"))',
+    ]
+    model = ['  (model "${KIPRJMOD}/../library/3d/ee.3dshapes/BAT-SMD_MY-2032-12_C964834.wrl"',
+             "    (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))"]
+    texts = [
+        '  (fp_text reference "REF**" (at 0 -13.2) (layer "F.SilkS")'
+        " (effects (font (size 1 1) (thickness 0.15))))",
+        '  (fp_text value "MY-2032-12-R" (at 0 13.2) (layer "F.Fab")'
+        " (effects (font (size 1 1) (thickness 0.15))))",
+    ]
+    content = "\n".join(
+        [
+            '(footprint "BAT_MY2032_12R"',
+            "  (version 20240108) (generator gen_footprints)",
+            '  (layer "F.Cu")',
+            '  (descr "MYOUNG MY-2032-12-R SMD coin cell retainer clip, LCSC C964834. Clip=+ (pin1), center pad=- (pin2). Flat feet, no thru-holes. Copper identical to BAT_CR2032_W (ordered rev).")',
+            '  (tags "battery LIR2032 CR2032 retainer")',
+            "  (attr smd)",
+        ]
+        + texts
+        + lines
+        + pads
+        + model
+        + [")"]
+    )
+    (LIB / "BAT_MY2032_12R.kicad_mod").write_text(content)
+    print("wrote BAT_MY2032_12R.kicad_mod")
+
+
 def hanger_loop(hole=1.5, pad=2.7):
     """Plated ear-wire loop hole; annular copper both sides for strength."""
     content = "\n".join([
@@ -165,4 +238,5 @@ def hanger_loop(hole=1.5, pad=2.7):
 if __name__ == "__main__":
     led_tba_c1010()
     bat_cr2032_w()
+    bat_my2032_12r()
     hanger_loop()

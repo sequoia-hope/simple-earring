@@ -24106,177 +24106,6 @@
 		)
 		(embedded_fonts no)
 	)
-	(footprint "earring:BAT_CR2032_W"
-		(layer "B.Cu")
-		(uuid "89ca1d10-91c6-4d09-b574-f7f7b6116097")
-		(at 100 100 180)
-		(descr "QIJEY CR2032-W SMD coin cell retainer clip, LCSC C70373. Clip=+ (pin1), center pad=- (pin2). Cell + marking faces out.")
-		(tags "battery LIR2032 CR2032 retainer")
-		(property "Reference" "BT1"
-			(at 0 13.2 0)
-			(layer "B.SilkS")
-			(hide yes)
-			(uuid "ed698a19-9365-43cd-813b-9808f3799139")
-			(effects
-				(font
-					(size 0.5 0.5)
-					(thickness 0.1)
-				)
-				(justify mirror)
-			)
-		)
-		(property "Value" "LIR2032"
-			(at 0 -13.2 0)
-			(layer "B.Fab")
-			(hide yes)
-			(uuid "16f6ebd2-3473-4e09-9f2c-16c0e73c5877")
-			(effects
-				(font
-					(size 1 1)
-					(thickness 0.15)
-				)
-				(justify mirror)
-			)
-		)
-		(property "Datasheet" ""
-			(at 0 0 0)
-			(layer "B.Fab")
-			(hide yes)
-			(uuid "5978710f-9a61-4257-b044-079c4a654abd")
-			(effects
-				(font
-					(size 1.27 1.27)
-					(thickness 0.15)
-				)
-				(justify mirror)
-			)
-		)
-		(property "Description" ""
-			(at 0 0 0)
-			(layer "B.Fab")
-			(hide yes)
-			(uuid "bbb9ce00-31bf-4de5-ae5e-1e6ee2758c4a")
-			(effects
-				(font
-					(size 1.27 1.27)
-					(thickness 0.15)
-				)
-				(justify mirror)
-			)
-		)
-		(property "LCSC" "C70373"
-			(at 0 0 0)
-			(layer "B.SilkS")
-			(hide yes)
-			(uuid "79f71c9c-6e0f-4c10-b840-14a47d72f0a9")
-			(effects
-				(font
-					(size 1.27 1.27)
-					(thickness 0.15)
-				)
-				(justify mirror)
-			)
-		)
-		(path "/fa63491a-e63c-5c74-8738-b911379a397a")
-		(sheetname "/")
-		(sheetfile "earring.kicad_sch")
-		(attr smd)
-		(fp_circle
-			(center 0 0)
-			(end 10.15 0)
-			(stroke
-				(width 0.15)
-				(type default)
-			)
-			(fill no)
-			(layer "B.SilkS")
-			(uuid "d3d38ccf-52b5-4231-8d67-c9f7c3ccd3fa")
-		)
-		(fp_rect
-			(start 10.5 3.4)
-			(end 14.1 -3.4)
-			(stroke
-				(width 0.05)
-				(type default)
-			)
-			(fill no)
-			(layer "B.CrtYd")
-			(uuid "67047cf5-7a8c-47f4-9ae1-96bc76575c26")
-		)
-		(fp_rect
-			(start -14.1 3.4)
-			(end -10.5 -3.4)
-			(stroke
-				(width 0.05)
-				(type default)
-			)
-			(fill no)
-			(layer "B.CrtYd")
-			(uuid "b4ddd41d-4e55-4d70-a60c-957051711ae2")
-		)
-		(fp_circle
-			(center 0 0)
-			(end 10.4 0)
-			(stroke
-				(width 0.05)
-				(type default)
-			)
-			(fill no)
-			(layer "B.CrtYd")
-			(uuid "6093e903-c7c7-48a1-b732-fcd0a9b5dd85")
-		)
-		(fp_text user "+"
-			(at 0 11.5 0)
-			(layer "B.SilkS")
-			(uuid "a2bb2bcb-390f-4331-8a49-44f3c01db3e1")
-			(effects
-				(font
-					(size 1 1)
-					(thickness 0.2)
-				)
-				(justify mirror)
-			)
-		)
-		(pad "1" smd rect
-			(at -12.4 0 180)
-			(size 3 4.5)
-			(layers "B.Cu" "B.Mask" "B.Paste")
-			(net 71 "VBATT")
-			(pinfunction "1")
-			(pintype "passive")
-			(uuid "9b01bddf-9c05-489c-8e82-61e1d377e4da")
-		)
-		(pad "1" smd rect
-			(at 12.4 0 180)
-			(size 3 4.5)
-			(layers "B.Cu" "B.Mask" "B.Paste")
-			(net 71 "VBATT")
-			(pinfunction "1")
-			(pintype "passive")
-			(uuid "e3680a87-37cb-4890-9dc5-b557163a8716")
-		)
-		(pad "2" smd circle
-			(at 0 0 180)
-			(size 8 8)
-			(layers "B.Cu" "B.Mask")
-			(net 8 "GND")
-			(pinfunction "2")
-			(pintype "passive")
-			(uuid "44aaf168-6224-46d5-bdce-5182bc8052a0")
-		)
-		(embedded_fonts no)
-		(model "${KIPRJMOD}/../library/3d/ee.3dshapes/BAT-SMD_CR2032_C70373.wrl"
-			(offset
-				(xyz 0 0 0)
-			)
-			(scale
-				(xyz 1 1 1)
-			)
-			(rotate
-				(xyz 0 0 180)
-			)
-		)
-	)
 	(footprint "earring:C_0402_1005Metric"
 		(layer "B.Cu")
 		(uuid "8eec9bd5-c1cf-4428-bffa-91173d1f9fdc")
@@ -25790,6 +25619,167 @@
 		)
 		(embedded_fonts no)
 		(model "${KIPRJMOD}/../library/3d/ee.3dshapes/LGA-14_L2.5-W3.0-H0.9-P0.50.wrl"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
+			)
+		)
+	)
+	(footprint "earring:BAT_MY2032_12R"
+		(layer "B.Cu")
+		(uuid "c78b1b64-e2ba-4c69-9f79-4f4d4be8c61e")
+		(at 100 100 180)
+		(descr "MYOUNG MY-2032-12-R SMD coin cell retainer clip, LCSC C964834. Clip=+ (pin1), center pad=- (pin2). Flat feet, no thru-holes. Copper identical to BAT_CR2032_W (ordered rev).")
+		(tags "battery LIR2032 CR2032 retainer")
+		(property "Reference" "BT1"
+			(at 0 13.2 0)
+			(layer "B.SilkS")
+			(hide yes)
+			(uuid "d28b18c2-da11-49ab-bc82-7b6bbb2e81b1")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Value" "LIR2032"
+			(at 0 -13.2 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "e91ecb33-3c91-4afa-83d2-b80b13ceda50")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Datasheet" ""
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "0f0c81b5-ee6a-4dd5-a9e6-87d3ecbdf157")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Description" ""
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "5d8619f2-ac35-4daf-a4fc-76330fa01cd4")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "LCSC" "C964834"
+			(at 0 0 0)
+			(layer "B.SilkS")
+			(hide yes)
+			(uuid "206b130c-c1a8-4182-82f2-c127bfc4d87a")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+			)
+		)
+		(attr smd)
+		(fp_circle
+			(center 0 0)
+			(end 10.15 0)
+			(stroke
+				(width 0.15)
+				(type default)
+			)
+			(fill no)
+			(layer "B.SilkS")
+			(uuid "aec28cec-560f-4e53-a5cc-ce25bf923cb9")
+		)
+		(fp_rect
+			(start 10.5 3.4)
+			(end 14.1 -3.4)
+			(stroke
+				(width 0.05)
+				(type default)
+			)
+			(fill no)
+			(layer "B.CrtYd")
+			(uuid "f47c2cae-74d3-45ca-a636-a567537ac229")
+		)
+		(fp_rect
+			(start -14.1 3.4)
+			(end -10.5 -3.4)
+			(stroke
+				(width 0.05)
+				(type default)
+			)
+			(fill no)
+			(layer "B.CrtYd")
+			(uuid "99ffb87f-1d26-4c71-bef5-3912caf124ea")
+		)
+		(fp_circle
+			(center 0 0)
+			(end 10.4 0)
+			(stroke
+				(width 0.05)
+				(type default)
+			)
+			(fill no)
+			(layer "B.CrtYd")
+			(uuid "3d049113-a931-4ffd-93eb-2066fbe9e4d6")
+		)
+		(fp_text user "+"
+			(at 0 11.5 0)
+			(layer "B.SilkS")
+			(uuid "8669e666-02bf-4008-9f1d-e4396a1630cd")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.2)
+				)
+				(justify mirror)
+			)
+		)
+		(pad "1" smd rect
+			(at -12.4 0 180)
+			(size 3 4.5)
+			(layers "B.Cu" "B.Mask" "B.Paste")
+			(net 71 "VBATT")
+			(uuid "5f5cb618-a419-4944-9dff-6a30f39d8495")
+		)
+		(pad "1" smd rect
+			(at 12.4 0 180)
+			(size 3 4.5)
+			(layers "B.Cu" "B.Mask" "B.Paste")
+			(net 71 "VBATT")
+			(uuid "b72b6472-27a5-4f6e-ab25-a482c7ba3b9b")
+		)
+		(pad "2" smd circle
+			(at 0 0 180)
+			(size 8 8)
+			(layers "B.Cu" "B.Mask")
+			(net 8 "GND")
+			(uuid "53841ae1-2a37-4144-9b5b-d217a82d5a0e")
+		)
+		(embedded_fonts no)
+		(model "${KIPRJMOD}/../library/3d/ee.3dshapes/BAT-SMD_MY-2032-12_C964834.wrl"
 			(offset
 				(xyz 0 0 0)
 			)
