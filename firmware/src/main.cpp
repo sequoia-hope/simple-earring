@@ -78,7 +78,7 @@ void setup() {
   digitalWrite(PIN_LED_EN, HIGH);
   delay(10);
   strip.begin();
-  strip.setBrightness(30); // global cap keeps the coin cell honest
+  strip.setBrightness(40); // global cap keeps the coin cell honest
   strip.show();
 }
 
@@ -114,10 +114,11 @@ void loop() {
     shake += (jolt > shake ? 0.5f : 0.05f) * (jolt - shake);
   }
 
-  // in-plane "down" direction (unit), degenerate when face-flat
+  // in-plane "down" direction (unit), degenerate when face-flat.
+  // accel reads +1g on the axis pointing UP, so down = -accel.
   float gxy = sqrtf(fx * fx + fy * fy);
   float dx = 0, dy = -1;
-  if (gxy > 100.0f) { dx = fx / gxy; dy = fy / gxy; }
+  if (gxy > 100.0f) { dx = -fx / gxy; dy = -fy / gxy; }
   float plane = fminf(gxy / 1000.0f, 1.0f); // arc contrast fades face-flat
 
   // hue from out-of-plane tilt, distinct endpoints:
@@ -129,9 +130,13 @@ void loop() {
 
   for (uint16_t i = 0; i < N_LEDS; i++) {
     float align = LED_UX[i] * dx + LED_UY[i] * dy; // 1 = pointing at floor
-    float a3 = align > 0 ? align * align * align : 0;
-    float v = 40 + plane * a3 * 170 + sh * 120;
-    strip.setPixelColor(i, strip.ColorHSV(hue, sat,
+    // sharp white arc, ~+-45 deg wide (cos45 = 0.707 threshold)
+    float a = (align - 0.7f) / 0.3f;
+    if (a < 0) a = 0;
+    float arc = a * a * plane;
+    float v = 14 + arc * 241 + sh * 120;
+    uint8_t sat_i = (uint8_t)fmaxf((float)sat - arc * 220.0f, 35.0f);
+    strip.setPixelColor(i, strip.ColorHSV(hue, sat_i,
                                           (uint8_t)fminf(v, 255.0f)));
   }
   strip.show();
