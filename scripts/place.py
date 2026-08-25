@@ -336,7 +336,7 @@ def main():
     # cell disc (r 10.49 > 10.45), knob overhangs 1.23mm.
     nx_, ny_ = 0.833, 0.553             # inward normal of the left straight
     l4x, l4y = pts[3]                   # LED4 (path-derived, margin 2.0)
-    place(fps["SW2"], l4x + 0.30 * nx_, l4y + 0.30 * ny_, rot=56.4, back=True)
+    place(fps["SW2"], l4x + 0.30 * nx_, l4y + 0.30 * ny_, rot=56.0, back=True)
 
     # ---------------- IMU (back, right tip straight, opposite SW2) ----------
     # Mirror of SW2's anchor across x=0; rot=-56.4 mirrors SW2's scan-found
@@ -345,14 +345,18 @@ def main():
     # the 2.5mm-across LGA, inboard face at r~12 — outside the cell disc.
     ux_, uy_ = 0.553, 0.833             # along the right straight, downhill
     imu_x, imu_y = -(l4x + 0.30 * nx_), l4y + 0.30 * ny_
-    place(fps["U6"], imu_x, imu_y, rot=-56.4, back=True)
+    place(fps["U6"], imu_x, imu_y, rot=-56.0, back=True)
     # VDD decap up-straight of the IMU, VDDIO decap radially inboard of it
     # (measured courtyards: IMU across-half 1.25, 0402 across-half 0.47 ->
     # 2.1mm center offset leaves 0.38 gap; C24 lands at r11.5, off the
     # cell disc)
-    place(fps["C23"], imu_x + 2.2 * ux_, imu_y + 2.2 * uy_, rot=-56.4,
-          back=True)
-    place(fps["C24"], imu_x - 1.75, imu_y + 1.16, rot=-56.4, back=True)
+    # C23/C24: coordinates back-ported from the ORDERED board (43eadc1)
+    # rather than the old formula+relaxer spots — the formula landed C23
+    # 0.3mm off and, with the rot drift below, 0.15mm-violating U6's NC
+    # pads. Rotations are 56.0, not 56.4: the ordered board (DRC 0/0)
+    # was built with 56.0; the committed 56.4 was never what shipped.
+    place(fps["C23"], 10.054, -8.274, rot=-56.0, back=True)
+    place(fps["C24"], 6.767, -8.946, rot=124.0, back=True)
     # Relocated passives, back east pocket, rot=90 single-file rows (0402
     # courtyards are 1.86x0.94 — rot90 packs 1.3mm x-pitch): clear of the
     # battery insertion sweep (y<0), the cell disc, U5, the locked USB

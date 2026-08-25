@@ -435,68 +435,29 @@ def main():
     # the escapes stay planar. VBUS's ties would be walled in by the DP
     # tip bypass, so it gets a locked link too: via-in-pad on U5.5 (same
     # trick as C30) and an F.Cu trunk over U5's body joining both ties.
+    # GROUND TRUTH (back-ported Aug 25 from the ordered board 43eadc1):
+    # the shipped, DRC-0/0 board locks ONLY these five stubs — the
+    # duplicate-pad joins at the connector plus DP's rise through B6.
+    # Freerouting owns the whole J1->U5->R6/R7->U1 run beyond them. The
+    # previous 30-segment "canonical pair" table in this file was a
+    # STALE earlier iteration (its west rail razed straight through
+    # R6/R7's current back-side pads -> shorting_items -> freerouting
+    # burned its full budget; the ordered board never contained it).
     USB_PAIR = {
         "USB_C_DN": [
-            # J1's pad row + tie pads + shell legs form an unbroken wall
-            # across the back at y -14.8..-13.4 — the ONLY legal vertical
-            # corridors are through your own net's pads. DM rises through
-            # B7's column, DP through B6's.
             ("F", (-0.75, -13.55), (0.25, -13.55)),  # duplicate-pad join
-            ("B", (-0.75, -13.55), (-0.75, -12.60)),  # rise through B7
-            ("B", (-0.75, -12.60), (-0.85, -12.35)),
-            ("B", (-0.85, -12.35), (-0.85, -12.04)),  # into U5.3
-            ("B", (0.85, -12.04), (-0.85, -12.04)),   # flow-through to U5.4
-            ("B", (-0.85, -12.35), (-4.75, -12.35)),  # west, outer rail
-            ("B", (-4.75, -12.35), (-4.75, -8.30)),
-            ("B", (-4.75, -8.30), (-5.10, -7.95)),    # inner after the cross
-            ("B", (-5.10, -7.95), (-5.10, 6.55)),     # past GND via (dx .45)
-            ("B", (-5.10, 6.55), (2.45, 6.55)),       # south, upper rail
-            ("B", (2.45, 6.55), (2.45, 7.05)),        # drop to via
-            ("F", (2.45, 7.05), (2.10, 6.55)),
-            ("F", (2.10, 6.55), (2.10, 5.35)),        # R7.1/R6.1 gap
-            ("F", (2.10, 5.35), (1.80, 5.05)),
-            ("F", (1.80, 5.05), (1.59, 4.75)),        # R7 pad 1 (upper)
         ],
         "USB_C_DP": [
             ("B", (-0.25, -14.60), (-0.25, -15.00)),  # pad stubs to vias
             ("B", (0.75, -14.60), (0.75, -15.00)),
             ("F", (-0.25, -15.00), (0.75, -15.00)),   # duplicate-pad join
             ("B", (0.75, -15.00), (0.75, -13.00)),    # rise through B6
-            ("B", (0.75, -13.00), (1.62, -12.55)),
-            ("B", (1.62, -12.55), (1.62, -11.10)),    # east of U5.4/U5.5
-            ("B", (1.62, -11.10), (1.10, -10.96)),    # into U5.6
-            ("B", (1.10, -10.96), (-0.85, -10.96)),   # flow-through to U5.1
-            ("B", (-0.85, -10.96), (-4.45, -10.96)),  # west, inner rail
-            ("B", (-4.45, -10.96), (-4.34, -10.80)),
-            ("B", (-4.34, -10.80), (-4.34, -9.40)),   # to crossing via
-            ("F", (-4.34, -9.40), (-5.40, -8.75)),    # F hop over DM's rail
-            ("B", (-5.40, -8.75), (-5.40, 6.85)),     # outer after the cross
-            ("B", (-5.40, 6.85), (1.05, 6.85)),       # south, lower rail
-            ("B", (1.05, 6.85), (1.05, 7.05)),        # drop to via
-            ("F", (1.05, 7.05), (1.45, 6.35)),
-            ("F", (1.45, 6.35), (1.59, 5.95)),        # R6 pad 1 (lower)
         ],
     }
-    # NB: do NOT lock the pin 51/52 escapes (USB_DM/USB_DP). Fixed wires
-    # that START on U1's pads hang freerouting v2 before pass 1 (bisected
-    # via DSN text-editing: removing only those two nets' wires from an
-    # otherwise identical DSN un-hangs it). With R7 (DM) on the upper row
-    # the escapes are easy for freerouting anyway — that was the point of
-    # the R6/R7 swap.
-    # (VBUS's F.Cu trunk is laid POST-route — see below. Pre-placing
-    # those tracks makes freerouting v2.2.4 crash at SES-write time and
-    # silently restart its whole job every ~2 min until the 900s timeout
-    # (bisected with probe DSNs: with the tracks removed and only the
-    # three via-in-pads kept, the SES writes fine). The vias go in now
-    # so nothing else takes their spots.)
     for net, segs in USB_PAIR.items():
         for layer, a, bpt in segs:
             ly = pcbnew.F_Cu if layer == "F" else pcbnew.B_Cu
             rt.track(a, bpt, net, layer=ly, width=0.15)
-    rt.via((2.45, 7.05), "USB_C_DN")
-    rt.via((1.05, 7.05), "USB_C_DP")
-    rt.via((-4.34, -9.40), "USB_C_DP")
-    rt.via((-5.40, -8.75), "USB_C_DP")
     rt.via((-2.35, -13.45), "VBUS")  # via-in-pad on tie A4B9
     rt.via((0.92, -11.50), "VBUS")   # via-in-pad on U5.5 (tented)
     rt.via((2.20, -12.99), "VBUS")   # SE of tie B4A9 — Sequoia moved it
