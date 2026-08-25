@@ -202,6 +202,25 @@ imu:
     own output FET whenever it tried to ACK. Verified pad-by-pad that the
     LGA-14_L3.0-W2.5-P0.50-TL footprint numbering matches Figure 1.
 
+light_sensor:
+  mpn: ALS-PT19-315C/L177/TR8
+  lcsc: C146233
+  footprint: SENSOR_ALS-PT19
+  verified: yes          # 2026-08-25: LCSC in stock (~9k+), $0.05@20; SMD 1.7x0.8x0.6
+  notes: >-
+    Visible-light ambient phototransistor (peak 630nm, range 390-700nm,
+    IR-rejecting): the in-stock 0603 alternatives all peak at 850/940nm
+    and are nearly blind under LED room lighting. Pin 1 = COLLECTOR
+    (green paint on top / notch on bottom), pin 2 = emitter, per ds
+    DLS-0000039 rev 8 p2; easyeda footprint pads verified against the
+    recommended land (0.8x0.8 at 1.5mm pitch). App circuit (ds p6):
+    C->3V3, E->LIGHT node with R load + C filter to GND, RL*CL >= 0.5
+    kOhm*uF. With 22k: 0.15uA/lux typ -> ~16mV dark room, 0.33V @ 100
+    lux, saturates ~900 lux (Vcc-0.4). Reads on ADC0/GPIO26 (pin 40).
+    CAUTION: the LCSC web listing miscategorizes this part as
+    "through-hole D=5mm"; datasheet + DigiKey confirm SMD 1.7x0.8 —
+    eyeball the reel photo at order review.
+
 testpoint:
   mpn: ~
   lcsc: ~

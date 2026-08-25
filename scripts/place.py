@@ -392,6 +392,18 @@ def main():
     place(fps["R11"], 11.65, 6.55, rot=90, back=True)
     place(fps["R12"], 11.55, 8.1, rot=0, back=True)
 
+    # Ambient light sensor (rev 2): FRONT — must see the world when worn.
+    # Spot from a courtyard grid-scan (scan excluded the heart silk box
+    # x -0.9..3.0 / y 5.2..8.0, the upper text arcs y<0 & r>9.5, and
+    # r>13): SE interior beside the heart, r7.5, 2.8mm from the nearest
+    # octagon LEDs (42/41). R16 east of Q1 (load, near the E pad), C26
+    # north above the heart corner toward the pin-40 escape.
+    place(fps["Q1"], 3.25, 6.75, rot=90)
+    place(fps["R16"], 4.5, 7.6, rot=90)   # load, east of the E pad
+    place(fps["C26"], 2.0, 8.1, rot=0)    # filter, below the heart tip
+    # (C26's spot is where overlap relaxation settled it from a seed at
+    # (2.2,9.05); hardcoded so placement stays deterministic)
+
     # ---------------- back side ----------------
     # feet at ±x; rot=180 points the spring-finger mouth toward +y (the
     # round end / insertion corridor) — at rot=0 it faces the USB tip and

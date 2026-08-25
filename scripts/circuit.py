@@ -79,6 +79,7 @@ GP_LED_DATA = 18  # pin 29: lands top-left after the 180deg MCU rotation,
                   # right next to LED1 at the start of the ring
 GP_LED_EN = 1     # -> TPS22913 ON
 ADC_VBSENSE = 43  # GPIO29_ADC3 pin number
+ADC_LIGHT = 40    # GPIO26_ADC0 pin number: ambient light sensor (rev 2)
 # IMU on I2C1 + INT1: all on the chip's right side after the 180deg
 # rotation, facing the IMU's back-east spot. The exact GPIOs are picked so
 # each escape lines up with its own gap in the right IOVDD-decap column
@@ -163,6 +164,7 @@ def build_circuit(design=None):
     u1[GPIO[GP_LED_DATA]] = "LED_D0"
     u1[GPIO[GP_LED_EN]] = "LED_EN"
     u1[ADC_VBSENSE] = "VBSENSE"
+    u1[ADC_LIGHT] = "LIGHT"
     u1[GPIO[GP_I2C_SDA]] = "IMU_SDA"
     u1[GPIO[GP_I2C_SCL]] = "IMU_SCL"
     u1[GPIO[GP_IMU_INT1]] = "IMU_INT1"
@@ -341,6 +343,16 @@ def build_circuit(design=None):
     c.add("R11", "r_1m", "1M", {1: "VBATT", 2: "VBSENSE"})
     c.add("R12", "r_1m", "1M", {1: "VBSENSE", 2: "GND"})
     c.add("C21", "c_100n", "100n", {1: "VBSENSE", 2: "GND"})
+
+    # --- ambient light sensor (rev 2): visible-light phototransistor ---
+    # ALS-PT19-315C ds p6 app circuit: C (pin 1) -> 3V3, E (pin 2) -> the
+    # LIGHT node, load R + filter C to GND (RL*CL >= 0.5 kOhm*uF). 22k
+    # load: ~16mV in a dark room, 0.33V @ 100 lux, saturates ~900 lux.
+    # LIGHT reads on ADC0 (GPIO26, pin 40). MUST be on the FRONT (faces
+    # the world when worn); keep it away from the LEDs it meters.
+    c.add("Q1", "light_sensor", "ALS-PT19", {1: "3V3", 2: "LIGHT"})
+    c.add("R16", "r_22k", "22k", {1: "LIGHT", 2: "GND"})
+    c.add("C26", "c_100n", "100n", {1: "LIGHT", 2: "GND"})
 
     # --- LED ring (pin numbers from LED_PIN) ---
     bypass_every = design["leds"].get("bypass_every", 2)
