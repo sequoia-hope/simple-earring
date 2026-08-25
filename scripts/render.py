@@ -57,7 +57,8 @@ INDEX_HTML = """<!DOCTYPE html>
 <h1>simple_earring — latest outputs <span id="ts"></span>
   &nbsp;·&nbsp; <a href="review/" style="color:#fc6;font-size:.9rem">layout review 2026-08-06</a>
   &nbsp;·&nbsp; <a href="review/fixes.html" style="color:#8f8;font-size:.9rem">fix pass + diffs</a>
-  &nbsp;·&nbsp; <a href="probe/" style="color:#f88;font-size:.9rem">USB bring-up probe map</a></h1>
+  &nbsp;·&nbsp; <a href="probe/" style="color:#f88;font-size:.9rem">USB bring-up probe map</a>
+  &nbsp;·&nbsp; <a href="wear/" style="color:#9cf;font-size:.9rem">wear log + activity calibration</a></h1>
 
 <div style="background:#2c2226;border:1px solid #a55;border-radius:8px;
      padding:.55rem .9rem;margin:.7rem 0;font-size:.95rem">
