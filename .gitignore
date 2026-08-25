@@ -7,6 +7,7 @@ out/*
 !out/earring-schematic.pdf
 !out/fp-lib-table
 !out/production/
+!out/probe/
 out/production/backups/
 logs/
 tools/freerouting.jar
