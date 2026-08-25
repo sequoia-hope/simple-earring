@@ -374,9 +374,29 @@ def main():
     # only 0.02 against Y1 pad 3, so this takes the best-clearance spot in
     # the pocket instead: 0.96mm margin, and its tightest neighbour is C8
     # pad 1 — which is 3V3 itself, i.e. it sits right on the decap it feeds.)
-    for pos in ((-5.85, -1.60), (6.2, 2.6), (0.9, 5.0), (-0.35, 4.5),
-                (-4.25, -7.55)):
+    # (0.9,5.0)/(-0.35,4.5) REMOVED Aug 25: the shipped board (43eadc1)
+    # has no 3V3 vias there — that south-center zone is where its QSPI
+    # and USB_DM/DP routes made their B->F transitions. The drifted pair
+    # squatted on that corridor and QSPI/USB_DM/DP stranded chronically.
+    for pos in ((-5.85, -1.60), (6.2, 2.6), (-4.25, -7.55)):
         rt.via(pos, "3V3")
+    # Straggler assists: ONE committed transition via per chronically
+    # stranded long net, at the EXACT via position the shipped board's
+    # own route used (proven to coexist with this placement + statics;
+    # freerouting reliably picks up a pre-placed via on the net's path).
+    for pos, net in (((-0.61, 5.02), "USB_DM"),
+                     ((-0.26, 4.60), "USB_DP"),
+                     ((1.29, 5.06), "QSPI_SCLK"),
+                     ((1.81, 4.80), "QSPI_SD0"),
+                     ((2.68, 4.28), "QSPI_SD1"),
+                     ((-0.40, 7.53), "QSPI_SD2"),   # under the heart silk, as shipped
+                     ((1.11, 4.21), "QSPI_SD3"),
+                     ((7.17, -10.07), "IMU_SDA")):
+    # (no LED_EN assist: the shipped via spot (7.00,-13.92) is 4um from
+    # rev-2's re-pitched LED32.4 and every nearby nudge trades that for
+    # R10/R14 clearance; LED_EN only strands on some seeds — leave it to
+    # freerouting/finish.)
+        rt.via(pos, net)
     # VREG single-point ground return: two vias INSIDE the transplanted
     # local GND pour, at the official minimal design's spots (rotated);
     # separate dedicated via for CFILT's GND
