@@ -1,36 +1,49 @@
-// simple_earring staged bring-up smoke test.
+// simple_earring — accelerometer-reactive display.
 //
-// Brings hardware up one stage at a time, narrating on USB CDC (115200),
-// so a crash/brownout names its culprit via the last line printed:
-//   t=0   USB CDC only (LED power explicitly OFF)
-//   t=3s  I2C1 + LSM6DS3TR-C WHO_AM_I
-//   t=6s  VLED on, single dim LED
-//   t=9s  full 45-LED rainbow (low brightness)
-//   t=12s first BOOTSEL read (suspends XIP briefly — tested last)
-// Steady state: rainbow + 1 Hz status line.
+// The LED ring becomes a physics instrument:
+//   - a bright arc always points at the floor (in-plane gravity),
+//   - hue tracks out-of-plane tilt (face-up magenta ... face-down cyan),
+//   - shaking flashes the whole ring brighter and whiter.
+//
+// The IMU->board mapping (back-side mount, rotated) is tunable live over
+// USB CDC so the transform can be calibrated without reflashing:
+//   'x' toggle in-plane X flip     'z' toggle Z flip
+//   'o'/'p' rotate offset -/+ 5 degrees
+//   current mapping is echoed in every status line; bake the final
+//   values into IMU_* defaults below.
 //
 // Pin map source of truth: scripts/circuit.py @ ordered rev 43eadc1.
 
 #include <Adafruit_NeoPixel.h>
 #include <Wire.h>
+#include <math.h>
 
-constexpr uint8_t PIN_LED_EN = 1;    // TPS22913 EN, R10 pulls low at boot
-constexpr uint8_t PIN_LED_DATA = 18; // LED_D0 -> LED1.DI
-constexpr uint8_t PIN_IMU_SDA = 6;   // I2C1
-constexpr uint8_t PIN_IMU_SCL = 11;  // I2C1
-constexpr uint8_t PIN_CHRG = 19;     // low = charging
-constexpr uint8_t PIN_DONE = 28;     // low = charge complete
-constexpr uint16_t N_LEDS = 45;      // 34 ring + 3 tip + 8 interior
+#include "led_vecs.h"
 
-constexpr uint8_t IMU_ADDR = 0x6A;   // SA0 -> GND
-constexpr uint8_t REG_WHO_AM_I = 0x0F; // expect 0x6A
+constexpr uint8_t PIN_LED_EN = 1;
+constexpr uint8_t PIN_LED_DATA = 18;
+constexpr uint8_t PIN_IMU_SDA = 6;
+constexpr uint8_t PIN_IMU_SCL = 11;
+constexpr uint8_t PIN_CHRG = 19;
+constexpr uint8_t PIN_DONE = 28;
+constexpr uint16_t N_LEDS = 45;
+
+constexpr uint8_t IMU_ADDR = 0x6A;
+constexpr uint8_t REG_WHO_AM_I = 0x0F;
 constexpr uint8_t REG_CTRL1_XL = 0x10;
 constexpr uint8_t REG_OUTX_L_XL = 0x28;
 
+// IMU -> board-front-view transform. Calibrated Aug 25 from two hand-held
+// poses (tip-up, tip-right): mirror + rotation, measured 120.6 deg +-3;
+// geometry predicts 180 - 56 (footprint rot) = 124 deg, within noise.
+bool imu_flip_x = true;   // back-side mount mirrors one in-plane axis
+bool imu_flip_z = true;   // package top faces away from the viewer
+float imu_rot_deg = 124.0f;
+
 Adafruit_NeoPixel strip(N_LEDS, PIN_LED_DATA, NEO_GRB + NEO_KHZ800);
-int stage = 0;
 bool imu_ok = false;
-bool bootsel_ok = false;
+float fx, fy, fz;      // filtered accel, board frame, mg
+float shake = 0;       // filtered |mag - 1g| energy, mg
 
 static bool imuWrite(uint8_t reg, uint8_t val) {
   Wire1.beginTransmission(IMU_ADDR);
@@ -49,83 +62,89 @@ static bool imuRead(uint8_t reg, uint8_t *buf, size_t n) {
 }
 
 void setup() {
-  pinMode(PIN_LED_EN, OUTPUT);
-  digitalWrite(PIN_LED_EN, LOW); // VLED stays off until stage 2
   pinMode(PIN_CHRG, INPUT_PULLUP);
   pinMode(PIN_DONE, INPUT_PULLUP);
   Serial.begin(115200);
+
+  Wire1.setSDA(PIN_IMU_SDA);
+  Wire1.setSCL(PIN_IMU_SCL);
+  Wire1.begin();
+  Wire1.setClock(400000);
+  uint8_t who = 0;
+  imu_ok = imuRead(REG_WHO_AM_I, &who, 1) && who == 0x6A;
+  if (imu_ok) imu_ok = imuWrite(REG_CTRL1_XL, 0x40); // 104 Hz, +-2 g
+
+  pinMode(PIN_LED_EN, OUTPUT);
+  digitalWrite(PIN_LED_EN, HIGH);
+  delay(10);
+  strip.begin();
+  strip.setBrightness(30); // global cap keeps the coin cell honest
+  strip.show();
 }
 
 void loop() {
-  static uint32_t last_beat = 0;
-  static uint16_t phase = 0;
-  uint32_t now = millis();
+  static uint32_t last_status = 0;
 
-  if (stage == 0 && now >= 3000) {
-    stage = 1;
-    Serial.println("[stage 1] I2C1 + IMU init...");
-    Wire1.setSDA(PIN_IMU_SDA);
-    Wire1.setSCL(PIN_IMU_SCL);
-    Wire1.begin();
-    Wire1.setClock(400000);
-    uint8_t who = 0;
-    imu_ok = imuRead(REG_WHO_AM_I, &who, 1) && who == 0x6A;
-    if (imu_ok) imu_ok = imuWrite(REG_CTRL1_XL, 0x40); // 104 Hz, +-2 g
-    Serial.printf("[stage 1] IMU WHO_AM_I=0x%02X -> %s\n", who,
-                  imu_ok ? "OK" : "FAIL");
-  }
-  if (stage == 1 && now >= 6000) {
-    stage = 2;
-    Serial.println("[stage 2] VLED on, one dim LED...");
-    digitalWrite(PIN_LED_EN, HIGH);
-    delay(10);
-    strip.begin();
-    strip.setBrightness(5);
-    strip.clear();
-    strip.setPixelColor(0, strip.Color(0, 255, 0));
-    strip.show();
-    Serial.println("[stage 2] done");
-  }
-  if (stage == 2 && now >= 9000) {
-    stage = 3;
-    Serial.println("[stage 3] full rainbow, brightness 10...");
-    strip.setBrightness(10);
-    Serial.println("[stage 3] done");
-  }
-  if (stage == 3 && now >= 12000) {
-    stage = 4;
-    Serial.println("[stage 4] first BOOTSEL read (XIP suspend)...");
-    bootsel_ok = true;
-    bool b = BOOTSEL;
-    Serial.printf("[stage 4] BOOTSEL=%d ok — all stages up\n", (int)b);
-  }
-
-  if (stage >= 3) {
-    for (uint16_t i = 0; i < N_LEDS; i++)
-      strip.setPixelColor(
-          i, strip.ColorHSV((phase + i * (65536 / N_LEDS)) & 0xFFFF));
-    phase += 256;
-    strip.show();
-  }
-
-  if (now - last_beat >= (stage >= 4 ? 1000 : 500)) {
-    last_beat = now;
-    Serial.printf("up=%lums stage=%d imu=%s chrg=%s done=%s",
-                  (unsigned long)now, stage, imu_ok ? "OK" : "-",
-                  digitalRead(PIN_CHRG) ? "no" : "CHARGING",
-                  digitalRead(PIN_DONE) ? "no" : "DONE");
-    if (imu_ok) {
-      uint8_t raw[6];
-      if (imuRead(REG_OUTX_L_XL, raw, 6)) {
-        int16_t ax = raw[0] | (raw[1] << 8);
-        int16_t ay = raw[2] | (raw[3] << 8);
-        int16_t az = raw[4] | (raw[5] << 8);
-        Serial.printf(" accel[mg]=%d,%d,%d", (int)(ax * 0.061f),
-                      (int)(ay * 0.061f), (int)(az * 0.061f));
-      }
+  while (Serial.available()) {
+    switch (Serial.read()) {
+      case 'x': imu_flip_x = !imu_flip_x; break;
+      case 'z': imu_flip_z = !imu_flip_z; break;
+      case 'o': imu_rot_deg -= 5; break;
+      case 'p': imu_rot_deg += 5; break;
     }
-    if (bootsel_ok) Serial.printf(" bootsel=%d", (int)BOOTSEL);
-    Serial.println();
   }
-  delay(30);
+
+  uint8_t raw[6];
+  if (imu_ok && imuRead(REG_OUTX_L_XL, raw, 6)) {
+    float ax = (int16_t)(raw[0] | (raw[1] << 8)) * 0.061f;
+    float ay = (int16_t)(raw[2] | (raw[3] << 8)) * 0.061f;
+    float az = (int16_t)(raw[4] | (raw[5] << 8)) * 0.061f;
+    if (imu_flip_x) ax = -ax;
+    if (imu_flip_z) az = -az;
+    float cr = cosf(imu_rot_deg * (float)M_PI / 180.0f);
+    float sr = sinf(imu_rot_deg * (float)M_PI / 180.0f);
+    float bx = ax * cr - ay * sr;
+    float by = ax * sr + ay * cr;
+
+    fx += 0.25f * (bx - fx);
+    fy += 0.25f * (by - fy);
+    fz += 0.25f * (az - fz);
+    float mag = sqrtf(bx * bx + by * by + az * az);
+    float jolt = fabsf(mag - 1000.0f);
+    shake += (jolt > shake ? 0.5f : 0.05f) * (jolt - shake);
+  }
+
+  // in-plane "down" direction (unit), degenerate when face-flat
+  float gxy = sqrtf(fx * fx + fy * fy);
+  float dx = 0, dy = -1;
+  if (gxy > 100.0f) { dx = fx / gxy; dy = fy / gxy; }
+  float plane = fminf(gxy / 1000.0f, 1.0f); // arc contrast fades face-flat
+
+  // hue from out-of-plane tilt, distinct endpoints:
+  // face-down red (0) -> on-edge green -> face-up blue (43690)
+  float t = fminf(fmaxf((fz + 1000.0f) / 2000.0f, 0.0f), 1.0f);
+  uint16_t hue = (uint16_t)(t * 43690.0f);
+  float sh = fminf(shake / 400.0f, 1.0f); // 0..1 shake energy
+  uint8_t sat = 255 - (uint8_t)(sh * 200);  // shake whitens
+
+  for (uint16_t i = 0; i < N_LEDS; i++) {
+    float align = LED_UX[i] * dx + LED_UY[i] * dy; // 1 = pointing at floor
+    float a3 = align > 0 ? align * align * align : 0;
+    float v = 40 + plane * a3 * 170 + sh * 120;
+    strip.setPixelColor(i, strip.ColorHSV(hue, sat,
+                                          (uint8_t)fminf(v, 255.0f)));
+  }
+  strip.show();
+
+  uint32_t now = millis();
+  if (now - last_status >= 1000) {
+    last_status = now;
+    Serial.printf("accel[mg]=%d,%d,%d down_ang=%d shake=%d hue=%u "
+                  "map[x=%d z=%d rot=%d] chrg=%s\n",
+                  (int)fx, (int)fy, (int)fz,
+                  (int)(atan2f(dy, dx) * 180.0f / (float)M_PI), (int)shake,
+                  hue, (int)imu_flip_x, (int)imu_flip_z, (int)imu_rot_deg,
+                  digitalRead(PIN_CHRG) ? "no" : "CHARGING");
+  }
+  delay(20);
 }
