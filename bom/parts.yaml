@@ -202,6 +202,29 @@ imu:
     own output FET whenever it tried to ACK. Verified pad-by-pad that the
     LGA-14_L3.0-W2.5-P0.50-TL footprint numbering matches Figure 1.
 
+or_diode:
+  mpn: BAT54SW,115
+  lcsc: C78606
+  footprint: SOT-323_BAT54SW
+  verified: yes          # 2026-08-25: LCSC 66k in stock; Nexperia BAT54W-series
+                         # ds Rev.3 Table 2 pinning quoted below
+  notes: >-
+    Dual SERIES Schottky (not the common-cathode BAT54CW): 1 = anode
+    (diode 1), 2 = cathode (diode 2), 3 = cathode 1 + anode 2 (the
+    midpoint). Diode 1 (pin1->pin3) ORs SW_ON into the LDO EN so the
+    switch still enables the board; diode 2 (pin3->pin2) clamps EN to
+    VBATT+Vf. The clamp is NOT optional: NCP730 ds Maximum Ratings
+    table says V_EN = -0.3 to (V_IN + 0.3) — not an independent
+    40V-tolerant pin — so the USB feed (R18 from VBUS) must never lift
+    EN above the battery by more than a Schottky drop, including
+    during precharge of a deeply dead cell. 30V / 200mA per diode.
+    SOT-323 (SC-70), NOT the SOT-23 BAT54S: a placement grid scan over
+    the full board (both sides, all courtyards + hole/edge rules)
+    found ZERO legal spots for a SOT-23 courtyard — SC-70 fits 150+,
+    including the SW2 pocket this lives in. Footprint+WRL via
+    easyeda2kicad C78606 (vendor land, 0.9x0.8 pads at 1.3mm pitch);
+    courtyard widened to cover the pads.
+
 light_sensor:
   mpn: ALS-PT19-315C/L177/TR8
   lcsc: C146233
@@ -245,7 +268,11 @@ r_10k:   {lcsc: C25744,  footprint: R_0402_1005Metric, verified: yes}     # RUN 
 # ^ was C25804 until Aug 5 2026: that is 0603WAF1002T5E, a 0603 part, on a
 #   0402 land -- JLCPCB flagged the footprint mismatch. C25744 is the 0402.
 r_22k:   {lcsc: C25768,  footprint: R_0402_1005Metric, verified: yes}     # R_PROG ~41mA (0402WGF2202TCE, 22k 0402)
-r_1m:    {lcsc: C26083,  footprint: R_0402_1005Metric, verified: yes}     # VBATT sense divider (0402WGF1004TCE, 1M 0402) -- LCSC showed OUT OF STOCK Aug 5
+r_100k:  {lcsc: C25741,  footprint: R_0402_1005Metric, verified: yes}     # PWR_EN pulldown R17 + VBUS->EN feed R18 (0402WGF1003TCE, 100k 1% 0402; 7.6M stock Aug 25).
+# ^ 100k, not 1M: NCP730 EN has an INTERNAL PULL-UP to VIN (I_EN-PU up to
+#   1uA, ds p5) and its falling threshold can be as low as 0.5V — a 1M
+#   pulldown could float EN at 1V and never turn the LDO off.
+r_1m:    {lcsc: C26083,  footprint: R_0402_1005Metric, verified: yes}     # SW_ON sense divider (0402WGF1004TCE, 1M 0402) -- LCSC showed OUT OF STOCK Aug 5
 c_100n:  {lcsc: C1525,   footprint: C_0402_1005Metric, verified: yes}     # CL05B104KO5NNNC 100nF 16V X7R 0402
 c_15p:   {lcsc: C1548,   footprint: C_0402_1005Metric, verified: yes}     # crystal load (0402CG150J500NT, 15pF 50V C0G)
 c_1u:    {lcsc: C52923,  footprint: C_0402_1005Metric, verified: yes}     # CL05A105KA5NQNC 1uF 25V X5R 0402

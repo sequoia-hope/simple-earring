@@ -702,6 +702,32 @@ def main():
                  ((-4.90, -11.60), (-4.00, -13.20)),
                  ((-4.00, -13.20), c30)):
         rt.track(a, b, "VLED", width=0.15)
+    # LED_D3 (LED3.DO -> LED4.DI): the hop threads between SW2's NPTH
+    # locating peg and the edge — freerouting stranded it on 6/6 rev-2
+    # seeds. Geometry borrowed VERBATIM from the shipped board (43eadc1),
+    # whose LED3/LED4/SW2 placements are identical (the chain re-pitch
+    # pins S[2..4]); 0.143 to the peg hole. Injected + zone-refilled +
+    # kicad-cli DRC'd clean against the rev-2 statics before locking.
+    for a, b in (((-8.638, -10.941), (-8.182, -11.029)),
+                 ((-8.182, -11.029), (-7.964, -11.029)),
+                 ((-7.964, -11.029), (-7.428, -11.565)),
+                 ((-7.428, -11.565), (-7.428, -12.188)),
+                 ((-7.428, -12.188), (-7.517, -12.643))):
+        rt.track(a, b, "LED_D3", width=0.15)
+    # CHRG_DONE's landing: from the committed via at (7.8,6.6) the final
+    # approach into U2 pad 6 loops EAST around C16 (the shipped board's
+    # own path) — freerouting failed this last 2mm on 6/6 rev-2 seeds
+    # while wandering off west on In1. One change vs shipped: the long
+    # horizontal dropped 4.965 -> 4.93 (shipped cleared C16.1 by 3um;
+    # this rev re-verified by actual DRC, not shipped luck).
+    for a, b in (((7.800, 6.600), (8.100, 6.600)),
+                 ((8.100, 6.600), (8.623, 6.076)),
+                 ((8.623, 6.076), (8.623, 5.178)),
+                 ((8.623, 5.178), (8.410, 4.930)),
+                 ((8.410, 4.930), (7.224, 4.930)),
+                 ((7.224, 4.930), (6.939, 5.250)),
+                 ((6.939, 5.250), (6.500, 5.250))):
+        rt.track(a, b, "CHRG_DONE", width=0.15)
     pcbnew.SaveBoard(str(PCB), board)
 
     # ---------- freerouting ----------

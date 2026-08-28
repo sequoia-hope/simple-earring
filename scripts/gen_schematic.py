@@ -341,6 +341,24 @@ class Sch:
              poly([(0, 1.27), (0, 3.302)]),
              poly([(-1.905, 3.302), (1.905, 3.302)])],
             (6.35, 4.4), hide_numbers=True, hide_names=True, ref_prefix="SW")
+        # dual series Schottky (BAT54SW): 1 = A1, 2 = K2, 3 = K1+A2 mid tap.
+        # Conduction left-to-right pin1 -> pin3 -> pin2; the tap hangs down.
+        self._emit_def("D_SS", "D_SS", "passive", [
+            ("1", "A1", -7.62, 0, 0, 3.81, "passive"),
+            ("2", "K2", 7.62, 0, 180, 3.81, "passive"),
+            ("3", "K1A2", 0, -5.08, 90, 3.81, "passive")],
+            [poly([(-3.81, 1.27), (-3.81, -1.27), (-1.27, 0), (-3.81, 1.27)]),
+             poly([(-0.762, 1.016), (-1.27, 1.016), (-1.27, -1.016),
+                   (-1.778, -1.016)], 0.254),
+             poly([(-1.27, 0), (1.27, 0)]),
+             poly([(1.27, 1.27), (1.27, -1.27), (3.81, 0), (1.27, 1.27)]),
+             poly([(4.318, 1.016), (3.81, 1.016), (3.81, -1.016),
+                   (3.302, -1.016)], 0.254),
+             poly([(0, 0), (0, -1.27)]),
+             "(circle (center 0 0) (radius 0.254)\n"
+             "\t\t\t\t\t(stroke (width 0) (type default))\n"
+             "\t\t\t\t\t(fill (type outline)))"],
+            (7.62, 5.08), hide_numbers=True, hide_names=True, ref_prefix="D")
         # SPDT slide switch, 2 = common
         self._emit_def("SW_SPDT", "SW_SPDT", "passive", [
             ("1", "~", -6.35, 2.54, 0, 3.81, "passive"),
@@ -804,7 +822,8 @@ class Sch:
 def mcu_sides():
     gp = {g: p for g, p in GPIO.items()}
     used = {29: "GPIO18", 3: "GPIO1", 9: "GPIO6", 15: "GPIO11", 12: "GPIO8",
-            31: "GPIO19", 42: "GPIO28", 43: "GPIO29/ADC3"}
+            31: "GPIO19", 42: "GPIO28", 40: "GPIO26/ADC0",
+            43: "GPIO29/ADC3"}
     unused = [(gp[g], f"GPIO{g}") for g in sorted(gp)
               if gp[g] not in used and gp[g] != 43]
     # Side pins are grouped by the block they wire to, with the gaps sized so
@@ -822,7 +841,7 @@ def mcu_sides():
             + [(51, "USB_DM"), (52, "USB_DP")])
     right = [(29, "GPIO18"), (3, "GPIO1"), (9, "GPIO6"), (15, "GPIO11"),
              (12, "GPIO8"), (31, "GPIO19"), (42, "GPIO28"),
-             (43, "GPIO29/ADC3")]
+             (40, "GPIO26/ADC0"), (43, "GPIO29/ADC3")]
     top = [(1, "IOVDD"), (11, "IOVDD"), (20, "IOVDD"), (30, "IOVDD"),
            (38, "IOVDD"), (45, "IOVDD"), (54, "QSPI_IOVDD"),
            (53, "USB_OTP_VDD"), (44, "ADC_AVDD"), None,
@@ -876,6 +895,9 @@ IC_SIDES = {
     "led": {"l": [None, ("2", "DI"), None],
             "r": [None, ("4", "DO"), None],
             "t": [("3", "VDD")], "b": [("1", "GND")]},
+    # ALS-PT19 phototransistor: collector up to 3V3, emitter down into
+    # the LIGHT node (load R + filter C hang off it)
+    "light_sensor": {"t": [("1", "C")], "b": [("2", "E")]},
 }
 
 # a little extra width where the automatic sizing leaves names touching
@@ -883,7 +905,8 @@ IC_MIN_W = {"led": 12.7}
 
 PASSIVE_SYM = {"r_": "R", "c_": "C", "vreg_inductor": "L", "crystal": "XTAL",
                "testpoint": "TP", "battery_clip": "BATT",
-               "bootsel_button": "SW_PUSH", "slide_switch": "SW_SPDT"}
+               "bootsel_button": "SW_PUSH", "slide_switch": "SW_SPDT",
+               "or_diode": "D_SS"}
 
 
 def sym_for(part):
@@ -1093,11 +1116,12 @@ def blk_charger(s, cir, bk, x, y):
 
 
 def blk_sense(s, cir, bk, x, y):
-    s.begin("Battery voltage sense -> ADC")
-    s.rail("VBATT", (x, y))
+    s.begin("Switch / battery sense -> ADC")
+    s.glabel("SW_ON", (x - 10.16, y), rot=180, just="right")
+    s.wire((x - 10.16, y), (x, y))
     s.wire((x, y), (x, y + 3.81))
     r11 = put(s, cir, "R11", x, y + 7.62)
-    bk.take("R11", "1", "VBATT")
+    bk.take("R11", "1", "SW_ON")
     bk.take("R11", "2", "VBSENSE")
     node = (x, r11["2"][1] + 3.81)
     s.wire(r11["2"], node)
@@ -1113,13 +1137,16 @@ def blk_sense(s, cir, bk, x, y):
     s.junction((x + 15.24, node[1]))
     s.wire(node, (x - 10.16, node[1]))
     s.glabel("VBSENSE", (x - 10.16, node[1]), rot=180, just="right")
-    s.note("1M:1M divider -> half VBATT, filtered; read on GPIO29/ADC3.",
+    s.note("1M:1M divider off SW_ON, the switch common (rev 2 — was "
+           "VBATT). Switch ON: VBATT/2 battery telemetry as before. "
+           "Switch OFF + USB: reads 0, telling firmware to show charge "
+           "status instead of running the show. GPIO29/ADC3.",
            x - 22.86, r12["2"][1] + 12.7, 56.0)
     s.end()
 
 
 def blk_ldo(s, cir, bk, x, y):
-    s.begin("3V3 LDO + power slide switch (switches EN, not the cell)")
+    s.begin("3V3 LDO — EN = slide switch OR USB (diode-OR, clamped)")
     u = put(s, cir, "U3", x, y)
     bk.take("U3", "6", "VBATT")
     xin = u["6"][0] - 15.24
@@ -1148,20 +1175,95 @@ def blk_ldo(s, cir, bk, x, y):
     s.wire((u["3"][0], u["3"][1] + 3.81), (u["3"][0], u["3"][1] + 6.35))
     s.junction((u["3"][0], u["3"][1] + 3.81))
     s.rail("GND", (u["3"][0], u["3"][1] + 6.35))
-    # slide switch on EN
+    # EN = SW_ON OR VBUS. D2 (BAT54SW series pair) stands VERTICALLY
+    # beside U3 — the strip further left belongs to C18 and the IN
+    # riser. SW_ON enters pin 1 from below, the clamp cathode (pin 2)
+    # rises to VBATT above, and the midpoint (pin 3) taps right, in
+    # line with U3's EN pin. Diode 1 lifts EN to VBATT-0.2 when the
+    # switch is on; diode 2 clamps EN to VBATT+Vf because NCP730 abs
+    # max V_EN is only (V_IN + 0.3). The VBUS half of the OR (R18) has
+    # its own block — see "USB wake"; the nets meet on the PWR_EN
+    # global label.
     bk.take("U3", "4", "PWR_EN")
-    sw = put(s, cir, "SW2", u["4"][0] - 25.4, u["4"][1],
-                 ref_off=(-3.81, 10.8))
-    bk.take("SW2", "2", "PWR_EN")
+    u4 = u["4"]
+    d2 = put(s, cir, "D2", u4[0] - 13.97, u4[1], rot=90,
+             ref_off=(-11.43, 3.3))
+    bk.take("D2", "1", "SW_ON")
+    bk.take("D2", "2", "VBATT")
+    bk.take("D2", "3", "PWR_EN")
+    # clamp cathode joins the IN riser 1.27 to the left (both VBATT) —
+    # a rail of its own would sit on top of the riser's rail text
+    s.wire(d2["2"], (d2["2"][0] - 1.27, d2["2"][1]))
+    s.junction((d2["2"][0] - 1.27, d2["2"][1]))
+    s.wire(d2["3"], u4)
+    # R17 pulldown hangs off the EN run (100k: EN has an internal <=1uA
+    # pull-up to VIN, so a 1M pulldown could fail to turn the LDO off);
+    # the PWR_EN glabel stubs off R17's riser
+    s.junction((u4[0] - 6.35, u4[1]))
+    s.wire((u4[0] - 6.35, u4[1]), (u4[0] - 6.35, u4[1] + 2.54))
+    # drop=6.35 + the one-step-left column push the GND rail's text
+    # clear of U3's value text below the box
+    vdrop(s, cir, bk, "R17", u4[0] - 6.35, u4[1] + 2.54, "GND", drop=6.35)
+    s.junction((u4[0] - 6.35, u4[1] + 1.27))
+    s.wire((u4[0] - 6.35, u4[1] + 1.27), (u4[0] - 7.62, u4[1] + 1.27))
+    s.glabel("PWR_EN", (u4[0] - 7.62, u4[1] + 1.27), rot=180,
+             just="right", size=1.0)
+    # slide switch: common is SW_ON now, clean VBATT/GND both positions
+    s.wire(d2["1"], (d2["1"][0], d2["1"][1] + 2.54))
+    sw = put(s, cir, "SW2", u4[0] - 38.1, u4[1] + 10.16)
+    bk.take("SW2", "2", "SW_ON")
     bk.take("SW2", "1", "VBATT")
     bk.take("SW2", "3", "GND")
-    s.wire(sw["2"], u["4"])
-    s.label("PWR_EN", (sw["2"][0] + 3.81, sw["2"][1]), size=1.0)
-    s.path(sw["1"], (sw["1"][0] - 7.62, sw["1"][1]),
-           (sw["1"][0] - 7.62, sw["1"][1] - 5.08))
-    s.rail("VBATT", (sw["1"][0] - 7.62, sw["1"][1] - 5.08))
-    s.wire(sw["3"], (sw["3"][0] - 5.08, sw["3"][1]))
-    s.rail("GND", (sw["3"][0] - 5.08, sw["3"][1]))
+    s.wire(sw["2"], (d2["1"][0], sw["2"][1]))
+    s.label("SW_ON", (sw["2"][0] + 2.54, sw["2"][1]), size=1.0)
+    s.path(sw["1"], (sw["1"][0] - 2.54, sw["1"][1]),
+           (sw["1"][0] - 2.54, sw["1"][1] - 5.08))
+    s.rail("VBATT", (sw["1"][0] - 2.54, sw["1"][1] - 5.08))
+    s.wire(sw["3"], (sw["3"][0] - 2.54, sw["3"][1]))
+    s.rail("GND", (sw["3"][0] - 2.54, sw["3"][1]))
+    s.end()
+
+
+def blk_en(s, cir, bk, x, y):
+    s.begin("USB wake — VBUS feeds EN through R18")
+    s.glabel("PWR_EN", (x - 10.16, y), rot=180, just="right")
+    s.wire((x - 10.16, y), (x, y))
+    r18 = put(s, cir, "R18", x, y - 3.81)
+    bk.take("R18", "1", "VBUS")
+    bk.take("R18", "2", "PWR_EN")
+    s.wire(r18["1"], (x, r18["1"][1] - 2.54))
+    s.rail("VBUS", (x, r18["1"][1] - 2.54))
+    s.note("Rev 2: USB boots the board even with SW2 off. Against "
+           "R17's pulldown EN sits at ~VBUS/2, and D2's second diode "
+           "clamps it to VBATT+Vf (NCP730 abs max V_EN is VIN+0.3, "
+           "even during precharge of a dead cell). Firmware then sees "
+           "SW_ON=0 on the sense divider and shows charge status "
+           "instead of running the show.",
+           x - 25.4, y + 7.62, 60.0)
+    s.end()
+
+
+def blk_light(s, cir, bk, x, y):
+    s.begin("Ambient light sensor -> ADC0 (rev 2)")
+    q = put(s, cir, "Q1", x, y)
+    bk.take("Q1", "1", "3V3")
+    s.wire(q["1"], (q["1"][0], q["1"][1] - 5.08))
+    s.rail("3V3", (q["1"][0], q["1"][1] - 5.08))
+    bk.take("Q1", "2", "LIGHT")
+    # node sits 8.89 below the emitter: Q1's value text lands just under
+    # the box, and a shallower node wire runs straight through it
+    node = (q["2"][0], q["2"][1] + 8.89)
+    s.wire(q["2"], node)
+    s.wire(node, (node[0] + 12.7, node[1]))
+    vdrop(s, cir, bk, "C26", node[0] + 12.7, node[1], "GND")
+    s.junction((node[0] + 12.7, node[1]))
+    s.wire(node, (node[0] - 10.16, node[1]))
+    s.glabel("LIGHT", (node[0] - 10.16, node[1]), rot=180, just="right")
+    s.junction(node)
+    vdrop(s, cir, bk, "R16", node[0], node[1], "GND")
+    s.note("ALS-PT19 visible-light phototransistor; 22k load -> ~0.33V "
+           "@ 100 lux, saturates ~900 lux. Reads on GPIO26/ADC0.",
+           x - 20.32, node[1] + 22.86, 44.0)
     s.end()
 
 
@@ -1276,7 +1378,7 @@ def blk_mcu(s, cir, bk, cx, cy):
             bk.take("U1", p, "")
             s.nc(u[p])
     # --- used GPIOs out to the rest of the sheet ---
-    for p in ("29", "3", "9", "15", "12", "31", "42", "43"):
+    for p in ("29", "3", "9", "15", "12", "31", "42", "40", "43"):
         net = bk.take("U1", p)
         s.wire(u[p], (u[p][0] + 6.35, u[p][1]))
         s.glabel(net, (u[p][0] + 6.35, u[p][1]))
@@ -1625,7 +1727,9 @@ def build_sheet(design, cir):
     blk_charger(s, cir, bk, 58, 196)
     blk_sense(s, cir, bk, 164, 164)
     blk_ldo(s, cir, bk, 190, 59)
-    blk_loadsw(s, cir, bk, 166, 116)
+    blk_loadsw(s, cir, bk, 166, 122)
+    blk_en(s, cir, bk, 272, 40)
+    blk_light(s, cir, bk, 232, 176)
     blk_imu(s, cir, bk, 510, 137)
 
     mcx, mcy = 406.0, 136.0

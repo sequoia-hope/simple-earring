@@ -80,6 +80,7 @@ GP_LED_DATA = 18  # pin 29: lands top-left after the 180deg MCU rotation,
 GP_LED_EN = 1     # -> TPS22913 ON
 ADC_VBSENSE = 43  # GPIO29_ADC3 pin number
 ADC_LIGHT = 40    # GPIO26_ADC0 pin number: ambient light sensor (rev 2)
+ADC_VBUS = 41     # GPIO27_ADC1 pin number: USB cable present (rev 3)
 # IMU on I2C1 + INT1: all on the chip's right side after the 180deg
 # rotation, facing the IMU's back-east spot. The exact GPIOs are picked so
 # each escape lines up with its own gap in the right IOVDD-decap column
@@ -165,6 +166,7 @@ def build_circuit(design=None):
     u1[GPIO[GP_LED_EN]] = "LED_EN"
     u1[ADC_VBSENSE] = "VBSENSE"
     u1[ADC_LIGHT] = "LIGHT"
+    u1[ADC_VBUS] = "VBUS_SENSE"
     u1[GPIO[GP_I2C_SDA]] = "IMU_SDA"
     u1[GPIO[GP_I2C_SCL]] = "IMU_SCL"
     u1[GPIO[GP_IMU_INT1]] = "IMU_INT1"
@@ -293,13 +295,65 @@ def build_circuit(design=None):
     # --- battery ---
     c.add("BT1", "battery_clip", "LIR2032", {1: "VBATT", 2: "GND"})
 
-    # --- 3.3V LDO, gated by the back-side slide switch on EN ---
+    # --- 3.3V LDO, EN = slide switch OR USB (rev 2: USB boots the chip
+    # even with SW2 off, so plugged-in charging can be indicated) ---
     # (MSK12C02 contacts are 50mA-rated: switch the EN signal, not the
-    # battery current; SPDT gives clean VBATT/GND levels both positions)
+    # battery current; SPDT gives clean VBATT/GND levels both positions.)
+    # SW2's common is now SW_ON (VBATT on / GND off), no longer wired
+    # straight to EN — D2 (BAT54S, two Schottkys in SERIES: 1=A1, 2=K2,
+    # 3=K1+A2 midpoint, Nexperia ds Table 2) sits between:
+    #   diode 1 (SW_ON -> PWR_EN): the switch still enables the LDO
+    #     (EN = VBATT - ~0.2V, far above the 1.05V max rising threshold);
+    #   diode 2 (PWR_EN -> VBATT): clamps EN to VBATT + Vf. Required:
+    #     NCP730 abs max V_EN is (V_IN + 0.3), NOT an independent rating
+    #     — a bare diode from 5V VBUS would violate it whenever
+    #     VBUS - 0.3 > VBATT + 0.3, i.e. essentially always.
+    # R18 feeds VBUS into PWR_EN through 100k against R17's 100k
+    # pulldown: USB present -> EN ~ VBUS/2 (2.2-2.6V), clamped by
+    # diode 2 to VBATT + ~0.2 when the cell is low (precharge of a dead
+    # cell can sit below 2.5V), so EN stays inside abs max AND above
+    # threshold -> the chip boots. R17 is 100k, not 1M: EN has an
+    # internal pull-up to VIN (up to 1uA, ds p5) and a falling
+    # threshold as low as 0.5V; 100k holds EN <= 0.1V worst-case with
+    # switch off + no USB. Costs ~40uA through D2/R17 while the switch
+    # is on — noise next to the mA-scale LED load.
+    # (With SW2 on and no USB, EN backfeeds ~35uA through R18 into the
+    # dead VBUS node and floats it near VBATT. Harmless: the charger's
+    # VCC stays below VBAT so it sleeps, and the current is capped by
+    # R18. Blocking it would cost a third diode for zero benefit.)
     c.add("U3", "ldo", "NCP730-3.3", {
         1: "3V3", 2: "", 3: "GND", 4: "PWR_EN", 5: "", 6: "VBATT", "EP": "GND",
     })  # 1=OUT 3=GND 4=EN 6=IN
-    c.add("SW2", "slide_switch", "PWR", {1: "VBATT", 2: "PWR_EN", 3: "GND"})
+    c.add("SW2", "slide_switch", "PWR", {1: "VBATT", 2: "SW_ON", 3: "GND"})
+    c.add("D2", "or_diode", "BAT54S", {1: "SW_ON", 2: "VBATT", 3: "PWR_EN"})
+    c.add("R17", "r_100k", "100k", {1: "PWR_EN", 2: "GND"})
+    c.add("R18", "r_100k", "100k", {1: "VBUS", 2: "PWR_EN"})
+
+    # --- VBUS presence sense -> ADC1 (rev 3) ---
+    # CHRG/DONE cannot distinguish "unplugged" from "plugged in and
+    # FINISHED": when the charger terminates, both open-drain pins
+    # release, so the level indicator loses its only evidence a cable is
+    # attached and the green/full state becomes unreachable. Observed on
+    # the bench Aug 25: cell full at 4.11V, USB in, chrg=0 done=0, and
+    # the firmware correctly (but uselessly) fell back to the drip show.
+    #
+    # 10k:10k, deliberately NOT the 100k/1M used elsewhere, and the low
+    # impedance IS the design: with SW2 on and no USB, PWR_EN backfeeds
+    # through R18 (100k) and floats this otherwise-dead node — a
+    # high-impedance divider would read that as "plugged in". A stiff 20k
+    # tap swamps the backfeed instead, so no third blocking diode is
+    # needed (the option weighed and rejected above for lack of benefit):
+    #   no cable, SW2 on : VBUS = 3.9 * 20/(100+20) = 0.65V -> tap 0.33V
+    #   cable, VBUS 4.4-5.5V                                -> tap 2.2-2.75V
+    # Sample on ADC1 and threshold near 1.2V: >0.8V of margin either way,
+    # and the tap stays under 3.3V at the 5.5V VBUS ceiling.
+    #
+    # Costs ~32uA from the cell while SW2 is on and USB is out (the tap
+    # is the backfeed's new load). Same order as R17's existing ~40uA and
+    # ~0.2% of active LED-mode current, so it is in line with choices the
+    # design already makes. A blocking diode would reclaim it if wanted.
+    c.add("R19", "r_10k", "10k", {1: "VBUS", 2: "VBUS_SENSE"})
+    c.add("R20", "r_10k", "10k", {1: "VBUS_SENSE", 2: "GND"})
     c.add("C18", "c_1u", "1u", {1: "VBATT", 2: "GND"})
     c.add("C19", "c_1u", "1u", {1: "3V3", 2: "GND"})
 
@@ -339,8 +393,20 @@ def build_circuit(design=None):
     c.add("R14", "r_4k7", "4.7k", {1: "IMU_SDA", 2: "3V3"})
     c.add("R15", "r_4k7", "4.7k", {1: "IMU_SCL", 2: "3V3"})
 
-    # --- battery voltage sense ---
-    c.add("R11", "r_1m", "1M", {1: "VBATT", 2: "VBSENSE"})
+    # --- battery voltage / switch-position sense ---
+    # Divider top is SW_ON (the switch common), not VBATT (rev 2):
+    #   switch ON  -> VBSENSE = VBATT/2, battery telemetry exactly as
+    #                 before (SW_ON = VBATT with no diode in between);
+    #   switch OFF -> VBSENSE = 0. A running chip reading 0 here can
+    #                 only be USB-powered with the switch off — that is
+    #                 the whole mode signal for charge-indicator mode.
+    # No new GPIO, no new escape from the jammed pin-40..43 west window,
+    # and the divider's 2uA drain now stops when the switch is off.
+    # (Cost: no VBATT reading while in charge-only mode. Nothing is
+    # lost: during CV charge the charger pins VBATT at 4.2V anyway, so
+    # the voltage carries no charge-state information; CHRG/DONE are
+    # the real signals there.)
+    c.add("R11", "r_1m", "1M", {1: "SW_ON", 2: "VBSENSE"})
     c.add("R12", "r_1m", "1M", {1: "VBSENSE", 2: "GND"})
     c.add("C21", "c_100n", "100n", {1: "VBSENSE", 2: "GND"})
 

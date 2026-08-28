@@ -293,6 +293,15 @@ def main():
     # by the hanger removal) — also clears the right-edge annulus band the
     # tip ring caps need for their VLED plane vias
     place(fps["U5"], 0, -11.5, rot=0, back=True)
+    # C28 (USBLC6 local VBUS 100n): was never placed — since its Aug 6
+    # datasheet-review add it fell through to the relaxer, which shoved
+    # it from the board-center seed to (0,4.2) FRONT, squatting the
+    # south-center B->F transition corridor and stretching a VBUS branch
+    # 10mm into the interior. The ST note that motivated it (USBLC6 ds
+    # §3: 100n right at the part) wants it HERE, beside U5 on the back.
+    # Scanned spot (see D2's note); the relaxer may nudge it off U5's
+    # courtyard sliver — that's fine, it's movable.
+    place(fps["C28"], 2.0, -11.3, rot=90, back=True)
     # CC pulldowns: pulled down-board from the tip strip — LED21/LED22 now
     # live on the tip straights behind the USB connector
     # (rot0 variants closer to the tip all clip locked copper or the NPTH
@@ -311,6 +320,9 @@ def main():
     place(fps["U3"], -6.6, 3.4, rot=0)  # shifted left: clears CFILT (C22)
     place(fps["C18"], -8.5, 1.2, rot=90)
     place(fps["C19"], -8.3, 3.6, rot=90)
+    # (R17, the PWR_EN pulldown, lives on the BACK next to D2 — the
+    # front slot east of U7 failed the pad-aware scan: U7's pad tips
+    # reach past its drawn courtyard.)
     place(fps["U4"], 6.6, -1.6, rot=0)
     place(fps["C20"], 6.3, -3.8, rot=90)  # tight to U4 output
     # R10 (LED_EN pulldown): moved to the BACK east pocket (below).
@@ -337,6 +349,36 @@ def main():
     nx_, ny_ = 0.833, 0.553             # inward normal of the left straight
     l4x, l4y = pts[3]                   # LED4 (path-derived, margin 2.0)
     place(fps["SW2"], l4x + 0.30 * nx_, l4y + 0.30 * ny_, rot=56.0, back=True)
+    # D2 (BAT54SW EN diode-OR, rev 2) + R17 (PWR_EN pulldown): back
+    # LOWER-LEFT shoulder, between TP3 and the insertion corridor.
+    # Spots from a full-board grid scan against the STATIC board (all
+    # courtyards + all PAD copper at 0.25 mask margin + route.py's
+    # locked vias/tracks + holes + edge + the insertion corridor).
+    # Courtyards alone are NOT enough here: SW2's pin pads stick out
+    # past its courtyard polygon (same trap as SW1) — a first placement
+    # in SW2's pocket put D2.3 shorting_items-close to SW2.3, and under
+    # the pad-aware model that pocket has NO legal SC-70 spot (nor does
+    # anywhere else for a SOT-23, which is why the part is SC-70).
+    # The shoulder is also the better topology: SW_ON runs SW2 -> D2.1
+    # -> R11 (right shoulder) as one arc along the open back annulus,
+    # VBATT is the clip's west foot 6mm north, and PWR_EN heads up the
+    # west corridor to U3 — the same channel the old SW2->U3 PWR_EN
+    # route proved out. D refs are NOT relaxer-movable: keep exact.
+    place(fps["D2"], -9.1, 8.2, rot=90, back=True)
+    place(fps["R17"], -7.4, 8.7, rot=90, back=True)
+    # R18 (VBUS -> PWR_EN 100k): back tip, the pocket WEST of J1's GND
+    # tie pad — the VBUS leg hops to the locked A4B9 via-in-pad at
+    # (-2.35,-13.45), PWR_EN heads down the west corridor to D2/U3.
+    # BEWARE placing anything else near the tip ties: J1's A1B12/A4B9
+    # are CUSTOM pads that report GetSize 0.01x0.01 — their real copper
+    # spans x -3.60..-2.05, y -14.82..-13.42 (GetEffectivePolygon), so
+    # size-based scans sail right through them. Two earlier spots
+    # ((-1.0,-13.1) and (-3.4,-13.1)) DRC'd as shorting/mask-bridging
+    # against the ties, J1's pin field and the locked USB_C_DN via.
+    # This one is hand-verified against the real polygons: 0.39 to
+    # C30's VLED via-in-pad, 0.33 to R7.2, 0.2 to SW2's mount pad
+    # face, 1.16 to J1's shell-leg pad copper.
+    place(fps["R18"], -4.45, -12.4, rot=0, back=True)
 
     # ---------------- IMU (back, right tip straight, opposite SW2) ----------
     # Mirror of SW2's anchor across x=0; rot=-56.4 mirrors SW2's scan-found
