@@ -26,9 +26,8 @@
 //
 // CHARGING (CHRG or DONE low) preempts everything, instantly — no
 // settling wait, no drip show, jostling irrelevant. A proportional arc
-// of the perimeter ring ASSEMBLES over about a second (a random handful
-// of its LEDs snapping on every 50ms), holds, then goes dark for two
-// seconds. Arc length is the percent; one solid dim colour is the tier:
+// of the perimeter ring blinks at the dimmest level: on one second, off
+// four, repeat. Arc length is the percent; the colour is the tier:
 //   red below 30%, orange 30-85%, green 85%+ (or DONE).
 // The same indicator runs for two seconds at every power-on, charging
 // or not, so switching on tells you where the battery stands.
@@ -116,23 +115,24 @@ constexpr float SHAKE_WAKE = 450.0f;     // jolt_f: hard shake cuts a nap
 constexpr float STEP_JOLT = 90.0f;
 
 // ---- charge / level indicator ----
-// Whole board pulses one colour for a second, then two seconds dark.
-// Colour IS the reading — no arc to count, legible at a glance and while
-// jostled. The 2s dark beat cuts VLED entirely (the 45 idle SK6805 draw
-// ~13.5mA just sitting there) and hosts the VBATT measurement, so the
-// average LED load lands around 7mA of the ~41mA charge budget.
-constexpr uint32_t CHG_PERIOD_MS = 3000;
+// A proportional arc of the perimeter ring steps up and back down in
+// brightness over a second, then two seconds dark. The dark beat cuts
+// VLED entirely (the 45 idle SK6805 draw ~13.5mA just sitting there) and
+// hosts the VBATT measurement, so the average LED load stays a small
+// slice of the ~41mA charge budget. Levels are RAW channel counts out of
+// 255 with the brightness scaler disabled (see enterMode): NeoPixel's
+// setBrightness multiplies by (b+1)>>8, which floors small counts to
+// zero — the bug that made the old off-idle blip invisible.
+constexpr uint32_t CHG_PERIOD_MS = 5000; // 1s lit + 4s dark
 constexpr uint32_t CHG_PULSE_MS = 1000;
-constexpr uint32_t FILL_TICK_MS = 50; // one assembly step per tick
 constexpr uint32_t BOOT_LEVEL_MS = 2000; // power-on battery-level splash
 constexpr float CHG_RED_PCT = 30.0f;     // below this: red
 constexpr float CHG_GREEN_PCT = 85.0f;   // at/above (or DONE): green
-// Dimmest that still holds its hue. These are RAW channel counts out of
-// 255 with the brightness scaler disabled (see enterMode): NeoPixel's
-// setBrightness multiplies by (b+1)>>8, which would floor a count of 1-3
-// straight to zero — the bug that made the old off-idle blip invisible.
-// Orange needs R:G near 3:1, else it reads yellow.
-constexpr float CHG_PEAK = 3.0f;
+// Dimmest level that still renders all three tiers: orange is drawn at a
+// 3:1 red:green ratio (green LEDs far outshine red at equal drive), so
+// red needs 3 counts for green to land on 1. At 1 or 2, green floors to
+// zero and orange would show as plain red.
+constexpr uint8_t CHG_LEVEL = 3;
 
 struct Region {
   int start, n;
@@ -611,10 +611,12 @@ static void runShowFrame() {
                       : activity() == A_WALK  ? "walk"
                                               : "still";
     Serial.printf("drops=%d jolt=%d motion=%d(%s) down_ang=%d sat=%u "
-                  "vbatt=%dmV ep=%lus log=%luB\n",
+                  "vbatt=%dmV chrg=%d done=%d ep=%lus log=%luB\n",
                   n_drops, (int)jolt_f, (int)motion, act,
                   (int)(atan2f(dy, dx) * 180.0f / (float)M_PI), sat,
-                  senseOnce().vbatt_mv,
+                  // same sense as measureCharge's line: 1 = asserted
+                  senseOnce().vbatt_mv, digitalRead(PIN_CHRG) == LOW,
+                  digitalRead(PIN_DONE) == LOW,
                   (unsigned long)((now - episode_start_ms) / 1000),
                   (unsigned long)log_bytes);
   }
@@ -659,31 +661,25 @@ static void runShowNap() {
 // TWO readings at once, on the perimeter ring only:
 //   how MANY LEDs  = charge percent (proportional arc of the 37-LED ring)
 //   what COLOUR    = red below 30%, orange 30-85%, green 85%+ or DONE
-// The ring doesn't fade up, it ASSEMBLES: every 50ms a random fraction of
-// the still-dark arc LEDs snap on, until the whole arc stands lit. That
-// is the dither — spatial, in which LEDs are on, not temporal in each
-// LED's colour. Every lit pixel therefore shows the exact same solid
-// colour at the dimmest count that holds its hue, so nothing quantizes
-// and orange can never decay toward red mid-fade. A low charge lights a
-// short arc, which fills in fewer ticks, so it visibly resolves faster.
-// Then dark for two seconds, and again.
+// The arc simply blinks: on at the dimmest level for a second, off for
+// four, repeat. No fade, no ramp, no dither — at these counts every
+// smoother option either bands or shimmers, and a plain blink reads
+// cleanly on a piece this small. The 4s dark also drops the average LED
+// load to a fifth, leaving more of the ~41mA charge budget for the cell.
 //
 // Honest limitation (unchanged): the LGS4056H terminates on total
 // BAT-pin current (C/10 = ~4mA) and the awake MCU draws more than that
 // from the same node, so DONE cannot assert while this firmware runs;
 // green therefore comes from the voltage estimate, which itself
 // saturates in the CV phase. Treat green as "nearly there".
-bool arc_lit_map[N_RING];
-int arc_n = 0, arc_lit = 0;
-uint32_t last_fill_ms = 0;
+int arc_n = 0;
 
-// one solid colour per level — deliberately NOT blended or dithered
-static uint32_t levelColor(float pct, bool known) {
-  constexpr uint8_t P = (uint8_t)CHG_PEAK;
-  if (!known) return strip.Color(0, 0, P); // powered, but VBATT unreadable
-  if (pct >= CHG_GREEN_PCT) return strip.Color(0, P, 0);
-  if (pct >= CHG_RED_PCT) return strip.Color(P, P / 3, 0); // 3:1 = orange
-  return strip.Color(P, 0, 0);
+// one solid colour per level, scaled to the current ramp step
+static uint32_t levelColor(float pct, bool known, uint8_t s) {
+  if (!known) return strip.Color(0, 0, s); // powered, but VBATT unreadable
+  if (pct >= CHG_GREEN_PCT) return strip.Color(0, s, 0);
+  if (pct >= CHG_RED_PCT) return strip.Color(s, s / 3, 0); // 3:1 = orange
+  return strip.Color(s, 0, 0);
 }
 
 static int arcLength(float pct, bool known) {
@@ -694,41 +690,13 @@ static int arcLength(float pct, bool known) {
   return n;
 }
 
-static void fillReset(int n) {
-  arc_n = n;
-  arc_lit = 0;
-  for (int i = 0; i < N_RING; i++) arc_lit_map[i] = false;
-  last_fill_ms = 0;
-}
-
-// snap on a random 20-50% of whatever is still dark (at least one, so a
-// short arc always finishes quickly rather than crawling by fractions)
-static void fillStep() {
-  int rem = arc_n - arc_lit;
-  if (rem <= 0) return;
-  float frac = 0.2f + (float)(rp2040.hwrand32() % 1000) * 0.0003f;
-  int k = (int)(rem * frac);
-  if (k < 1) k = 1;
-  while (k-- > 0 && arc_lit < arc_n) {
-    int idx = rp2040.hwrand32() % arc_n;
-    if (arc_lit_map[idx]) { // taken: fall forward to the next dark one
-      int i = idx;
-      do {
-        i = (i + 1) % arc_n;
-      } while (arc_lit_map[i] && i != idx);
-      idx = i;
-    }
-    if (!arc_lit_map[idx]) {
-      arc_lit_map[idx] = true;
-      arc_lit++;
-    }
-  }
-}
-
-static void renderFill(uint32_t col) {
+// Paint the arc once; the pixels then latch for the rest of the second.
+static void showArc() {
+  bool known = chg_pct >= 0;
+  arc_n = arcLength(chg_pct, known);
+  uint32_t col = levelColor(chg_pct, known, CHG_LEVEL);
   strip.clear();
-  for (int i = 0; i < arc_n; i++)
-    if (arc_lit_map[i]) strip.setPixelColor(i, col);
+  for (int i = 0; i < arc_n; i++) strip.setPixelColor(i, col);
   strip.show();
 }
 
@@ -768,33 +736,20 @@ static void measureCharge() {
 }
 
 static void runChargeFrame() {
-  static uint32_t last_meas = 0;
-  uint32_t now = millis();
-  uint32_t ph = (now - mode_entered_ms) % CHG_PERIOD_MS;
-
-  // re-measure during the dark beat: readSense's debounce delays would
-  // otherwise hitch the pulse
-  if (ph >= CHG_PULSE_MS && now - last_meas > 2500) {
-    last_meas = now;
-    measureCharge();
-  }
-
+  uint32_t ph = (millis() - mode_entered_ms) % CHG_PERIOD_MS;
   if (ph < CHG_PULSE_MS) {
-    if (!pulse_active) { // leading edge: start a fresh assembly
+    if (!pulse_active) { // leading edge: light it once and let it latch
       pulse_active = true;
-      fillReset(arcLength(chg_pct, chg_pct >= 0));
+      railOn();
+      showArc();
     }
-    railOn();
-    // only redraw when the picture actually changes — once the arc is
-    // complete the pixels just latch and hold for the rest of the second
-    if (now - last_fill_ms >= FILL_TICK_MS && arc_lit < arc_n) {
-      last_fill_ms = now;
-      fillStep();
-      renderFill(levelColor(chg_pct, chg_pct >= 0));
-    }
-  } else {
+  } else if (pulse_active) {
+    // Falling edge, once per cycle: rail down first, THEN measure — no
+    // LED load on the cell while sampling, and readSense's debounce
+    // delays land in the dark where they cannot hitch the blink.
     pulse_active = false;
     railOff();
+    measureCharge(); // the reading the next blink will show
   }
   delay(10);
 }
@@ -803,20 +758,10 @@ static void runChargeFrame() {
 // Blocking on purpose, and called before IMU/filesystem init so it is the
 // first thing that happens after the rail comes up.
 static void bootLevelSplash() {
-  strip.setBrightness(255); // raw counts: see CHG_PEAK
+  strip.setBrightness(255); // raw counts, scaler off: see CHG_LEVEL
   railOn();
-  uint32_t col = levelColor(chg_pct, chg_pct >= 0);
-  fillReset(arcLength(chg_pct, chg_pct >= 0));
-  uint32_t t0 = millis(), last = 0;
-  while (millis() - t0 < BOOT_LEVEL_MS) {
-    uint32_t now = millis();
-    if (now - last >= FILL_TICK_MS && arc_lit < arc_n) {
-      last = now;
-      fillStep(); // assembles, then simply holds for the rest of the 2s
-      renderFill(col);
-    }
-    delay(10);
-  }
+  showArc();
+  delay(BOOT_LEVEL_MS);
   railOff();
 }
 
@@ -829,7 +774,7 @@ static void runIdleFrame() {
     railOn();
     strip.clear();
     for (int i = 34; i <= 36; i++)
-      strip.setPixelColor(i, strip.Color(0, 0, (uint8_t)CHG_PEAK));
+      strip.setPixelColor(i, strip.Color(0, 0, CHG_LEVEL));
     strip.show();
   } else {
     railOff();
@@ -846,7 +791,7 @@ static void enterMode(RunMode m) {
   n_drops = 0;
   for (int i = 0; i < N_LEDS; i++) ledv[i] = 0;
   // Indicator modes run on RAW channel counts (brightness scaler off, see
-  // CHG_PEAK); only the drip show uses the scaler. Entering charge mode
+  // CHG_LEVEL); only the drip show uses the scaler. Entering charge mode
   // measures straight away so the first pulse already carries a reading.
   strip.setBrightness(m == M_SHOW ? GLOBAL_BRIGHTNESS : 255);
   pulse_active = false;
@@ -867,6 +812,26 @@ static void enterMode(RunMode m) {
                                                 : "off-idle");
 }
 
+// The sense divider is 1M:1M with C21 = 100nF on the bottom leg, so
+// VBSENSE rises with tau = 500k * 100nF = 50ms — and at power-on C21
+// starts EMPTY. Sampling before it settles reads a FRACTION of the true
+// voltage: a 4.0V cell (68%) decodes as 0-4% anywhere in the 60-100ms
+// window, and below ~55ms VBSENSE is still under the 1.27V band edge, so
+// even the switch position decodes wrong. 8 tau puts the residual under
+// 0.1%. millis() already counts from core start and C21 began charging
+// before that, so this credits the boot time that has passed.
+constexpr uint32_t BOOT_SETTLE_MS = 400;
+
+// 500k source impedance is far above what the RP2350 ADC's sample-and-
+// hold wants; its first conversions after init read low until the S/H
+// cap has been charged a few times. Throw those away.
+static void adcWarmup() {
+  for (int i = 0; i < 8; i++) {
+    analogRead(PIN_SW_SENSE);
+    delay(1);
+  }
+}
+
 void setup() {
   // Ordered for a fast first reading: pins, LEDs, measure, splash — and
   // only THEN the slow parts (IMU probe, LittleFS mount, which can take
@@ -880,6 +845,15 @@ void setup() {
   pinMode(PIN_LED_EN, OUTPUT);
   digitalWrite(PIN_LED_EN, LOW);
   strip.begin();
+
+  adcWarmup();
+  int mv_early = analogRead(PIN_SW_SENSE) * 3300 / 4095;
+  uint32_t t_early = millis();
+  while (millis() < BOOT_SETTLE_MS) delay(5); // let C21 finish charging
+  int mv_settled = analogRead(PIN_SW_SENSE) * 3300 / 4095;
+  Serial.printf("boot sense: %dmV @%lums -> %dmV @%lums (C21 tau=50ms)\n",
+                mv_early, (unsigned long)t_early, mv_settled,
+                (unsigned long)millis());
 
   measureCharge();
   bootLevelSplash(); // two seconds of level, charging or not
