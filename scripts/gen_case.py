@@ -6,12 +6,11 @@ FRONT half : light-guide diffuser.  A pocket above every LED concentrates that
 REAR  half : closed cup over the coin cell + holder — the short-protection half.
 
 Each half locks to the BOARD only — there is no half-to-half catch and nothing
-sticks out.  The rim is divided into stations that alternate FRONT / REAR
-ownership; at its own stations a half sends a finger past the board mid-plane,
+sticks out.  The rim carries six chunky stations (three a side), each owned by
+one half; at its own stations a half sends a finger past the board mid-plane,
 wraps the PCB edge and catches a flat lip on the *opposite* board face.  The
 mating half is simply cut away there, so the two rims interleave as a plain
-castellation that keeps them aligned and leaves a flush outer surface.  Same
-pattern on both halves, offset by one station.
+castellation that keeps them aligned and leaves a flush outer surface.
 
 SW2 lives in an open thumb scoop bitten out of both rims on the left flank.
 
@@ -52,7 +51,7 @@ SEAM_Z = -T_PCB / 2     # the halves meet at the board mid-plane
 WALL = 1.80             # rim wall, radial
 EDGE_GAP = 0.10         # wall inner face vs board edge (TPU closes this)
 FINGER_T = WALL - EDGE_GAP   # fingers fill the wall -> flush outer surface
-STATION_W = 4.00        # finger width along the rim
+STATION_W = 8.00        # finger width along the rim (round-part stations)
 STATION_GAP = 0.15      # slot clearance around a finger
 
 CHAMFER = 1.00          # roll-over at each outer face: this much radially...
@@ -66,7 +65,6 @@ RING_BAND = 4.00        # "ring zone" = within this of the board edge
 POCKET_TOP = 2.35       # LED pocket ceiling -> 1.10 mm of diffuser skin
 POCKET_R0 = 1.00        # pocket radius at the mouth (board side)
 POCKET_R1 = 0.62        # ... and at the ceiling
-LED_BOSS_R = 1.70       # boss dropping the mid-zone floor to F_FLOOR_RING
 F_LEDGE = 0.85          # seat ledge on the front face, inboard from the edge
 F_LIP = 1.00            # finger lip reach onto the BACK face
 F_LIP_END = -T_PCB - 0.70    # bottom of the flat lip
@@ -95,15 +93,25 @@ NOTCH_RAKE = 3.00
 KEEPOUT_XY = 0.30       # courtyard grow
 KEEPOUT_Z = 0.20
 
-# Station centres, CAD degrees.  FRONT stations wrap onto the BACK face, so
-# they must sit where the back is clear near the edge; REAR stations wrap onto
-# the FRONT face (only the LED ring is there, 1.22 mm in, all the way round).
-# --report prints the measured margin for every one of them.
-STATIONS = [
-    (195.0, "rear"), (232.0, "front"), (252.0, "rear"), (272.0, "front"),
-    (292.0, "rear"), (312.0, "front"), (332.0, "rear"), (25.0, "front"),
+# Six stations: three chonky tabs per side.  FRONT stations wrap onto the
+# BACK face, so they must sit where the back is clear near the edge; REAR
+# stations wrap onto the FRONT face (only the LED ring is there, 1.22 mm in,
+# all the way round).  Round-part stations are (centre angle, owner) and
+# STATION_W wide; the two upper tabs get their own extents:
+#   topL (front) - the slice of left flank between the SW2 scoop + courtyard
+#                  (to y 14.2) and the F_WALL_YMAX clip, so it stays small;
+#   topR (rear)  - wraps the right shoulder, round arc through the tangency
+#                  up the flank; rear-owned because the back face there is
+#                  packed with the IMU cluster (U6, R10, R14).
+# The 0-degree station carries a lip override: a full-depth front lip would
+# graze the BT1 clip-arm courtyard corners at (14.1, +-3.4), and 0.65 mm
+# keeps the whole chonky span clear of them at every depth.
+# --report prints the measured margin for every one.
+STATIONS = [                # (centre angle, owner[, lip override])
+    (195.0, "rear"), (240.0, "front"), (300.0, "rear"), (0.0, "front", 0.65),
 ]
-TIP_HOOK_Y = 17.0       # extra front-only hooks on the straight tip flanks
+TOPL_Y = (15.3, 18.6)   # left flank tab, y-extent
+TOPR = (31.0, 14.4)     # right shoulder tab: round-arc angle .. flank y
 
 # part height above its own board face, by footprint-name fragment
 HEIGHTS = [
@@ -304,6 +312,13 @@ class Outline:
                 hi = mid
         return (lo + hi) / 2
 
+    def s_at_right_y(self, y):
+        """Arc length of the point at height y on the RIGHT flank (s runs
+        downward there, corner -> tangency)."""
+        La, Lb, Lc, _ = self.segs()
+        ty, cy = self.tangency()[1], self.corner()[1]
+        return La + Lb + Lc + Lb * (cy - y) / (cy - ty)
+
     def length(self):
         return sum(self.segs())
 
@@ -340,16 +355,6 @@ class Outline:
         while a < self.ang - 2 * math.pi:
             a += 2 * math.pi
         return (self.ang - a) * self.R
-
-    def s_at_point(self, p, n=4000):
-        best, bs = 1e9, 0.0
-        for i in range(n):
-            s = self.length() * i / n
-            q, _ = self.at(s)
-            d = math.hypot(q[0] - p[0], q[1] - p[1])
-            if d < best:
-                best, bs = d, s
-        return bs
 
     def poly(self, d, n=400):
         return [self.at(self.length() * i / n, d)[0] for i in range(n)]
@@ -483,28 +488,31 @@ def build(parts, ol, args, report):
     cell_pad_h = R_FLOOR_GAP + 0.10                    # 0.1 mm of preload
 
     leds = [p for p in parts if "LED_SK6805" in p["fp"]]
-    mid_poly = ol.poly(-RING_BAND, 240)
 
     # ---- stations ---------------------------------------------------------
     stations = []
-    for ang, owner in STATIONS:
-        stations.append({"s": ol.s_at_angle(ang), "owner": owner,
-                         "tag": f"{ang:.0f}", "hook_only": False})
-    for sx in (-1, 1):
-        f = (ol.corner()[1] - TIP_HOOK_Y) / (ol.corner()[1] - ol.tangency()[1])
-        x = sx * (ol.corner()[0] + f * (ol.tangency()[0] - ol.corner()[0]))
-        stations.append({"s": ol.s_at_point((x, TIP_HOOK_Y)), "owner": "front",
-                         "tag": "tip" + ("L" if sx < 0 else "R"), "hook_only": True})
+    for ang, owner, *lip in STATIONS:
+        s = ol.s_at_angle(ang)
+        stations.append({"s": s, "s0": s - STATION_W / 2, "s1": s + STATION_W / 2,
+                         "owner": owner, "tag": f"{ang:.0f}",
+                         "lip": lip[0] if lip else F_LIP if owner == "front" else R_LIP})
+    s0, s1 = ol.s_at_left_y(TOPL_Y[0]), ol.s_at_left_y(TOPL_Y[1])
+    stations.append({"s": (s0 + s1) / 2, "s0": s0, "s1": s1,
+                     "owner": "front", "tag": "topL", "lip": F_LIP})
+    # topR runs from the right flank down through the tangency onto the round
+    # arc, so its span crosses the s = 0 wrap point; at() reduces mod length.
+    s0 = ol.s_at_right_y(TOPR[1])
+    s1 = ol.s_at_angle(TOPR[0]) + ol.length()
+    stations.append({"s": (s0 + s1) / 2, "s0": s0, "s1": s1,
+                     "owner": "rear", "tag": "topR", "lip": R_LIP})
     for st in stations:
-        st["s0"] = st["s"] - STATION_W / 2
-        st["s1"] = st["s"] + STATION_W / 2
         st["p"], st["n"] = ol.at(st["s"])
 
     # measure every lip against the real keep-outs on the face it grabs
     hulls = {lay: [(r, poly) for r, poly, _ in obstacles(parts, lay)]
              for lay in ("F.Cu", "B.Cu")}
     for st in stations:
-        lip = F_LIP if st["owner"] == "front" else R_LIP
+        lip = st["lip"]
         layer = "B.Cu" if st["owner"] == "front" else "F.Cu"
         worst, who = 99.0, ""
         for i in range(13):
@@ -521,7 +529,7 @@ def build(parts, ol, args, report):
                       + ("   *** TIGHT ***" if worst < 0.05 else ""))
 
     # ---- SW2 thumb scoop ---------------------------------------------------
-    tipl = min((s for s in stations if s["tag"] == "tipL"),
+    tipl = min((s for s in stations if s["tag"] == "topL"),
                key=lambda s: s["s0"], default=None)
     s_lo = ol.s_at_left_y(NOTCH_Y0)
     s_hi = tipl["s0"] if tipl else ol.s_at_left_y(R_CLIP_Y)
@@ -542,16 +550,14 @@ def build(parts, ol, args, report):
     front = front.fuse(ring(ol, EDGE_GAP, WALL, SEAM_Z, F_FLOOR_RING)).clean()
     front = front.fuse(ring(ol, -F_LEDGE, EDGE_GAP, 0.0, F_FLOOR_RING)).clean()
 
-    bosses, pockets = [], []
-    for p in leds:
-        x, y = p["pos"]
-        if inside(mid_poly, (x, y)):
-            bosses.append(cq.Solid.makeCylinder(
-                LED_BOSS_R, F_FLOOR_MID - F_FLOOR_RING, Vector(x, y, F_FLOOR_RING)))
-        pockets.append(cq.Solid.makeCone(
-            POCKET_R0, POCKET_R1, POCKET_TOP - F_FLOOR_RING,
-            Vector(x, y, F_FLOOR_RING), Vector(0, 0, 1)))
-    front = fuse_all(front, bosses)
+    # LED pockets, cut flush into whichever floor is overhead.  One cone for
+    # every LED, anchored at the ring floor: over the raised mid floor it just
+    # emerges 0.55 shallower and a touch narrower, and the ceiling (so the
+    # diffuser skin) is the same everywhere.
+    pockets = [cq.Solid.makeCone(
+        POCKET_R0, POCKET_R1, POCKET_TOP - F_FLOOR_RING,
+        Vector(p["pos"][0], p["pos"][1], F_FLOOR_RING), Vector(0, 0, 1))
+        for p in leds]
     front = cut_all(front, pockets)
 
     add = []
@@ -560,7 +566,7 @@ def build(parts, ol, args, report):
             continue
         add.append(band(ol, EDGE_GAP, EDGE_GAP + FINGER_T,
                         st["s0"], st["s1"], F_FINGER_Z, SEAM_Z))
-        add += hook(ol, st["s0"], st["s1"], F_LIP, -T_PCB, F_LIP_END, F_FINGER_Z)
+        add += hook(ol, st["s0"], st["s1"], st["lip"], -T_PCB, F_LIP_END, F_FINGER_Z)
     front = fuse_all(front, add)
 
     cuts = []
@@ -568,7 +574,7 @@ def build(parts, ol, args, report):
         if st["owner"] != "rear":
             continue
         s0, s1 = st["s0"] - STATION_GAP, st["s1"] + STATION_GAP
-        cuts.append(band(ol, -R_LIP - 0.15, WALL + 0.6, s0, s1,
+        cuts.append(band(ol, -st["lip"] - 0.15, WALL + 0.6, s0, s1,
                          SEAM_Z - 0.10, R_FINGER_Z))
     cuts.append(scoop)
     front = cut_all(front, cuts)
@@ -593,7 +599,7 @@ def build(parts, ol, args, report):
             continue
         add.append(band(ol, EDGE_GAP, EDGE_GAP + FINGER_T,
                         st["s0"], st["s1"], SEAM_Z, R_FINGER_Z))
-        add += hook(ol, st["s0"], st["s1"], R_LIP, 0.0, R_LIP_END, R_FINGER_Z)
+        add += hook(ol, st["s0"], st["s1"], st["lip"], 0.0, R_LIP_END, R_FINGER_Z)
     rear = fuse_all(rear, add)
 
     cuts = []
@@ -601,7 +607,7 @@ def build(parts, ol, args, report):
         if st["owner"] != "front":
             continue
         s0, s1 = st["s0"] - STATION_GAP, st["s1"] + STATION_GAP
-        cuts.append(band(ol, -F_LIP - 0.15, WALL + 0.6, s0, s1,
+        cuts.append(band(ol, -st["lip"] - 0.15, WALL + 0.6, s0, s1,
                          F_FINGER_Z - 0.15, SEAM_Z + 0.10))
     cuts.append(scoop)
     rear = cut_all(rear, cuts)
