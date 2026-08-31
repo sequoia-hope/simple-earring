@@ -71,6 +71,58 @@ TAGS = {
 
 FEED = [
     dict(
+        date="2026-08-31", sha="c0cd016", tags=["layout", "tooling"],
+        title="Freerouting hung before pass 1 — a locked polyline, not congestion",
+        lede="The first full route since rev 3 never started. Bisected to "
+             "LED_D3&rsquo;s locked hop; cut to one segment, and the board "
+             "routes again.",
+        body="""
+<p>Symptom: silent, 100&nbsp;% CPU, <b>nothing in freerouting&rsquo;s own log
+after the settings dump</b>, both 900&nbsp;s tries burned, no SES, twice. The
+static gate was clean — <code>kicad-cli</code> DRC with the
+<code>.kicad_pro</code> beside the board reports 0 errors on the pre-freerouting
+statics — so this was not the known locked-wire-clearance burn.</p>
+
+<p>A hang is deterministic, so the retry loop was just burning 30&nbsp;min an
+attempt. Bisected instead by deleting <code>(wire …)</code> blocks from the DSN
+and probing at <code>-mp 2</code> (~90&nbsp;s each), run concurrently with a
+per-probe <code>-Djava.io.tmpdir</code> so each got its own log. Verdict is
+simply whether <code>Pass #</code> ever appears:</p>
+
+<pre class="art">full hop                 HANG     only CHRG_DONE dropped   HANG
+hop dropped entirely     routes   hop's 3 middle segments  HANG
+segment 2 alone          routes   segments 2 + 3           HANG
+segment 3 alone          routes   segments 1 + 2 + 3       HANG</pre>
+
+<p>So the trigger is a fixed <b>polyline</b> — any two of those segments meeting
+at a vertex is enough. <b>My standing note on this was wrong.</b> It blamed
+&ldquo;fixed wires that start on a component pad&rdquo;, but CHRG_DONE is a
+seven-segment fixed chain landing in U2&nbsp;pad&nbsp;6 and it routes; the VLED
+C32&rarr;C30 link touches a pad at <i>both</i> ends and it routes; and trimming
+LED_D3&rsquo;s two pad-landing segments off while keeping the three middle ones
+still hangs.</p>
+
+<p>The hop keeps its one load-bearing segment, the vertical past SW2&rsquo;s NPTH
+peg. A lone fixed fragment still does the job because freerouting has to reach
+both of its ends — the wire is forced through the corridor and it does the two
+pin escapes itself. All four probe SES files come back with the same LED_D3 wire
+count with or without it. Same shape as the trick that already works for stranded
+nets here: one committed B-transition via, never a locked path.
+<b>Single hints work, locked paths poison.</b></p>
+
+<p>Two things fixed alongside. Both tries timing out left <code>r</code> as
+<code>None</code>, so <code>route.py</code> printed <i>no diagnostic at all</i>
+for the one failure mode that most needs one; it now reads freerouting&rsquo;s log
+and reports the pass count for the current run, calling out &ldquo;hung before
+pass 1&rdquo; explicitly. And worth knowing while reading that log:
+<code>/tmp/freerouting</code> is shared by every project on this machine and
+appends across runs — the 241k <code>PolylineTrace.normalize</code> lines that
+looked like this board live-locking turned out to be a different project&rsquo;s,
+from Aug&nbsp;29.</p>
+""",
+        media=[],
+    ),
+    dict(
         date="2026-08-31", sha="2e9399c", tags=["hardware", "layout"],
         title="Rev 2 power path: split VBATT from VSYS so USB runs the board",
         lede="The root fix for &ldquo;no lights at all&rdquo; — the charger&rsquo;s "
