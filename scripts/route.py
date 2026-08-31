@@ -708,12 +708,33 @@ def main():
     # whose LED3/LED4/SW2 placements are identical (the chain re-pitch
     # pins S[2..4]); 0.143 to the peg hole. Injected + zone-refilled +
     # kicad-cli DRC'd clean against the rev-2 statics before locking.
-    for a, b in (((-8.638, -10.941), (-8.182, -11.029)),
-                 ((-8.182, -11.029), (-7.964, -11.029)),
-                 ((-7.964, -11.029), (-7.428, -11.565)),
-                 ((-7.428, -11.565), (-7.428, -12.188)),
-                 ((-7.428, -12.188), (-7.517, -12.643))):
-        rt.track(a, b, "LED_D3", width=0.15)
+    #
+    # ONE SEGMENT, NOT THE WHOLE HOP (2026-08-31). Locking the full
+    # five-segment polyline hangs freerouting v2.2.4 dead before pass 1 —
+    # silent, 100% CPU, nothing in /tmp/freerouting/freerouting.log after
+    # the settings dump, both 900s tries burned, no SES. Bisected on the
+    # DSN with -mp 2 probes (~90s each, scratchpad bisect*.py):
+    #
+    #   full hop                    HANG      only CHRG_DONE dropped  HANG
+    #   hop dropped entirely        routes    hop's 3 middle segs     HANG
+    #   segment 2 alone             routes    segments 2 + 3          HANG
+    #   segment 3 alone             routes    segments 1 + 2 + 3      HANG
+    #
+    # So the trigger is a fixed POLYLINE here — any two of these segments
+    # meeting at a vertex is enough — not the fact that the ends land on
+    # pads. (Pads are fine: CHRG_DONE below is a seven-segment fixed chain
+    # into U2.6 and the VLED C32->C30 link touches a pad at both ends;
+    # both route.) Nothing else about this spot looks special, and chasing
+    # freerouting's internals further is not worth the probe time.
+    #
+    # A lone fixed fragment still does the job, and matches what already
+    # works for stranded nets on this board (one committed B-transition
+    # via, never a locked path): freerouting must reach both of its ends,
+    # so the wire is forced through the corridor, and it does the two pin
+    # escapes itself. Verified in all four probe SES files — LED_D3 comes
+    # back with the same wire count whether the fragment is there or not.
+    # Keep it to ONE segment. Adding its neighbour back re-hangs the job.
+    rt.track((-7.428, -11.565), (-7.428, -12.188), "LED_D3", width=0.15)
     # CHRG_DONE's landing: from the committed via at (7.8,6.6) the final
     # approach into U2 pad 6 loops EAST around C16 (the shipped board's
     # own path) — freerouting failed this last 2mm on 6/6 rev-2 seeds
@@ -756,6 +777,24 @@ def main():
             if r is not None:
                 print(r.stdout[-3000:])
                 print(r.stderr[-2000:])
+            # both tries timing out leaves r None, which used to mean the
+            # run failed with NO diagnostic at all. freerouting's own log
+            # tells the two apart: "Pass #" lines mean it was routing and
+            # ran out of budget, none at all means it hung before pass 1 —
+            # which on this board has meant a fixed POLYLINE it cannot
+            # digest (see the LED_D3 note above). Bisect by deleting wire
+            # blocks from out/earring.dsn and re-probing at -mp 2.
+            frlog = Path("/tmp/freerouting/freerouting.log")
+            if frlog.exists():
+                txt = frlog.read_text(errors="ignore")
+                cut = txt.rfind("Command line arguments")
+                this_run = txt[cut:] if cut >= 0 else txt
+                n = this_run.count("Pass #")
+                print(f"freerouting log: {n} pass lines this run")
+                if not n:
+                    print("  -> HUNG BEFORE PASS 1. Suspect a locked "
+                          "pre-route polyline, not congestion.")
+                print(this_run[-1500:])
             print("freerouting produced no SES")
             sys.exit(1)
         board = pcbnew.LoadBoard(str(PCB))
