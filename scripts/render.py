@@ -71,6 +71,61 @@ TAGS = {
 
 FEED = [
     dict(
+        date="2026-08-31", sha=None, tags=["layout"],
+        title="Rev 2 routed to 5 unconnected / 0 errors — and the retry loop "
+              "is not buying what it claims",
+        lede="1371 tracks, 258 vias, zero DRC errors. Five nets stay open, and "
+             "five of the six seeds returned the same answer.",
+        body="""
+<p>First routed board carrying the rev-2 power path. <b>0 DRC errors</b>, 117
+warnings (60 silk-over-copper, 40 silk overlap, 6 dangling vias — the usual
+crop), and five unconnected nets. The renders and layer stack above are this
+board.</p>
+
+<h4>What is still open</h4>
+<ul>
+<li><code>VBUS_SENSE</code>, U1.41 &rarr; R19.2 — <b>8.2&nbsp;mm cross-board</b></li>
+<li><code>LIGHT</code>, U1.40 &rarr; Q1.2 — <b>7.3&nbsp;mm cross-board</b></li>
+<li><code>VBUS</code> &times;2 — the tip trunk (the 3 segs route.py reported
+blocked by routed copper) and the short branch to the new R19</li>
+<li><code>3V3</code>, a 1.6&nbsp;mm stub at the MCU</li>
+</ul>
+<p>The two long ones share a cause. Both leave the MCU&rsquo;s jammed west pin
+window — pins 40 and 41, at radius <b>3.45</b> and <b>3.51&nbsp;mm</b> — and have
+to reach the east side. The obvious shortcut is a B.Cu hop straight across, but
+BT1 sits on the back with a Ø8 GND pad dead centre, so the back inside r4.0 is
+solid copper and a via wants r&nbsp;&gt;&nbsp;4.4. Both nets therefore
+<i>originate inside the blocked disc</i>: they have to escape radially on F.Cu
+past the coin before the back layer is available at all. That is why the trick
+that works for this board&rsquo;s other stranded nets — one committed
+B-transition via at the pin — does not apply here.</p>
+
+<h4>Six seeds, one sample</h4>
+<pre class="art">attempt 1   route 19 -> finish  5   <- best, kept
+attempt 2   route 30 -> finish 14
+attempt 3   route 30 -> finish 13
+attempt 4   route 30 -> finish 14
+attempt 5   route 30 -> finish 14
+attempt 6   route 30 -> finish 14</pre>
+<p>Attempts 2-6 routed to <b>exactly 30</b> every time. That is not seed
+variance, and the retry unit in build.py is built on the assumption that it is
+(&ldquo;freerouting is seed-dependent, so a failed finish re-rolls the routing&rdquo;).
+Only attempt 1 differed, and the one thing that made it different is that it
+started from a board that had never been through a completed route — the earlier
+run hung in freerouting, so it left pre-routes and zones but no post-route pours,
+keepouts or ring stubs. Attempts 2-6 each started from the previous attempt&rsquo;s
+finished board. <code>wipe()</code> does delete every track and zone, so the
+mechanism is not obvious and <b>I have not proven it</b> — but the pattern is
+strong enough to say the loop cost ~2.5&nbsp;h to produce one real sample, and
+that resetting to the freshly-placed board between attempts is worth testing
+before trusting the next six-attempt run.</p>
+
+<p class="note">Not ordered, not orderable: five open nets. Fab export was
+deliberately skipped for that reason.</p>
+""",
+        media=[],
+    ),
+    dict(
         date="2026-08-31", sha="c0cd016", tags=["layout", "tooling"],
         title="Freerouting hung before pass 1 — a locked polyline, not congestion",
         lede="The first full route since rev 3 never started. Bisected to "
