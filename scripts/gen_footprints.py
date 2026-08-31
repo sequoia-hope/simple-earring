@@ -28,7 +28,28 @@
    to BAT_CR2032_W (3.0x4.5 pads at ±12.4, spanning 10.9..13.9) so the
    routed/ordered layout is unchanged: 1.15mm of each foot lands on-pad.
    Rev-2 TODO: widen pads inward to ~10.15 to match the datasheet land.
+
+   NEGATIVE CONTACT (rev 2, 2026-08-31). The first assembled board would not
+   hold the cell against the centre pad: 176 B.Cu track endpoints sit within
+   r9.5 of it, and 35um of copper under 20um of soldermask stands ~25um
+   PROUD of a bare pad face, so the rigid coin rode on mask and never
+   touched copper. The bench fix that worked was hand-tinning the pad.
+   Baking that in is NOT just "add paste to the Ø8 pad": molten solder on
+   one big bare opening has nothing to hold it, so it wets the whole 8mm
+   and levels out ~8um thick. Solder only stands proud if soldermask dams
+   it. So the centre contact is now a RING OF SIX MASK-DEFINED BUMPS —
+   Ø1.2 openings on r2.8, each pasted 1:1 — over the same Ø8 copper, which
+   is itself left mask-covered. At a 0.12mm stencil each aperture holds
+   ~0.07mm3 of solder, which domes ~0.12mm above the pad, i.e. ~65um clear
+   of the mask plane everywhere else under the coin. Six on a ring, not one
+   in the middle: three points define the plane the coin sits on, and a
+   single central dome would let it rock. The Ø8 copper stays exactly as
+   it was, so nothing the router already solved moves.
+   The alternative fix — a B.Cu keepout under the coin — needs r8 to clear
+   the whole negative face, i.e. a Ø16 hole in the back-side routing on a
+   30.5mm board. Not affordable here; revisit if the back ever empties out.
 """
+import math
 from pathlib import Path
 
 LIB = Path(__file__).resolve().parent.parent / "library" / "parts.pretty"
@@ -76,6 +97,12 @@ def led_tba_c1010():
         '  (fp_text value "TBA-C1010MB-J2I16" (at 0 1.4) (layer "F.Fab") hide'
         " (effects (font (size 0.4 0.4) (thickness 0.08))))",
     ]
+    # back-ported hand edit: regenerating used to drop the 3D model outright
+    model = ['  (model "${KIPRJMOD}/../library/3d/ee.3dshapes/LED_TBA-C1010MB.wrl"',
+             "    (offset (xyz 0 0 0))",
+             "    (scale (xyz 1 1 1))",
+             "    (rotate (xyz 0 0 0))",
+             "  )"]
     content = "\n".join(
         [
             '(footprint "LED_TBA-C1010MB"',
@@ -88,6 +115,7 @@ def led_tba_c1010():
         + texts
         + lines
         + pads
+        + model
         + [")"]
     )
     (LIB / "LED_TBA-C1010MB.kicad_mod").write_text(content)
@@ -126,8 +154,11 @@ def bat_cr2032_w():
         # center contact: bare copper, no paste
         '  (pad "2" smd circle (at 0 0) (size 8 8) (layers "F.Cu" "F.Mask"))',
     ]
+    # rotate 180: back-ported hand edit — the vendor wrl faces the wrong way
+    # in the render. Regenerating used to silently drop this (see the module
+    # docstring's drift note); it lives here now so a rerun is idempotent.
     model = ['  (model "${KIPRJMOD}/../library/3d/ee.3dshapes/BAT-SMD_CR2032_C70373.wrl"',
-             "    (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))"]
+             "    (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 180)))"]
     texts = [
         '  (fp_text reference "REF**" (at 0 -13.2) (layer "F.SilkS")'
         " (effects (font (size 1 1) (thickness 0.15))))",
@@ -179,12 +210,23 @@ def bat_my2032_12r():
         '  (fp_text user "+" (at 0 -11.5) (layer "F.SilkS")'
         " (effects (font (size 1 1) (thickness 0.2))))"
     )
+    # negative contact: the Ø8 copper is left UNDER mask now, carrying six
+    # mask-defined, pasted bumps — see the module docstring for why bare
+    # copper (and bare copper plus paste) both fail here.
+    bump_r, bump_d = 2.8, 1.2
+    bumps = []
+    for i in range(6):
+        a = math.radians(60 * i)
+        bx, by = round(bump_r * math.cos(a), 3), round(bump_r * math.sin(a), 3)
+        bumps.append(
+            f'  (pad "2" smd circle (at {bx} {by}) (size {bump_d} {bump_d})'
+            ' (layers "F.Cu" "F.Mask" "F.Paste"))'
+        )
     pads = [
         pad_smd(1, -foot_x, 0, 3.0, 4.5),
         pad_smd(1, foot_x, 0, 3.0, 4.5),
-        # center contact: bare copper, no paste
-        '  (pad "2" smd circle (at 0 0) (size 8 8) (layers "F.Cu" "F.Mask"))',
-    ]
+        '  (pad "2" smd circle (at 0 0) (size 8 8) (layers "F.Cu"))',
+    ] + bumps
     model = ['  (model "${KIPRJMOD}/../library/3d/ee.3dshapes/BAT-SMD_MY-2032-12_C964834.wrl"',
              "    (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))"]
     texts = [

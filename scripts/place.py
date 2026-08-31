@@ -477,6 +477,96 @@ def main():
     for i, (x, y) in enumerate([(-11.8, -5.0), (11.8, -5.0), (-11.55, 7.0)]):
         place(fps[f"TP{i+1}"], x, y, back=True)
 
+    # ---------------- rev-2 power path + LED level shifter ----------------
+    # All spots below come from tools/scan_spot.py, which models real pad
+    # polygons (not courtyards, and not GetSize — see the D2/R18 notes and
+    # the pcbnew-gotchas memory) against courtyards, tracks, vias, drills
+    # and the edge.
+    #
+    # Q2 is a SOT-323, and a full front sweep at 0.2mm clearance found the
+    # front has exactly SIX legal SC-70 spots on the whole board — all of
+    # them in the south-west, nowhere near the charger. So the ORing FET
+    # lives on the back annulus instead, on the south-east shoulder: the
+    # mirror of D2/R17's proven band (same radius, r12.2), outside BT1's
+    # r10.4 cell disc and inboard of the R11/R12/C21 divider.
+    # rot 90 puts the gate at (8.60,7.20) — a via up to R22 directly above
+    # — and the source (VSYS) at (9.90,7.20), facing the open east flank
+    # the VSYS run uses. The drain (VBATT) then points south, away from the
+    # +x clip foot, which is the one compromise: VBATT reaches it either
+    # around the annulus or through a via to C17 on the front, and at 40mA
+    # neither run costs anything measurable.
+    place(fps["Q2"], 9.25, 8.00, rot=90, back=True)
+    # R22 (VBUS -> PATH_GATE) sits on the FRONT right above Q2: VBUS has no
+    # back-side copper anywhere near this shoulder (its only back pads are
+    # at the tip — J1/C28/U5/R18), so putting the tap on the front costs one
+    # via on a 5uA DC node instead of dragging the fat VBUS net around the
+    # annulus. rot 270 faces its VBUS pad north at C16 (1.5mm) and its
+    # PATH_GATE pad south, 0.70mm from Q2's gate one layer down.
+    # (9.30,6.70), not the (9.25,6.75) the coarse scan first returned: the
+    # relaxer settles C16 a hair differently once the new parts are fixed,
+    # and route.py anchors the locked CHRG_DONE landing loop to C16 — at
+    # the original spot this pad ended up 0.1227mm from that track against
+    # a 0.127 rule. A 0.05mm re-scan found clear air 70um east. Lesson
+    # worth keeping: locked pre-route geometry MOVES with the footprints it
+    # is derived from, so a spot scanned before the neighbours settle is
+    # not yet proven — re-run the DRC gate after every placement change.
+    place(fps["R22"], 9.30, 6.70, rot=270)
+    # D3 (VBUS -> VSYS Schottky): the pocket east of U4/C20 — one of only
+    # 120 legal front spots for a SOD-323, and the only cluster of them near
+    # the charger. rot 90 lands the cathode at (9.25,-1.95), 2.4mm from
+    # U4's VSYS input, and points the anode down the open east flank that
+    # the VBUS trunk comes in on.
+    place(fps["D3"], 9.25, -3.00, rot=90)
+    # Q3 (LED data level shifter) takes the best of those six SC-70 front
+    # spots — and it happens to sit almost exactly on the line from the
+    # MCU's LED_DATA pin (-2.40,-3.94) to LED1's DI pad (-4.36,-17.40),
+    # 6.8mm from one and 6.9mm from the other. Gate lands at (-3.45,-9.85)
+    # facing the MCU, drain at (-5.05,-10.50) facing the ring. rot 0 is the
+    # only legal orientation here.
+    place(fps["Q3"], -4.25, -10.50, rot=0)
+
+    # R19/R20 below are NOT new to rev 2 — the rev-3 VBUS sense divider
+    # reached the netlist in 619042b but was never placed, so both sat at
+    # the origin and the relaxer scattered them through the MCU decaps.
+    # That is where the C2/C20/C74/LED45 courtyard overlaps came from (the
+    # shipped board has none of them); placing them makes the relaxer
+    # converge again.
+    # C29, the VSYS bulk cap, in the same east pocket as D3 (one of only
+    # 141 legal 0603 spots there), 1.8mm from D3's cathode.
+    place(fps["C29"], 10.00, 1.75, rot=90)
+    # R23 pulls LED_D0 up to VLED, 1.8mm off Q3's drain. At r10.2 it sits
+    # just inside the In2 VLED annulus (hole at r9.35), so the pull-up taps
+    # the plane with a via rather than a trace.
+    place(fps["R23"], -5.25, -8.75, rot=0)
+
+    # R21 (1M gate pulldown) in the east pocket beside C29. PATH_GATE is a
+    # DC node behind a 640pF gate, so its 4mm reach to R22 costs nothing;
+    # rot 90 points that pad north, at R22.
+    place(fps["R21"], 11.25, 3.00, rot=90)
+    # R19/R20, the rev-3 VBUS presence tap — placed for the first time here.
+    # It sits 2.5mm from VBUS at C16/U2 so the FAT (0.4mm) net needs no new
+    # branch at all, and the thin VBUS_SENSE tap makes the trip west to
+    # pin 41 instead. The west-side alternative was measured and rejected:
+    # it shortens the tap to 5.7mm but demands a second long VBUS branch up
+    # the west flank, on top of the tip->U2 haul freerouting already owns.
+    # rot 180 faces pin 1 east at C16 and the tap west at the MCU.
+    place(fps["R19"], 5.25, 3.25, rot=180)
+
+    # R20 closes the divider to GND. The pocket around R19 holds exactly one
+    # 0402 — the nearest legal neighbour is 5.75mm south — so the tap node
+    # is a stub rather than a tight pair. That is fine here and only here:
+    # VBUS_SENSE is a DC level read against thresholds with >0.8V of margin
+    # on both sides, off a 20k source, with no timing to smear. rot 270
+    # points its tap pad north, back at R19.
+    # R20 closes the divider to GND. The pocket around R19 holds exactly ONE
+    # 0402 — with 0.35mm of courtyard margin (cheap insurance against the
+    # relaxer, which slid an earlier R20 0.8mm into R16) the nearest legal
+    # neighbour is 7.3mm away — so the divider is split rather than paired.
+    # Acceptable here and only here: VBUS_SENSE is a DC level read against a
+    # ~1.2V threshold with >0.8V of margin either side, off a 5k Thevenin,
+    # with no edge to smear. rot 0 points the tap pad west, back at R19.
+    place(fps["R20"], 11.50, -1.25, rot=0)
+
     resolve_overlaps(board, fps)
     pcbnew.SaveBoard(str(PCB), board)
     print(f"placed {len(fps)} footprints -> {PCB.name}")
@@ -487,8 +577,13 @@ def resolve_overlaps(board, fps, max_iter=300):
     bboxes overlap. Ring caps (C30+) and non-passives stay fixed."""
     import re as _re
 
-    # outer-wedge parts + the VREG reference-layout cluster stay exactly put
-    EXEMPT = {"R4", "R5", "R8", "C11", "C12", "R13", "C22"}
+    # outer-wedge parts + the VREG reference-layout cluster stay exactly put.
+    # The rev-2 power-path/shifter passives and the VBUS tap join them: every
+    # one of those spots came out of tools/scan_spot.py against the static
+    # board, and a relaxer nudge silently invalidates that (R20's scanned
+    # spot was legal until relaxation slid it 0.8mm into R16).
+    EXEMPT = {"R4", "R5", "R8", "C11", "C12", "R13", "C22",
+              "R19", "R20", "R21", "R22", "R23", "C29"}
 
     def movable(ref):
         if ref in EXEMPT:

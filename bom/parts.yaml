@@ -67,7 +67,10 @@ load_switch:
   lcsc: C544698
   footprint: YZV0004ADAD
   verified: prior        # earring; 4-ball CSP, ON active high
-  notes: switches VBATT -> VLED
+  notes: >-
+    switches VSYS -> VLED (was VBATT before the rev-2 power path). VSYS is
+    VBUS-0.3V when plugged, so the 5.5V max input matters now: a 5.25V port
+    leaves ~4.95V, inside spec.
 
 usb_conn:
   mpn: TYPE-C-31-M-12
@@ -224,6 +227,73 @@ or_diode:
     including the SW2 pocket this lives in. Footprint+WRL via
     easyeda2kicad C78606 (vendor land, 0.9x0.8 pads at 1.3mm pitch);
     courtyard widened to cover the pads.
+
+oring_pfet:
+  mpn: CJ2101
+  lcsc: C52641
+  footprint: SOT-323_MOSFET
+  verified: yes          # 2026-08-31: JLC 80,920 in stock, $0.048@1; Vgs/pinout
+                         # from the Jiangsu Changjing ds (jscj-elec.com) + LCSC
+                         # attributes — pin 1 = G, 2 = S, 3 = D
+  notes: >-
+    Q2, the battery->VSYS ORing switch of the rev-2 power path. P-channel,
+    -20V / -1.4A, Vgs(th) -450mV, Rds(on) 210mOhm@-1.8V / 100mOhm@-4.5V,
+    Vgs abs max +-8V. The datasheet's own application list is exactly this
+    job ("high side load switch, charging circuit, single cell battery").
+    ORIENTATION IS LOAD-BEARING: source = VSYS, drain = VBATT, NOT the
+    other way round. The body diode of a P-FET conducts drain->source, so
+    source-on-VSYS points it BAT->VSYS: it blocks the 4.7V USB rail from
+    back-feeding the cell around the charger (the failure mode of the
+    naive source-on-battery wiring), and it still lets the cell carry the
+    load through ~0.4V of diode if VSYS ever sags below VBATT (brownout
+    valve on unplug). Gate drive is R22/R21 off VBUS — see circuit.py.
+    Worst-case |Vgs| in circuit is 3.5V, well inside the +-8V rating.
+    SOT-323, the one 3-lead package proven to fit this board (a SOT-23
+    courtyard scan found ZERO legal spots board-wide — see or_diode).
+
+sys_diode:
+  mpn: B5819WS
+  lcsc: C7420331
+  footprint: D_SOD-323
+  verified: yes          # 2026-08-31: JLC 1,234,680 in stock, $0.019@1
+  notes: >-
+    D3, VBUS -> VSYS. 40V / 1A Schottky; Vf ~0.3V at the ~60mA the board
+    actually pulls, so VSYS lands ~4.7V on a 5.0V port. 1A is deliberate
+    headroom: the LED ring is the only load that can run away, and a
+    USB-C DFP at our 5.1k CC pulldowns can legally source 500mA.
+    Its job is purely to stop VSYS back-driving the dead VBUS node (and
+    the charger's VCC/CE pins) when running on the cell. Cost of that:
+    a few uA of reverse leakage from the cell at ~3.6V reverse, flowing
+    out through R19/R20 — an order of magnitude under R17's 40uA, but
+    unlike R17 it flows with SW2 OFF too. If standby drain ever matters,
+    RB521S-30 (C727120, SOD-523, 200mA) is the lower-leakage swap.
+    Pad 1 = cathode (KiCad stock SOD-323 land, F.Fab bar on the pad-1
+    side) -> VSYS; pad 2 = anode -> VBUS.
+
+lvl_nfet:
+  mpn: BSS138W
+  lcsc: C5224279
+  footprint: SOT-323_MOSFET
+  verified: yes          # 2026-08-31: JLC 30,927 in stock, $0.025@1
+  notes: >-
+    Q3, the LED data level shifter that the power path FORCES. SK6805-EC10
+    wants VIH = 0.7*VDD; on the cell that was 2.94V at a full 4.2V (a 3.3V
+    GPIO clears it, which is why rev 1 needs no shifter), but on VSYS it
+    becomes 3.29V at a 5.0V port and 3.5V at the 5.25V USB ceiling — above
+    anything a 3.3V IOVDD pad can output. Open-drain inverter: gate = the
+    MCU's LED_DATA, source = GND, drain = LED_D0 pulled up to VLED by R23
+    (1k). Level-correct for ANY VLED from 3.0V to 5.5V, so it also
+    survives a future boosted or swapped LED rail.
+    FIRMWARE PAIRING (rev-2 boards only): the stage inverts, so main.cpp
+    must set gpio_set_outover(LED_DATA, GPIO_OVERRIDE_INVERT) — the pad
+    override sits after the peripheral mux, so the NeoPixel PIO program is
+    untouched. Idle is safe both ways: PIO idle-low -> pad high -> Q3 on
+    -> LED_D0 low (the reset level the ring wants), and before the
+    override is set VLED is still off (R10 holds LED_EN low), so R23's
+    pull-up is dead and the line cannot float.
+    N-channel 60V, Vgs(th) 1V max (full enhancement from 3.3V), Ciss
+    ~25pF -> ~33ns rise into 1k, against the protocol's 300ns T0H.
+    Same SOT-323 land as Q2: pin 1 = G, 2 = S, 3 = D.
 
 light_sensor:
   mpn: ALS-PT19-315C/L177/TR8

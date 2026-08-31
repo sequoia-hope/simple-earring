@@ -162,7 +162,7 @@ def build_circuit(design=None):
     u1[RP_PINS["QSPI_IOVDD"]] = "3V3"
     u1[RP_PINS["QSPI_SS"]] = "BOOTSEL"
     u1[RP_PINS["GND"]] = "GND"
-    u1[GPIO[GP_LED_DATA]] = "LED_D0"
+    u1[GPIO[GP_LED_DATA]] = "LED_DATA"  # -> Q3 gate, NOT the ring directly
     u1[GPIO[GP_LED_EN]] = "LED_EN"
     u1[ADC_VBSENSE] = "VBSENSE"
     u1[ADC_LIGHT] = "LIGHT"
@@ -295,6 +295,59 @@ def build_circuit(design=None):
     # --- battery ---
     c.add("BT1", "battery_clip", "LIR2032", {1: "VBATT", 2: "GND"})
 
+    # --- power path (rev 2): the board runs off VBUS when a cable is in ---
+    # Rev 1 hung the LDO input and the LED load switch on VBATT, the same
+    # node as the charger's BAT pin, so the ~41mA program current was SHARED
+    # with the running system: 17mA MCU + 17.5mA LED rail left ~6mA for the
+    # cell, and a flat cell could never climb to the SK6805's 3.7V floor
+    # before someone unplugged it. Splitting the rails fixes that at the
+    # root instead of raising I_prog (the R8 22k->15k rework, now dropped:
+    # 22k = 40.9mA is exactly the RJD2032C1's rated 40mA, and with the
+    # system off the cell it ALL reaches the cell in either switch
+    # position — the SW2-off overcurrent hazard that blocked 15k is gone).
+    #
+    #   VBUS --|>|-- VSYS      D3, blocking Schottky (~0.3V at our ~60mA)
+    #   VBATT --Q2-- VSYS      P-FET, ON only when no cable is present
+    #   VSYS  -> U3 (LDO IN), U4 (LED load switch IN)
+    #   VBATT -> U2 pin 5 (charger BAT), BT1, C17, SW2  [cell node ONLY]
+    #
+    # Q2 ORIENTATION: source = VSYS, drain = VBATT. A P-FET's body diode
+    # conducts drain->source, so this way it points cell->VSYS: it BLOCKS
+    # the USB rail from back-feeding the cell around the charger (wiring it
+    # the intuitive way, source on the battery, would dump ~4.7V straight
+    # into the cell through the body diode), while still letting the cell
+    # carry the load through ~0.4V of diode if VSYS sags under VBATT —
+    # which is what covers the ~200ms of VBUS decay on unplug.
+    #
+    # Gate: R22 (10k) from VBUS, R21 (1M) to GND, so the gate sits at
+    # essentially VBUS when a cable is in (Vgs = +0.25V vs VSYS -> hard
+    # off) and follows the dead VBUS node when it is out. That node is NOT
+    # floating: R19/R20 (20k, below) pin it to <=0.65V even against R18's
+    # backfeed, so Vgs = -2.4V at a 3.0V cell -> Q2 fully on (Rds(on) is
+    # specified 210mOhm at -1.8V). The 10k is also the gate's only defence
+    # against hot-plug ringing; 1M:10k keeps the divider loss at 5uA.
+    #
+    # What this buys, beyond charge current: DONE can finally assert (the
+    # cell's current tapers to ITERM because the system is no longer
+    # hanging off it — main.cpp:670's "DONE never asserts while awake" is
+    # a rev-1 limitation), VBSENSE reads a TRUE UNLOADED cell voltage while
+    # charging (so chargePct's 150mV IR fudge should drop to ~28mV of real
+    # charger IR — see the RJD2032C1's <=700mOhm), the ring lights up on a
+    # dead cell, and the board runs with no cell fitted at all.
+    #
+    # COST: VSYS is ~4.7V, and SK6805 VIH = 0.7*VDD = 3.29V there (3.5V at
+    # a 5.25V port) — above what a 3.3V IOVDD pad can drive. That is what
+    # Q3/R23 down in the LED section are for. Diode-dropping VSYS into the
+    # LED's window instead does NOT work: two Schottkys land at 4.3V typ
+    # but 3.8V at the low corner (under the 3.7V floor) and 4.65V at the
+    # high one (VIH 3.26V, still failing) — the window is narrower than
+    # the corners, so the level has to be shifted, not the rail.
+    c.add("Q2", "oring_pfet", "CJ2101", {1: "PATH_GATE", 2: "VSYS", 3: "VBATT"})
+    c.add("D3", "sys_diode", "B5819WS", {1: "VSYS", 2: "VBUS"})  # 1 = cathode
+    c.add("R21", "r_1m", "1M", {1: "PATH_GATE", 2: "GND"})
+    c.add("R22", "r_10k", "10k", {1: "VBUS", 2: "PATH_GATE"})
+    c.add("C29", "c_10u_0603", "10u", {1: "VSYS", 2: "GND"})
+
     # --- 3.3V LDO, EN = slide switch OR USB (rev 2: USB boots the chip
     # even with SW2 off, so plugged-in charging can be indicated) ---
     # (MSK12C02 contacts are 50mA-rated: switch the EN signal, not the
@@ -321,8 +374,13 @@ def build_circuit(design=None):
     # dead VBUS node and floats it near VBATT. Harmless: the charger's
     # VCC stays below VBAT so it sleeps, and the current is capped by
     # R18. Blocking it would cost a third diode for zero benefit.)
+    # (Rev-2 power path: IN is VSYS now, not VBATT. The D2 clamp still
+    # references VBATT and is still legal — V_EN max is V_IN + 0.3 and
+    # VSYS >= VBATT in every state, so clamping to the LOWER of the two is
+    # conservative. NCP730 is a 38V-input part, so the 4.7V USB rail is a
+    # non-event for it; it just drops 1.4V instead of 0.3V at ~20mA.)
     c.add("U3", "ldo", "NCP730-3.3", {
-        1: "3V3", 2: "", 3: "GND", 4: "PWR_EN", 5: "", 6: "VBATT", "EP": "GND",
+        1: "3V3", 2: "", 3: "GND", 4: "PWR_EN", 5: "", 6: "VSYS", "EP": "GND",
     })  # 1=OUT 3=GND 4=EN 6=IN
     c.add("SW2", "slide_switch", "PWR", {1: "VBATT", 2: "SW_ON", 3: "GND"})
     c.add("D2", "or_diode", "BAT54S", {1: "SW_ON", 2: "VBATT", 3: "PWR_EN"})
@@ -352,14 +410,25 @@ def build_circuit(design=None):
     # is the backfeed's new load). Same order as R17's existing ~40uA and
     # ~0.2% of active LED-mode current, so it is in line with choices the
     # design already makes. A blocking diode would reclaim it if wanted.
+    #
+    # Rev 2 gave this divider a SECOND job: it is what guarantees the dead
+    # VBUS node is a defined low (<=0.65V) rather than a float, and Q2's
+    # gate hangs off that node through R22. Do not delete or raise R19/R20
+    # without re-checking Q2 — a floating VBUS near VBATT would leave the
+    # gate near the source and switch the battery path OFF, i.e. a board
+    # that only runs on USB.
     c.add("R19", "r_10k", "10k", {1: "VBUS", 2: "VBUS_SENSE"})
     c.add("R20", "r_10k", "10k", {1: "VBUS_SENSE", 2: "GND"})
-    c.add("C18", "c_1u", "1u", {1: "VBATT", 2: "GND"})
+    c.add("C18", "c_1u", "1u", {1: "VSYS", 2: "GND"})  # NCP730 IN decap
     c.add("C19", "c_1u", "1u", {1: "3V3", 2: "GND"})
 
-    # --- LED power switch ---
+    # --- LED power switch (rev 2: fed from VSYS, so the ring runs off the
+    # cable when one is in — including with a cell too flat to reach the
+    # SK6805's 3.7V floor, which is exactly when the charge gauge has to
+    # be readable). TPS22913 max VIN is 5.5V; VSYS tops out ~4.95V at a
+    # 5.25V port. ---
     c.add("U4", "load_switch", "TPS22913", {
-        "A2": "VBATT", "A1": "VLED", "B1": "GND", "B2": "LED_EN",
+        "A2": "VSYS", "A1": "VLED", "B1": "GND", "B2": "LED_EN",
     })
     c.add("R10", "r_10k", "10k", {1: "LED_EN", 2: "GND"})  # off at boot
     c.add("C20", "c_10u_0603", "10u", {1: "VLED", 2: "GND"})
@@ -402,6 +471,24 @@ def build_circuit(design=None):
     #                 the whole mode signal for charge-indicator mode.
     # No new GPIO, no new escape from the jammed pin-40..43 west window,
     # and the divider's 2uA drain now stops when the switch is off.
+    #
+    # THE POWER PATH DOES NOT TOUCH THIS, deliberately: SW2 pin 1 stays on
+    # VBATT (the cell), never VSYS. Wire it to VSYS and the reading becomes
+    # VSYS/2 = 2.35V whenever a cable is in — a constant that says nothing
+    # about either the cell or the switch. On VBATT the two signals stay
+    # separable in all four states, with VBUS_SENSE (ADC1) as the cable bit:
+    #   cable out, SW2 on : VBUS_SENSE 0.33V, VBSENSE VBATT/2 -> run, gauge
+    #   cable out, SW2 off: board unpowered
+    #   cable in,  SW2 on : VBUS_SENSE 2.2-2.75V, VBSENSE VBATT/2 -> dock,
+    #                       and the cell is now UNLOADED, so this is the
+    #                       first honest state-of-charge reading the design
+    #                       has ever had while charging
+    #   cable in,  SW2 off: VBUS_SENSE 2.2-2.75V, VBSENSE 0 -> dock, no
+    #                       percentage. Still the accepted rev-2 trade (all
+    #                       four ADC-capable pins, 40-43, are spoken for) —
+    #                       but much cheaper now, because with the system
+    #                       off the cell CHRG/DONE finally mean what they
+    #                       say, so red/green is real information.
     # (Cost: no VBATT reading while in charge-only mode. Nothing is
     # lost: during CV charge the charger pins VBATT at 4.2V anyway, so
     # the voltage carries no charge-state information; CHRG/DONE are
@@ -419,6 +506,25 @@ def build_circuit(design=None):
     c.add("Q1", "light_sensor", "ALS-PT19", {1: "3V3", 2: "LIGHT"})
     c.add("R16", "r_22k", "22k", {1: "LIGHT", 2: "GND"})
     c.add("C26", "c_100n", "100n", {1: "LIGHT", 2: "GND"})
+
+    # --- LED data level shifter (rev 2, forced by the power path) ---
+    # The ring's VIH is 0.7*VLED. On the cell that peaked at 2.94V and a
+    # 3.3V pad drove it directly; on VSYS it is 3.29V typical and 3.5V at
+    # the USB ceiling, so the MCU can no longer clock the first pixel.
+    # Q3 is an open-drain inverter into the ring, R23 pulls LED_D0 up to
+    # VLED itself, so the swing is always a full VLED rail whatever VLED
+    # happens to be (3.0V cell -> 5.0V cable). Only pixel 1 ever needed
+    # this — every downstream DI is driven by the previous DO at VLED.
+    # 1k against ~15pF of pin + trace is a ~33ns edge, against the
+    # protocol's 300ns T0H; it burns 4.7mA only while the line is low
+    # mid-frame (~4% duty
+    # in show mode), which is noise next to the ring itself.
+    # main.cpp must add gpio_set_outover(LED_DATA, GPIO_OVERRIDE_INVERT)
+    # for rev-2 boards — see parts.yaml lvl_nfet. DO NOT flash that to a
+    # rev-1 board: there Q3 does not exist and the ring would see inverted
+    # data.
+    c.add("Q3", "lvl_nfet", "BSS138W", {1: "LED_DATA", 2: "GND", 3: "LED_D0"})
+    c.add("R23", "r_1k", "1k", {1: "VLED", 2: "LED_D0"})
 
     # --- LED ring (pin numbers from LED_PIN) ---
     bypass_every = design["leds"].get("bypass_every", 2)

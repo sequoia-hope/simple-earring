@@ -40,11 +40,25 @@ leds:
   # (opposite face from the USB connector): a 3-LED chevron with the middle
   # one higher, continuing the chain right-to-left across the tip.
   # LEDs point pin-1/data tangentially; chain daisy-chains around the ring.
-  power_rail: VBATT      # SK6805 wants 3.7-5.5V officially; runs at LiR voltage in practice
+  power_rail: VSYS       # rev 2: cell when unplugged, VBUS-0.3V when not.
+                         # SK6805 wants 3.7-5.5V; the cell alone only clears
+                         # that above ~3.7V, so on USB the ring finally works
+                         # at any state of charge. Costs a data level shifter
+                         # (Q3/R23) — VIH is 0.7*VLED. Documentation only;
+                         # circuit.py owns the actual net.
 
 power:
   battery: LIR2032       # 3.6V nominal, 3.0-4.2V, ~40mAh usable
+                         # (the cell actually fitted is an RJD2032C1: 85mAh
+                         # NMC, 3.6mm thick, 40mA rated charge — still to be
+                         # reconciled here and in circuit.py's BT1 value)
   charge_current_ma: 40  # ~1C for LIR2032; sets charger Rprog
+  # Rev 2 splits VBATT (cell only) from VSYS (system), OR'd by D3 from VBUS
+  # and Q2 from the cell — so a plugged-in board runs off the cable and the
+  # charger's whole 41mA reaches the cell in either switch position. This is
+  # what retires the R8 22k->15k rework: 22k already equals the cell's rated
+  # 40mA, and the reason 15k was tempting (system eating the charge current)
+  # is gone. Keep 22k.
   regulator_3v3: LDO     # battery -> 3.3V LDO for RP2350 IOVDD/VREG_VIN
   led_load_switch: true  # high-side switch so LEDs draw zero when off
 

@@ -79,6 +79,11 @@ def setup_rules(board, design):
     power.SetViaDrill(mm(j["via_drill_mm"]))
     ns.SetNetclass("power", power)
     ns.SetNetclassPatternAssignment("VBUS", "power")
+    # VSYS is deliberately NOT in this class. It inherits exactly the job
+    # VBATT used to do (feed the LDO and the LED switch), VBATT was never
+    # fat either, and 60mA needs ~0.05mm of the default 0.15mm. Widening it
+    # would push a second 0.4mm trunk across a board that still has nets
+    # stranding at 9-unconnected.
     # "usb" class: same geometry as default, but carries diff-pair
     # width/gap so KiCad's interactive router pairs USB_C_DP/USB_C_DN
     # (trailing-p/n names) when hand-finishing. Freerouting ignores it;

@@ -359,6 +359,44 @@ class Sch:
              "\t\t\t\t\t(stroke (width 0) (type default))\n"
              "\t\t\t\t\t(fill (type outline)))"],
             (7.62, 5.08), hide_numbers=True, hide_names=True, ref_prefix="D")
+        # single Schottky (D3, VBUS -> VSYS): 1 = K, 2 = A, conduction
+        # left-to-right. Same bar-with-hooks as one half of D_SS.
+        self._emit_def("D_SCH", "D_SCH", "passive", [
+            ("2", "A", -6.35, 0, 0, 3.81, "passive"),
+            ("1", "K", 6.35, 0, 180, 3.81, "passive")],
+            [poly([(-2.54, 1.27), (-2.54, -1.27), (0, 0), (-2.54, 1.27)]),
+             poly([(0.508, 1.016), (0, 1.016), (0, -1.016), (-0.508, -1.016)],
+                  0.254),
+             poly([(0, 0), (2.54, 0)])],
+            (6.35, 2.54), hide_numbers=True, hide_names=True, ref_prefix="D")
+
+        # enhancement MOSFETs, 1 = G (left), 2 = S (bottom), 3 = D (top) —
+        # the SOT-323/SOT-23 3-lead pad order, so the symbol pin numbers are
+        # the footprint pad numbers with no translation table.
+        def fet(name, p_channel):
+            arrow = ([(-0.508, 0.635), (-0.508, -0.635), (0.508, 0),
+                      (-0.508, 0.635)] if p_channel else
+                     [(0.508, 0.635), (0.508, -0.635), (-0.508, 0),
+                      (0.508, 0.635)])
+            self._emit_def(name, name, "passive", [
+                ("1", "G", -7.62, 0, 0, 3.81, "passive"),
+                ("2", "S", 2.54, -7.62, 90, 3.81, "passive"),
+                ("3", "D", 2.54, 7.62, 270, 3.81, "passive")],
+                [poly([(-3.81, 0), (-2.54, 0)]),
+                 poly([(-2.54, 2.54), (-2.54, -2.54)]),
+                 poly([(-1.27, 2.54), (-1.27, 1.27)]),
+                 poly([(-1.27, 0.635), (-1.27, -0.635)]),
+                 poly([(-1.27, -1.27), (-1.27, -2.54)]),
+                 poly([(-1.27, 1.905), (2.54, 1.905), (2.54, 3.81)]),
+                 poly([(-1.27, -1.905), (2.54, -1.905), (2.54, -3.81)]),
+                 poly([(-1.27, 0), (2.54, 0)]),
+                 poly([(2.54, 0), (2.54, -1.905)]),
+                 poly(arrow)],
+                (7.62, 7.62), hide_numbers=True, hide_names=True,
+                ref_prefix="Q")
+
+        fet("Q_PMOS", True)
+        fet("Q_NMOS", False)
         # SPDT slide switch, 2 = common
         self._emit_def("SW_SPDT", "SW_SPDT", "passive", [
             ("1", "~", -6.35, 2.54, 0, 3.81, "passive"),
@@ -906,7 +944,8 @@ IC_MIN_W = {"led": 12.7}
 PASSIVE_SYM = {"r_": "R", "c_": "C", "vreg_inductor": "L", "crystal": "XTAL",
                "testpoint": "TP", "battery_clip": "BATT",
                "bootsel_button": "SW_PUSH", "slide_switch": "SW_SPDT",
-               "or_diode": "D_SS"}
+               "or_diode": "D_SS", "sys_diode": "D_SCH",
+               "oring_pfet": "Q_PMOS", "lvl_nfet": "Q_NMOS"}
 
 
 def sym_for(part):
@@ -1148,14 +1187,20 @@ def blk_sense(s, cir, bk, x, y):
 def blk_ldo(s, cir, bk, x, y):
     s.begin("3V3 LDO — EN = slide switch OR USB (diode-OR, clamped)")
     u = put(s, cir, "U3", x, y)
-    bk.take("U3", "6", "VBATT")
-    xin = u["6"][0] - 15.24
+    bk.take("U3", "6", "VSYS")   # rev 2: the system rail, not the cell
+    # 20.32, not the old 15.24: rev 2 renamed this riser VSYS and gave D2's
+    # clamp its own VBATT rail one column to the right, so the IN riser has
+    # to step left far enough that the two rail labels do not collide (and
+    # far enough that C18's branch clears the clamp riser entirely)
+    xin = u["6"][0] - 20.32
     s.wire(u["6"], (xin, u["6"][1]))
     s.wire((xin, u["6"][1]), (xin, u["6"][1] - 7.62))
-    s.rail("VBATT", (xin, u["6"][1] - 7.62))
-    s.wire((xin, u["6"][1] - 3.81), (xin - 12.7, u["6"][1] - 3.81))
+    s.rail("VSYS", (xin, u["6"][1] - 7.62))
+    # 7.62 off the riser, which after the riser's own 5.08 step keeps C18
+    # in the column it has always occupied (SW2's reference text sits there)
+    s.wire((xin, u["6"][1] - 3.81), (xin - 7.62, u["6"][1] - 3.81))
     s.junction((xin, u["6"][1] - 3.81))
-    vdrop(s, cir, bk, "C18", xin - 12.7, u["6"][1] - 3.81, "GND")
+    vdrop(s, cir, bk, "C18", xin - 7.62, u["6"][1] - 3.81, "GND")
     # OUT
     bk.take("U3", "1", "3V3")
     xo = u["1"][0] + 15.24
@@ -1191,10 +1236,12 @@ def blk_ldo(s, cir, bk, x, y):
     bk.take("D2", "1", "SW_ON")
     bk.take("D2", "2", "VBATT")
     bk.take("D2", "3", "PWR_EN")
-    # clamp cathode joins the IN riser 1.27 to the left (both VBATT) —
-    # a rail of its own would sit on top of the riser's rail text
-    s.wire(d2["2"], (d2["2"][0] - 1.27, d2["2"][1]))
-    s.junction((d2["2"][0] - 1.27, d2["2"][1]))
+    # the clamp cathode used to join the IN riser 1.27 to the left, back
+    # when IN was VBATT too; rev 2's power path made that riser VSYS, so
+    # the clamp needs a VBATT rail of its own. Still legal, and still the
+    # conservative choice: V_EN max is V_IN + 0.3 and VSYS >= VBATT always.
+    s.wire(d2["2"], (d2["2"][0], d2["2"][1] - 11.43))
+    s.rail("VBATT", (d2["2"][0], d2["2"][1] - 11.43))
     s.wire(d2["3"], u4)
     # R17 pulldown hangs off the EN run (100k: EN has an internal <=1uA
     # pull-up to VIN, so a 1M pulldown could fail to turn the LDO off);
@@ -1221,6 +1268,128 @@ def blk_ldo(s, cir, bk, x, y):
     s.rail("VBATT", (sw["1"][0] - 2.54, sw["1"][1] - 5.08))
     s.wire(sw["3"], (sw["3"][0] - 2.54, sw["3"][1]))
     s.rail("GND", (sw["3"][0] - 2.54, sw["3"][1]))
+    s.end()
+
+
+def blk_vbussense(s, cir, bk, x, y):
+    """VBUS presence tap -> ADC1. Added with the rev-3 netlist but never
+    drawn until now, which is why build.py --only schematic was failing."""
+    s.begin("USB cable present — 10k:10k tap on VBUS -> ADC1")
+    s.rail("VBUS", (x, y - 7.62))
+    s.wire((x, y - 7.62), (x, y - 3.81))
+    r19 = put(s, cir, "R19", x, y)
+    bk.take("R19", "1", "VBUS")
+    bk.take("R19", "2", "VBUS_SENSE")
+    node = (x, r19["2"][1] + 3.81)
+    s.wire(r19["2"], node)
+    r20 = put(s, cir, "R20", x, node[1] + 3.81)
+    bk.take("R20", "1", "VBUS_SENSE")
+    bk.take("R20", "2", "GND")
+    s.wire(node, r20["1"])
+    s.wire(r20["2"], (x, r20["2"][1] + 3.81))
+    s.rail("GND", (x, r20["2"][1] + 3.81))
+    s.junction(node)
+    s.wire(node, (x - 10.16, node[1]))
+    s.glabel("VBUS_SENSE", (x - 10.16, node[1]), rot=180, just="right")
+    s.note("CHRG and DONE both release at termination, so they cannot tell "
+           "'unplugged' from 'plugged in and full'. 10k:10k, not the "
+           "100k/1M used elsewhere: PWR_EN backfeeds through R18 and would "
+           "float this node high, so the tap has to be stiff enough to "
+           "swamp it (0.33V no cable, 2.2-2.75V with one). That is also "
+           "what holds Q2's gate low enough to keep the battery path on.",
+           x - 25.4, r20["2"][1] + 13.97, 96.0)
+    s.end()
+
+
+def blk_path(s, cir, bk, x, y):
+    """(x, y) is Q2's centre: gate to the left, VBATT above, VSYS below."""
+    s.begin("power path — VBUS runs the board when a cable is in")
+    q2 = put(s, cir, "Q2", x, y)
+    bk.take("Q2", "1", "PATH_GATE")
+    bk.take("Q2", "2", "VSYS")
+    bk.take("Q2", "3", "VBATT")
+    xs, xg = x + 2.54, x - 15.24
+    ys = y + 17.78
+    # drain up to the cell, source down to the system rail
+    s.wire(q2["3"], (xs, y - 15.24))
+    s.rail("VBATT", (xs, y - 15.24))
+    s.wire(q2["2"], (xs, ys))
+    # gate: R22 up to VBUS, R21 down to GND. Off when a cable holds the
+    # gate at VBUS (Vgs = +0.25V against VSYS); on when R19/R20 hold the
+    # dead VBUS node at <=0.65V (Vgs = -2.4V at a 3.0V cell).
+    s.wire(q2["1"], (xg, y))
+    s.junction((xg, y))
+    s.label("PATH_GATE", (xg, y), rot=180, just="right", size=1.0)
+    r22 = put(s, cir, "R22", xg, y - 7.62)
+    bk.take("R22", "1", "VBUS")
+    bk.take("R22", "2", "PATH_GATE")
+    s.wire(r22["2"], (xg, y))
+    s.wire(r22["1"], (xg, y - 15.24))
+    s.rail("VBUS", (xg, y - 15.24))
+    # spelled out rather than vdrop()'d: R21's automatic reference text
+    # lands to its right, on top of the PATH_GATE label
+    r21 = put(s, cir, "R21", xg, y + 3.81, ref_off=(-9.4, 0.0))
+    bk.take("R21", "1", "PATH_GATE")
+    bk.take("R21", "2", "GND")
+    s.wire(r21["2"], (xg, y + 11.43))
+    s.rail("GND", (xg, y + 11.43))
+    # VBUS -> VSYS through D3, then the VSYS row runs east past C29
+    # text pushed below the part: the default spot above it lands on R21's
+    # GND drop, and the row itself is the anode wire
+    d3 = put(s, cir, "D3", xs - 20.32, ys, ref_off=(-6.0, 4.0))
+    bk.take("D3", "2", "VBUS")
+    bk.take("D3", "1", "VSYS")
+    s.wire(d3["2"], (xs - 33.02, ys))
+    s.wire((xs - 33.02, ys), (xs - 33.02, ys - 7.62))
+    s.rail("VBUS", (xs - 33.02, ys - 7.62))
+    s.wire(d3["1"], (xs, ys))
+    s.junction((xs, ys))
+    s.wire((xs, ys), (xs + 25.4, ys))
+    s.junction((xs + 12.7, ys))
+    vdrop(s, cir, bk, "C29", xs + 12.7, ys, "GND")
+    s.wire((xs + 25.4, ys), (xs + 25.4, ys - 7.62))
+    s.rail("VSYS", (xs + 25.4, ys - 7.62))
+    s.note("Rev 2: VBATT is the cell alone, VSYS runs the board, so the "
+           "charger's whole 41mA reaches the cell in either switch "
+           "position. Q2's SOURCE is VSYS and its drain VBATT — a P-FET "
+           "body diode conducts drain->source, so that way round it blocks "
+           "USB from back-feeding the cell past the charger.",
+           x - 48.26, ys + 20.32, 104.0)
+    s.end()
+
+
+def blk_shift(s, cir, bk, x, y):
+    """(x, y) is Q3's centre: LED_DATA in from the left, LED_D0 out up."""
+    s.begin("LED data level shifter — open-drain into the ring")
+    q3 = put(s, cir, "Q3", x, y)
+    bk.take("Q3", "1", "LED_DATA")
+    bk.take("Q3", "2", "GND")
+    bk.take("Q3", "3", "LED_D0")
+    s.wire(q3["1"], (x - 15.24, y))
+    s.glabel("LED_DATA", (x - 15.24, y), rot=180, just="right")
+    s.wire(q3["2"], (x + 2.54, y + 12.7))
+    s.rail("GND", (x + 2.54, y + 12.7))
+    node = (x + 2.54, y - 15.24)
+    s.wire(q3["3"], node)
+    s.junction(node)
+    s.wire(node, (x + 17.78, node[1]))
+    s.glabel("LED_D0", (x + 17.78, node[1]))
+    r23 = put(s, cir, "R23", x + 2.54, y - 22.86)
+    bk.take("R23", "1", "VLED")
+    bk.take("R23", "2", "LED_D0")
+    s.wire(r23["2"], node)
+    s.wire(r23["1"], (x + 2.54, y - 30.48))
+    s.rail("VLED", (x + 2.54, y - 30.48))
+    s.note("The ring's VIH is 0.7*VLED. On the cell that peaked at 2.94V "
+           "and the MCU drove pixel 1 directly; on VSYS it is 3.29V (3.5V "
+           "at a 5.25V port), past anything a 3.3V pad can output. Q3 "
+           "inverts into R23's pull-up, so the swing is a full VLED rail "
+           "whatever VLED is — 3.0V cell or 5.0V cable. Only pixel 1 needs "
+           "it; every DI after that is driven by the previous DO. Firmware "
+           "must set gpio_set_outover(LED_DATA, GPIO_OVERRIDE_INVERT) — the "
+           "pad override sits after the PIO, so the NeoPixel program is "
+           "untouched.",
+           x - 20.32, y + 20.32, 90.0)
     s.end()
 
 
@@ -1270,11 +1439,11 @@ def blk_light(s, cir, bk, x, y):
 def blk_loadsw(s, cir, bk, x, y):
     s.begin("VLED high-side load switch (LEDs draw zero when off)")
     u = put(s, cir, "U4", x, y)
-    bk.take("U4", "A2", "VBATT")
+    bk.take("U4", "A2", "VSYS")   # rev 2: LEDs run off the cable when in
     s.wire(u["A2"], (u["A2"][0] - 10.16, u["A2"][1]))
     s.wire((u["A2"][0] - 10.16, u["A2"][1]),
            (u["A2"][0] - 10.16, u["A2"][1] - 6.35))
-    s.rail("VBATT", (u["A2"][0] - 10.16, u["A2"][1] - 6.35))
+    s.rail("VSYS", (u["A2"][0] - 10.16, u["A2"][1] - 6.35))
     bk.take("U4", "A1", "VLED")
     xo = u["A1"][0] + 12.7
     s.wire(u["A1"], (xo, u["A1"][1]))
@@ -1378,7 +1547,7 @@ def blk_mcu(s, cir, bk, cx, cy):
             bk.take("U1", p, "")
             s.nc(u[p])
     # --- used GPIOs out to the rest of the sheet ---
-    for p in ("29", "3", "9", "15", "12", "31", "42", "40", "43"):
+    for p in ("29", "3", "9", "15", "12", "31", "42", "40", "41", "43"):
         net = bk.take("U1", p)
         s.wire(u[p], (u[p][0] + 6.35, u[p][1]))
         s.glabel(net, (u[p][0] + 6.35, u[p][1]))
@@ -1715,7 +1884,8 @@ def build_sheet(design, cir):
            bold=True, frame=False)
     s.text(f"{len(cir.components)} components / {len(cir.nets)} nets / "
            f"{design['board']['layers']}-layer JLCPCB stackup.  "
-           "Power rails (GND, 3V3, VBATT, VLED, VBUS, VDD_CORE) are power "
+           "Power rails (GND, 3V3, VBATT, VSYS, VLED, VBUS, VDD_CORE) are "
+           "power "
            "symbols; only cross-block signals use global labels.  "
            "Generated from scripts/circuit.py — do not hand-edit; rebuild "
            "with `python3 build.py --only schematic`.",
@@ -1729,6 +1899,12 @@ def build_sheet(design, cir):
     blk_ldo(s, cir, bk, 190, 59)
     blk_loadsw(s, cir, bk, 166, 122)
     blk_en(s, cir, bk, 272, 40)
+    # rev-2 power path + its two satellites: the path sits under the
+    # sense/load-switch column, the VBUS tap under the charger it taps,
+    # and the level shifter beside the ring it drives
+    blk_path(s, cir, bk, 189.3, 254.4)
+    blk_vbussense(s, cir, bk, 620.4, 118.2)
+    blk_shift(s, cir, bk, 450.3, 391.1)
     blk_light(s, cir, bk, 232, 176)
     blk_imu(s, cir, bk, 510, 137)
 
