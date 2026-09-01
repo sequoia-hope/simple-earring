@@ -1,5 +1,13 @@
 # 4-layer partial — 8 nets left to hand-route
 
+> **DONE — historical (closed 2026-08-06, `761705d`).** Sequoia finished all
+> eight nets by hand; that board went to 0 errors / 0 unconnected and was
+> ordered as `43eadc1`. The tree has since been rebuilt twice (generator drift
+> fix `a5a0a09`, rev-2 power path `2e9399c`), so the board this page describes
+> is not `out/earring.kicad_pcb` any more — it is the shipped worktree.
+> Kept for the reasoning and the ground rules, not as a work queue.
+> Current status: **`docs/PLAN.md`**.
+
 `out/earring.kicad_pcb` (committed) is the best of 6 auto-routing attempts on
 the 4-layer stackup: **0 DRC errors, 8 unconnected**. Zones are filled, no
 lock file. Everything else — 122 parts, 332 nets, the LED chain, the planes,

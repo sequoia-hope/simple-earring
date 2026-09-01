@@ -71,7 +71,7 @@ TAGS = {
 
 FEED = [
     dict(
-        date="2026-08-31", sha=None, tags=["layout"],
+        date="2026-08-31", sha="bdc87fc", tags=["layout"],
         title="Rev 2 routed to 5 unconnected / 0 errors — and the retry loop "
               "is not buying what it claims",
         lede="1371 tracks, 258 vias, zero DRC errors. Five nets stay open, and "
@@ -279,9 +279,9 @@ Re-scanned at 0.05&nbsp;mm, 70&nbsp;µm east. All six new passives are now exemp
 from the relaxer for the same reason, and the DRC gate is re-run after every
 placement change.</li>
 </ul>
-<p class="note">Routing this revision is running now — the placement previews
-below refresh as it goes; the routed renders and the layer stack update when it
-converges.</p>
+<p class="note">Routed the same day — <code>bdc87fc</code>, 0 DRC errors with five
+nets still open. See the newest entry at the top; the live renders and layer
+stack below are that board, not this placement.</p>
 """,
         media=[("render_place_top.png",
                 "placement preview front — Q3/R23 west of the MCU, D3/C29/R21 "
@@ -757,7 +757,7 @@ INDEX_HTML = """<!DOCTYPE html>
   <a href="#feed">updates ↓</a>
   <a href="#outputs">live outputs ↓</a>
   <a href="case/preview/" style="color:#c9f">TPU case</a>
-  <a href="rework/" style="color:#f66">R8 rework</a>
+  <a href="rework/" style="color:#a88">R8 rework (retired)</a>
   <a href="wear/" style="color:#9cf">wear log</a>
   <a href="probe/" style="color:#f88">probe map</a>
   <a href="review/" style="color:#fc6">layout review</a>

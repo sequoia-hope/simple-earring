@@ -9,6 +9,11 @@
 >
 > The task descriptions below are kept for the reasoning and the
 > landmines, not as a work queue.
+>
+> **Long since superseded** — the board was hand-finished, ordered
+> (`43eadc1`) and brought up on the bench, and the tree has moved on to
+> rev 2. Current status lives in **`docs/PLAN.md`**; the running narrative
+> is the dashboard feed in `scripts/render.py`.
 
 ---
 
