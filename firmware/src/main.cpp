@@ -24,13 +24,17 @@
 // Future option if this isn't enough: IMU INT1 is wired to GP8, so a
 // true dormant-until-motion rest mode is possible.
 //
-// CHARGING (CHRG or DONE low) preempts everything, instantly — no
-// settling wait, no drip show, jostling irrelevant. A proportional arc
-// of the perimeter ring blinks at the dimmest level: on one second, off
-// four, repeat. Arc length is the percent; the colour is the tier:
-//   red below 30%, orange 30-85%, green 85%+ (or DONE).
-// The same indicator runs for two seconds at every power-on, charging
-// or not, so switching on tells you where the battery stands.
+// CHARGING (CHRG or DONE low, switch ON) preempts everything, instantly
+// — no drip show, jostling irrelevant. The perimeter ring shows the
+// level (Sep 18 spec):
+//   how MANY  = charge percent, linearly, 3 LEDs minimum to all 37
+//   what HUE  = red at empty, through orange, to green at full — a
+//               continuous gradient, not tiers
+//   rhythm    = blink a stub until the reading is trusted, then hold the
+//               level 10s, then 10s dark / 1s lit, repeat while charging
+// Switch OFF while plugged in = no indication at all (charge dark and
+// faster). The same acquire+hold sequence runs at every switch-on, so
+// powering up tells you where the battery stands before the show.
 //
 // WEAR LOG: every power cycle opens a new LittleFS session file
 // (/wNNNN.bin) and appends 10Hz motion-window records (gravity vector,
@@ -115,24 +119,36 @@ constexpr float SHAKE_WAKE = 450.0f;     // jolt_f: hard shake cuts a nap
 constexpr float STEP_JOLT = 90.0f;
 
 // ---- charge / level indicator ----
-// A proportional arc of the perimeter ring steps up and back down in
-// brightness over a second, then two seconds dark. The dark beat cuts
-// VLED entirely (the 45 idle SK6805 draw ~13.5mA just sitting there) and
-// hosts the VBATT measurement, so the average LED load stays a small
-// slice of the ~41mA charge budget. Levels are RAW channel counts out of
-// 255 with the brightness scaler disabled (see enterMode): NeoPixel's
-// setBrightness multiplies by (b+1)>>8, which floors small counts to
-// zero — the bug that made the old off-idle blip invisible.
-constexpr uint32_t CHG_PERIOD_MS = 5000; // 1s lit + 4s dark
-constexpr uint32_t CHG_PULSE_MS = 1000;
-constexpr uint32_t BOOT_LEVEL_MS = 2000; // power-on battery-level splash
-constexpr float CHG_RED_PCT = 30.0f;     // below this: red
-constexpr float CHG_GREEN_PCT = 85.0f;   // at/above (or DONE): green
-// Dimmest level that still renders all three tiers: orange is drawn at a
-// 3:1 red:green ratio (green LEDs far outshine red at equal drive), so
-// red needs 3 counts for green to land on 1. At 1 or 2, green floors to
-// zero and orange would show as plain red.
-constexpr uint8_t CHG_LEVEL = 3;
+// Three phases (see runLevelFrame):
+//   ACQUIRE  blink a 3-LED blue stub at 2Hz while VBATT samples are taken
+//            in the dark half of each blink; trusted once the last few
+//            samples agree, or at the timeout.
+//   HOLD     the level arc, steady, for 10s.
+//   CYCLE    10s dark, 1s arc, repeat (charging only). The dark beat cuts
+//            VLED entirely (45 idle SK6805 draw ~13.5mA just sitting
+//            there) and hosts the VBATT measurement, so the LED load stays
+//            a small slice of the ~41mA charge budget.
+// Levels are RAW channel counts out of 255 with the brightness scaler
+// disabled (see enterMode): NeoPixel's setBrightness multiplies by
+// (b+1)>>8, which floors small counts to zero — the bug that made the old
+// off-idle blip invisible.
+constexpr uint32_t CHG_HOLD_MS = 10000;
+constexpr uint32_t CHG_OFF_MS = 10000;
+constexpr uint32_t CHG_ON_MS = 1000;
+constexpr uint32_t ACQ_BLINK_MS = 250;     // half-period: 2Hz blink
+constexpr int ACQ_SAMPLES = 6;             // agreeing samples to trust
+constexpr int ACQ_SPREAD_MV = 40;          // max-min over those samples
+constexpr uint32_t ACQ_TIMEOUT_MS = 6000;  // trust the median regardless
+constexpr int ARC_MIN = 3;                 // never fewer lit than this
+// Peak channel count for the gradient. Green LEDs far outshine red at
+// equal drive, so green is driven at a third of red's count for the same
+// perceived weight; with 10 counts of red at empty the hue still gets
+// ~4 distinct steps on the way to (0,3,0) at full. Very dim on purpose.
+constexpr uint8_t CHG_LEVEL = 10;
+// Terminal-voltage lift while the charger pushes current: the fitted
+// RJD2032C1 is <=700mR, x40mA = <=28mV (the old 150mV figure assumed a
+// ~10R LIR2032 and knocked a full tier off the reading).
+constexpr int CHG_IR_MV = 30;
 
 struct Region {
   int start, n;
@@ -243,13 +259,13 @@ static Sense readSense() {
   return last;
 }
 
-// LIR2032 voltage -> rough charge percent. While the charger is pushing
-// current the terminal voltage reads high (the cell's ~10R internal
-// resistance at ~40mA lifts it ~0.15V), so subtract that first. This is
-// a 5-segment-quality gauge, not a coulomb counter: the last ~25% of
-// charge happens pinned at the 4.2V CV limit and reads the same.
+// Cell voltage -> rough charge percent. While the charger is pushing
+// current the terminal voltage reads high by I*R (CHG_IR_MV), so subtract
+// that first. This is a 5-segment-quality gauge, not a coulomb counter:
+// the last ~25% of charge happens pinned at the 4.2V CV limit and reads
+// the same.
 static float chargePct(int mv, bool charging) {
-  if (charging) mv -= 150;
+  if (charging) mv -= CHG_IR_MV;
   const int v[] = {3300, 3600, 3750, 3850, 3950, 4050, 4150, 4200};
   const float p[] = {0, 8, 25, 45, 62, 78, 92, 100};
   if (mv <= v[0]) return 0;
@@ -261,17 +277,25 @@ static float chargePct(int mv, bool charging) {
 }
 
 // ---- mode + rhythm state ----
-enum RunMode : uint8_t { M_SHOW, M_OFF, M_CHARGE };
+enum RunMode : uint8_t { M_SHOW, M_OFF, M_LEVEL };
 RunMode mode = M_SHOW;
 uint32_t mode_entered_ms = 0;
 bool sw_on = true;
+bool charger_on = false; // CHRG or DONE asserted, refreshed every loop pass
 
 bool napping = false, fading = false;
 uint32_t episode_start_ms = 0, dark_since_ms = 0, fade_start_ms = 0;
 uint32_t nap_start_ms = 0, nap_until_ms = 0;
-bool rail_lit = false;     // charge/off modes: is VLED currently up?
-bool pulse_active = false; // charge mode: mid-assembly (vs the dark beat)
+bool rail_lit = false;     // level/off modes: is VLED currently up?
+bool pulse_active = false; // level mode: arc currently lit (vs dark beat)
 float chg_pct = -1.0f;  // slewed gauge value; <0 = VBATT unreadable
+// level-mode phases
+enum LevelPhase : uint8_t { P_ACQUIRE, P_HOLD, P_CYCLE };
+LevelPhase phase = P_ACQUIRE;
+uint32_t phase_start_ms = 0;
+bool level_splash = false; // power-on run: finish ACQUIRE+HOLD before leaving
+int acq_mv[ACQ_SAMPLES];
+int acq_n = 0;
 
 // ---- wear log state ----
 struct __attribute__((packed)) LogRec {
@@ -659,44 +683,52 @@ static void runShowNap() {
 
 // ---- the level indicator (charging and at power-on) ----
 // TWO readings at once, on the perimeter ring only:
-//   how MANY LEDs  = charge percent (proportional arc of the 37-LED ring)
-//   what COLOUR    = red below 30%, orange 30-85%, green 85%+ or DONE
-// The arc simply blinks: on at the dimmest level for a second, off for
-// four, repeat. No fade, no ramp, no dither — at these counts every
-// smoother option either bands or shimmers, and a plain blink reads
-// cleanly on a piece this small. The 4s dark also drops the average LED
-// load to a fifth, leaving more of the ~41mA charge budget for the cell.
+//   how MANY LEDs  = charge percent, linearly: 3 minimum, all 37 at full
+//   what COLOUR    = a continuous red -> orange -> green gradient
+// Blue stub = powered but VBATT unreadable / not yet trusted.
 //
 // Honest limitation (unchanged): the LGS4056H terminates on total
 // BAT-pin current (C/10 = ~4mA) and the awake MCU draws more than that
 // from the same node, so DONE cannot assert while this firmware runs;
 // green therefore comes from the voltage estimate, which itself
-// saturates in the CV phase. Treat green as "nearly there".
+// saturates in the CV phase. Treat full green as "nearly there".
 int arc_n = 0;
 
-// one solid colour per level, scaled to the current ramp step
+// Gradient in perceived weight: red fades out linearly while green fades
+// in; green counts are a third of red's for the same perceived weight.
 static uint32_t levelColor(float pct, bool known, uint8_t s) {
-  if (!known) return strip.Color(0, 0, s); // powered, but VBATT unreadable
-  if (pct >= CHG_GREEN_PCT) return strip.Color(0, s, 0);
-  if (pct >= CHG_RED_PCT) return strip.Color(s, s / 3, 0); // 3:1 = orange
-  return strip.Color(s, 0, 0);
+  if (!known) return strip.Color(0, 0, s / 3); // unknown: dim blue
+  float t = fmaxf(0.0f, fminf(pct / 100.0f, 1.0f));
+  int r = (int)lroundf(s * (1.0f - t));
+  int g = (int)lroundf(s * t / 3.0f);
+  if (t > 0.02f && g < 1) g = 1; // keep a trace of green off the floor
+  if (t < 0.98f && r < 1) r = 1;
+  return strip.Color((uint8_t)r, (uint8_t)g, 0);
 }
 
 static int arcLength(float pct, bool known) {
-  if (!known) return 3; // short stub: "powered, level unknown"
+  if (!known) return ARC_MIN; // short stub: "powered, level unknown"
   int n = (int)lroundf(pct / 100.0f * N_RING);
-  if (n < 2) n = 2; // a flat cell must still SHOW as charging, not go dark
+  if (n < ARC_MIN) n = ARC_MIN; // a flat cell must still SHOW, not go dark
   if (n > N_RING) n = N_RING;
   return n;
 }
 
-// Paint the arc once; the pixels then latch for the rest of the second.
+// Paint the arc once; the pixels then latch until the next call.
 static void showArc() {
   bool known = chg_pct >= 0;
   arc_n = arcLength(chg_pct, known);
   uint32_t col = levelColor(chg_pct, known, CHG_LEVEL);
   strip.clear();
   for (int i = 0; i < arc_n; i++) strip.setPixelColor(i, col);
+  strip.show();
+}
+
+// the acquire-phase blink: the minimum stub, blue, as "not yet known"
+static void showStub() {
+  strip.clear();
+  for (int i = 0; i < ARC_MIN; i++)
+    strip.setPixelColor(i, strip.Color(0, 0, CHG_LEVEL / 3));
   strip.show();
 }
 
@@ -735,34 +767,94 @@ static void measureCharge() {
                 s.vbatt_mv, (int)chg_pct);
 }
 
-static void runChargeFrame() {
-  uint32_t ph = (millis() - mode_entered_ms) % CHG_PERIOD_MS;
-  if (ph < CHG_PULSE_MS) {
-    if (!pulse_active) { // leading edge: light it once and let it latch
-      pulse_active = true;
-      railOn();
-      showArc();
+// ACQUIRE: one raw VBATT sample per dark half-blink. Trusted when the
+// last ACQ_SAMPLES agree within ACQ_SPREAD_MV (C21 settled, charger
+// current steady, no LED load) — or at the timeout, whichever first. The
+// value shown is the median of those samples.
+static bool acquireSample() {
+  bool chg = digitalRead(PIN_CHRG) == LOW;
+  bool done = digitalRead(PIN_DONE) == LOW;
+  Sense s = readSense();
+  if (s.vbatt_mv < 0) return false; // unreadable: keep blinking to timeout
+  acq_mv[acq_n % ACQ_SAMPLES] = s.vbatt_mv;
+  acq_n++;
+  bool timeout = millis() - phase_start_ms >= ACQ_TIMEOUT_MS;
+  if (acq_n < ACQ_SAMPLES && !timeout) return false;
+  int n = acq_n < ACQ_SAMPLES ? acq_n : ACQ_SAMPLES;
+  int v[ACQ_SAMPLES];
+  for (int i = 0; i < n; i++) v[i] = acq_mv[i];
+  for (int i = 1; i < n; i++) // insertion sort, n <= 6
+    for (int j = i; j > 0 && v[j - 1] > v[j]; j--) {
+      int t = v[j]; v[j] = v[j - 1]; v[j - 1] = t;
     }
-  } else if (pulse_active) {
-    // Falling edge, once per cycle: rail down first, THEN measure — no
-    // LED load on the cell while sampling, and readSense's debounce
-    // delays land in the dark where they cannot hitch the blink.
-    pulse_active = false;
-    railOff();
-    measureCharge(); // the reading the next blink will show
-  }
-  delay(10);
+  if (v[n - 1] - v[0] > ACQ_SPREAD_MV && !timeout) return false;
+  int med = v[n / 2];
+  chg_pct = done ? 100.0f : chargePct(med, chg);
+  Serial.printf("level trusted: %d samples spread=%dmV median=%dmV pct=%d "
+                "chrg=%d done=%d%s\n",
+                n, v[n - 1] - v[0], med, (int)chg_pct, chg, done,
+                timeout ? " (timeout)" : "");
+  return true;
 }
 
-// ---- power-on splash: battery level for two seconds, charging or not ----
-// Blocking on purpose, and called before IMU/filesystem init so it is the
-// first thing that happens after the rail comes up.
-static void bootLevelSplash() {
-  strip.setBrightness(255); // raw counts, scaler off: see CHG_LEVEL
-  railOn();
-  showArc();
-  delay(BOOT_LEVEL_MS);
-  railOff();
+static void enterPhase(LevelPhase p) {
+  phase = p;
+  phase_start_ms = millis();
+  pulse_active = false;
+  if (p == P_ACQUIRE) acq_n = 0;
+  if (p == P_HOLD) {
+    railOn();
+    showArc();
+  }
+}
+
+static void runLevelFrame() {
+  uint32_t now = millis();
+  uint32_t el = now - phase_start_ms;
+  switch (phase) {
+    case P_ACQUIRE: {
+      bool lit = (el / ACQ_BLINK_MS) % 2 == 0;
+      if (lit && !pulse_active) {
+        pulse_active = true;
+        railOn();
+        showStub();
+      } else if (!lit && pulse_active) {
+        pulse_active = false;
+        railOff();
+        if (acquireSample() ||
+            (chg_pct < 0 && el >= ACQ_TIMEOUT_MS)) // unreadable: give up
+          enterPhase(P_HOLD);
+      }
+      break;
+    }
+    case P_HOLD:
+      if (el >= CHG_HOLD_MS) {
+        railOff();
+        level_splash = false; // loop() may now leave for show/off
+        enterPhase(P_CYCLE);
+        measureCharge(); // in the dark: the value the first lit beat shows
+      }
+      break;
+    case P_CYCLE: {
+      uint32_t ph = el % (CHG_OFF_MS + CHG_ON_MS);
+      if (ph >= CHG_OFF_MS) {
+        if (!pulse_active) { // leading edge: light it once and let it latch
+          pulse_active = true;
+          railOn();
+          showArc();
+        }
+      } else if (pulse_active) {
+        // Falling edge, once per cycle: rail down first, THEN measure — no
+        // LED load on the cell while sampling, and readSense's debounce
+        // delays land in the dark where they cannot hitch the beat.
+        pulse_active = false;
+        railOff();
+        measureCharge(); // the reading the next beat will show
+      }
+      break;
+    }
+  }
+  delay(10);
 }
 
 // ---- off-idle: switch OFF, USB keeping the LDO up, charger idle ----
@@ -795,12 +887,8 @@ static void enterMode(RunMode m) {
   // measures straight away so the first pulse already carries a reading.
   strip.setBrightness(m == M_SHOW ? GLOBAL_BRIGHTNESS : 255);
   pulse_active = false;
-  if (m == M_CHARGE) {
-    chg_pct = -1.0f; // fresh reading, not slewed off the last mode's value
-    measureCharge();
-  }
   strip.clear();
-  // charge/idle raise the rail per-pulse themselves; only the show
+  // level/idle raise the rail per-pulse themselves; only the show
   // holds it up continuously
   digitalWrite(PIN_LED_EN, m == M_SHOW ? HIGH : LOW);
   if (m == M_SHOW) delay(10); // VLED settle before first frame
@@ -808,8 +896,15 @@ static void enterMode(RunMode m) {
   episode_start_ms = mode_entered_ms;
   dark_since_ms = 0;
   Serial.printf("mode -> %s\n", m == M_SHOW    ? "show"
-                                : m == M_CHARGE ? "charge"
-                                                : "off-idle");
+                                : m == M_LEVEL ? "level"
+                                               : "off-idle");
+  if (m == M_LEVEL) {
+    chg_pct = -1.0f; // fresh acquisition, not slewed off an old value
+    enterPhase(P_ACQUIRE); // lights the first blink immediately
+    runLevelFrame();
+  } else {
+    level_splash = false; // an aborted power-on readout doesn't carry over
+  }
 }
 
 // The sense divider is 1M:1M with C21 = 100nF on the bottom leg, so
@@ -855,8 +950,15 @@ void setup() {
                 mv_early, (unsigned long)t_early, mv_settled,
                 (unsigned long)millis());
 
-  measureCharge();
-  bootLevelSplash(); // two seconds of level, charging or not
+  // Power-on level readout starts NOW (blinking stub, non-blocking) so it
+  // is on screen before the slow inits below; loop() carries it on.
+  sw_on = readSense().on;
+  if (sw_on) {
+    level_splash = true;
+    enterMode(M_LEVEL);
+  } else {
+    enterMode(M_OFF); // switch off = no indication, charging or not
+  }
 
   Wire1.setSDA(PIN_IMU_SDA);
   Wire1.setSCL(PIN_IMU_SCL);
@@ -872,35 +974,27 @@ void setup() {
   Serial.printf("boot: clk_sys=%luMHz imu=%s\n",
                 (unsigned long)(clock_get_hz(clk_sys) / 1000000),
                 imu_ok ? "ok" : "FAIL");
-
-  sw_on = readSense().on;
-  bool charger =
-      digitalRead(PIN_CHRG) == LOW || digitalRead(PIN_DONE) == LOW;
-  enterMode(charger ? M_CHARGE : (sw_on ? M_SHOW : M_OFF));
 }
 
 void loop() {
   static uint32_t last_sw = 0;
   uint32_t now = millis();
   pollSerial();
-  // charger pins checked EVERY pass: plugging in flips to the charge
+  // charger pins checked EVERY pass: plugging in flips to the level
   // indicator within one frame, from any mode, moving or not
-  bool charger =
-      digitalRead(PIN_CHRG) == LOW || digitalRead(PIN_DONE) == LOW;
-  RunMode want;
-  if (charger) {
-    want = M_CHARGE;
-  } else {
-    if (mode == M_CHARGE || now - last_sw >= 500) { // 2Hz switch poll
-      last_sw = now;
-      sw_on = readSense().on;
-    }
-    want = sw_on ? M_SHOW : M_OFF;
+  charger_on = digitalRead(PIN_CHRG) == LOW || digitalRead(PIN_DONE) == LOW;
+  if (now - last_sw >= 500) { // 2Hz switch poll
+    last_sw = now;
+    sw_on = readSense().on;
   }
+  // Switch OFF wins over the charger: charge dark, no indication.
+  RunMode want = !sw_on ? M_OFF : (charger_on ? M_LEVEL : M_SHOW);
+  // the power-on readout finishes its acquire+hold before the show
+  if (mode == M_LEVEL && level_splash && sw_on) want = M_LEVEL;
   if (want != mode) enterMode(want);
   logTick();
   switch (mode) {
-    case M_CHARGE: runChargeFrame(); break;
+    case M_LEVEL: runLevelFrame(); break;
     case M_OFF: runIdleFrame(); break;
     default: runShowNap(); break;
   }
