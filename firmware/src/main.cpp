@@ -41,7 +41,8 @@
 // jolt max/mean, motion envelope, VBATT). Protocol: switch on, stand
 // 1 min, walk 1 min, dance 1 min, switch off — the session is then
 // identifiable by shape and pullable over USB serial afterwards.
-// Serial commands: L = list sessions, D<n> = dump CSV, X = wipe old.
+// Serial commands: L = list sessions, D<n> = dump CSV, X = wipe old,
+// S = hold the level arc for 5s (bench check of the LED path).
 // Records flush every 2s, so give it a beat before switching off.
 //
 // IMU->board transform calibrated Aug 25 (two-pose fit): mirror + 124deg
@@ -426,8 +427,20 @@ static void logTick() {
   }
 }
 
+static void railOn();
+static void latch();
+static void showArc();
+static void enterMode(RunMode m);
+
 static void handleCmd(const char *cmd) {
-  if (cmd[0] == 'L') {
+  if (cmd[0] == 'S') { // diagnostic: hold the level arc for 5s, full stop
+    Serial.println("arc test: 5s");
+    strip.setBrightness(255);
+    railOn();
+    showArc();
+    delay(5000);
+    enterMode(mode); // back to the mode's own rhythm from a clean state
+  } else if (cmd[0] == 'L') {
     Dir d = LittleFS.openDir("/");
     while (d.next())
       // record count, not a duration: the rate steps 10Hz -> 1Hz at 3
@@ -721,7 +734,10 @@ static void showArc() {
   uint32_t col = levelColor(chg_pct, known, CHG_LEVEL);
   strip.clear();
   for (int i = 0; i < arc_n; i++) strip.setPixelColor(i, col);
-  strip.show();
+  latch();
+  Serial.printf("arc lit: n=%d rgb=%u,%u,%u pct=%d rail=%d\n", arc_n,
+                (unsigned)(col >> 16) & 255, (unsigned)(col >> 8) & 255,
+                (unsigned)col & 255, (int)chg_pct, digitalRead(PIN_LED_EN));
 }
 
 // the acquire-phase blink: the minimum stub, blue, as "not yet known"
@@ -729,15 +745,29 @@ static void showStub() {
   strip.clear();
   for (int i = 0; i < ARC_MIN; i++)
     strip.setPixelColor(i, strip.Color(0, 0, CHG_LEVEL / 3));
-  strip.show();
+  latch();
 }
+
+// Rail-on settle: the TPS22913 slews VLED up into ~15uF and the SK6805s
+// need to be powered before they will take data. A single frame sent 3ms
+// after the enable was LOST (Sep 18: indicator dark while a 50ms-settle
+// white test showed fine) — the show mode never noticed because it
+// streams frames at 50Hz. Latched modes get one frame, so wait properly.
+constexpr uint32_t RAIL_SETTLE_MS = 50;
 
 static void railOn() {
   if (!rail_lit) {
     digitalWrite(PIN_LED_EN, HIGH);
-    delay(3);
+    delay(RAIL_SETTLE_MS);
     rail_lit = true;
   }
+}
+
+// latched frame: send twice, so a chain that dropped the first still lands
+static void latch() {
+  strip.show();
+  delay(2);
+  strip.show();
 }
 
 static void railOff() {
