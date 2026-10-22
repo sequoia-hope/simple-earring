@@ -133,7 +133,19 @@ vreg_inductor:
     pad = L1 pad 1 (netlist swapped accordingly); L_pol_2016 draws its dot at
     pad 1. Still worth an eyeball on the JLC assembly preview before ordering.
 
-battery_clip:
+battery_pads:
+  mpn: ~
+  lcsc: ~
+  footprint: BAT_LPR302823_PADS
+  verified: yes          # bare pads, not assembled; cell ds design/datasheets/LPR302823.pdf
+  notes: >-
+    Two 1.2x1.6 B.Cu solder pads, one each side of J1, for the LiPol
+    LPR302823's wires (+ = pad 1 = VBATT on the SW2 side, - = pad 2 = GND).
+    The cell is hand-fitted after assembly and taped to the back over parts
+    no taller than 1.1mm; see design/brief.md for the outline, tolerance
+    envelope and orientation (flat normal at -120deg, i.e. toward SW2).
+
+battery_clip:            # UNUSED since the LiPo change (kept: ordered rev 43eadc1 / rev-2 coin 4538da2)
   mpn: MY-2032-12-R
   lcsc: C964834
   footprint: BAT_MY2032_12R
@@ -175,7 +187,7 @@ bootsel_button:
     same-side pairing from the drawing, you can add 3 -> BOOTSEL_SW and
     2 -> GND for the redundant second joint.
 
-slide_switch:
+slide_switch:            # UNUSED since the LiPo change (power button + latch replaced it)
   mpn: MSK12C02
   lcsc: C431540
   footprint: SW-TH_MSK12C02
@@ -227,6 +239,30 @@ or_diode:
     including the SW2 pocket this lives in. Footprint+WRL via
     easyeda2kicad C78606 (vendor land, 0.9x0.8 pads at 1.3mm pitch);
     courtyard widened to cover the pads.
+
+cc_diode:
+  mpn: BAV70W-7-F
+  lcsc: C93029
+  footprint: SOT-323_BAT54SW   # same SOT-323 land as D2; only the pinning differs
+  verified: yes          # Diodes Inc DS30063 rev 12 (design/datasheets/BAV70W.pdf); pinout p.1 diagram
+  notes: >-
+    Power-latch diode pair D4: SILICON switching diodes, common cathode
+    (pin 1 = A1, pin 2 = A2, pin 3 = K, top-view diagram p.1). Chosen over
+    the BAT54CW for reverse leakage: IR <= 25nA @20V/25C vs a Schottky's
+    ~20uA at 85C, which would false-trigger the latch through R24 (see
+    circuit.py latch block). VF <= 0.715V @1mA.
+
+power_button:
+  mpn: B3U-3000P
+  lcsc: C963349
+  footprint: SW_B3U-3000P
+  verified: yes          # Omron ds design/datasheets/B3U-3000P.pdf p.3; JLC extended, 15.8k stock (2026-10-22)
+  notes: >-
+    Side-actuated tact, body 3.0x2.5x1.2(+0.15), actuator 0.7 past the body
+    face, two pads, no holes/boss (NOT the -B variant, which needs a Ø0.75
+    hole). Power button for the soft latch (circuit.py). Sits on the left
+    tip straight, actuator out past the edge, outside the cell envelope.
+    Same-land second source: Jianfu THAF46-NJ-R (C19270956, thin stock).
 
 oring_pfet:
   mpn: CJ2101
@@ -337,7 +373,8 @@ r_5k1:   {lcsc: C25905,  footprint: R_0402_1005Metric, verified: yes}     # USB-
 r_10k:   {lcsc: C25744,  footprint: R_0402_1005Metric, verified: yes}     # RUN pullup, SW ON pulldown (0402WGF1002TCE)
 # ^ was C25804 until Aug 5 2026: that is 0603WAF1002T5E, a 0603 part, on a
 #   0402 land -- JLCPCB flagged the footprint mismatch. C25744 is the 0402.
-r_22k:   {lcsc: C25768,  footprint: R_0402_1005Metric, verified: yes}     # R_PROG ~41mA (0402WGF2202TCE, 22k 0402)
+r_22k:   {lcsc: C25768,  footprint: R_0402_1005Metric, verified: yes}     # R16 light-sensor load; was R_PROG until the LiPo change (0402WGF2202TCE, 22k 0402)
+r_18k:   {lcsc: C25762,  footprint: R_0402_1005Metric, verified: yes}     # R_PROG 50mA for the LPR302823 (0402WGF1802TCE, 18k 1% 0402; LCSC page checked 2026-10-22)
 r_100k:  {lcsc: C25741,  footprint: R_0402_1005Metric, verified: yes}     # PWR_EN pulldown R17 + VBUS->EN feed R18 (0402WGF1003TCE, 100k 1% 0402; 7.6M stock Aug 25).
 # ^ 100k, not 1M: NCP730 EN has an INTERNAL PULL-UP to VIN (I_EN-PU up to
 #   1uA, ds p5) and its falling threshold can be as low as 0.5V — a 1M

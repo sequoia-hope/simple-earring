@@ -27,6 +27,18 @@ from outline import led_path, geometry  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 PCB = ROOT / "out" / "earring.kicad_pcb"
 CX, CY = 100.0, 100.0
+# SW2 (B3U-3000P) rotation on the back: actuator (footprint -y) must point
+# along the left straight's outward normal (-0.833,-0.553). Measured off the
+# placed footprint, since the back-side flip negates the rotation sense.
+SW2_ROT = -123.6
+# soft power latch spots (see the latch block in main); "park" = off-board,
+# not yet scanned
+LATCH = {
+    "Q5": (-5.75, -4.00, 0),
+    "D4": (-6.25, -6.50, 0), "Q4": (-8.50, -3.50, 0),
+    "R24": (-7.75, -1.75, 0), "R25": (-5.75, -2.25, 0),
+    "C27": (-6.00, -11.75, 270),   # BTN_N ESD cap, beside the button
+}
 
 
 def mm(v):
@@ -332,23 +344,29 @@ def main():
     # LED44->LED45 beautify-arc band.
     place(fps["R3"], 7.7, -3.85, rot=90)
 
-    # ---------------- power slide switch (back, left tip straight) ----------------
-    # Body inboard, actuator knob (fp +y) overhanging the left straight edge
-    # above the battery. Left edge runs corner(-4.7,-20.5)->tangency
-    # (-12.70,-8.44); outward normal (-0.833,-0.553). The footprint's two
-    # 0.9mm THT locating holes punch through — verify against front LEDs.
-    # rot=56.4: the back-side flip NEGATES the rotation sense (scan-found).
-    # Anchored to LED4: the two NPTH locating holes (3.0mm apart) only
-    # clear the front LEDs by bracketing one LED at +-1.5mm, so the
-    # hole-pair midpoint sits on LED4 — pinned at the proven S=7.75 spot by
-    # the chain re-pitch above, which also holds LED3/LED5 exactly 3.0mm
-    # away so the pegs keep their 1.5mm LED clearance at the denser pitch.
-    # Center lands 2.30mm inboard: knob-side mounting pads
-    # stay 0.25 inside the edge, interior courtyard face stays off the
-    # cell disc (r 10.49 > 10.45), knob overhangs 1.23mm.
+    # ---------------- power button (back, left tip straight) ----------------
+    # LiPo change: the MSK12C02 slide switch is gone (the Ø28 cell covers
+    # its spot at every legal angle) and SW2 is now an Omron B3U-3000P
+    # side-push tact on the same straight, further toward the tip so its
+    # body clears the cell's worst-case envelope. Spot from a sweep along
+    # the edge against the envelope (+0.3 placement slop, centre 0.25 off
+    # the tip) and J1's real pad copper: body face on the edge line, body
+    # centre 1.25 inboard, 0.67mm best clearance (design/gates/phase4.md).
+    # The B3U has no holes, but the LED chain re-pitch above (built around
+    # the slide switch's NPTH pegs) is KEPT so the ring, its locked arcs
+    # and the IMU's mirrored anchor below stay exactly where they were.
     nx_, ny_ = 0.833, 0.553             # inward normal of the left straight
-    l4x, l4y = pts[3]                   # LED4 (path-derived, margin 2.0)
-    place(fps["SW2"], l4x + 0.30 * nx_, l4y + 0.30 * ny_, rot=56.0, back=True)
+    l4x, l4y = pts[3]                   # LED4 (anchors the IMU mirror below)
+    place(fps["SW2"], -7.71, -13.70, rot=SW2_ROT, back=True)
+    # ---- soft power latch (Q4/Q5/D4/R24/R25), back, under the cell ----
+    # All <=1.1mm (SOT-323 A max 1.1, 0402s), so legal under the LiPo.
+    # Clustered west of the MCU's pin-32/33 escape corridor (x > -5.6 kept
+    # clear so those pins can via down), between the button (BTN_N, up
+    # the left tip) and D2 (SW_ON, lower-left shoulder). Each spot comes
+    # from tools/scan_spot.py run in signal order against the board with
+    # the previous ones placed (pad polygons, locked pre-routes, holes).
+    for ref, (x, y, r) in LATCH.items():
+        place(fps[ref], x, y, rot=r, back=True)
     # D2 (BAT54SW EN diode-OR, rev 2) + R17 (PWR_EN pulldown): back
     # LOWER-LEFT shoulder, between TP3 and the insertion corridor.
     # Spots from a full-board grid scan against the STATIC board (all
@@ -451,9 +469,16 @@ def main():
     # (2.2,9.05); hardcoded so placement stays deterministic)
 
     # ---------------- back side ----------------
-    # feet at ±x; rot=180 points the spring-finger mouth toward +y (the
-    # round end / insertion corridor) — at rot=0 it faces the USB tip and
-    # the cell would collide with the connector
+    # BT1 = the LPR302823 LiPo's two wire pads (the coin clip that lived
+    # here until 4538da2 is gone). The footprint's origin is the board
+    # centre and its pad offsets are pre-mirrored in x for the back. rot
+    # 180, not 0: place()'s flip mirrors y and the 180 turns that into the
+    # x-mirror the footprint assumes (same reason the clip sat at 180).
+    # Pad 1 (+) lands at (+5.7,-16.9) on the IMU side of J1, pad 2 (-) at
+    # (-5.7,-16.9) on the power-button side.
+    # The comments below that cite "BT1's cell-disc courtyard" or "the clip
+    # feet" describe why rev-2 parts sit where they do. The constraint is
+    # gone, but the placement was kept as-is on purpose (brief §7).
     place(fps["BT1"], 0, 0, rot=180, back=True)
     # BOOTSEL: small top-actuated switch, front top-center — the spot the
     # hanger used to occupy. Also decongests the bottom-center routing zone

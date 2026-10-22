@@ -341,6 +341,38 @@ class Sch:
              poly([(0, 1.27), (0, 3.302)]),
              poly([(-1.905, 3.302), (1.905, 3.302)])],
             (6.35, 4.4), hide_numbers=True, hide_names=True, ref_prefix="SW")
+        # 2-terminal tact (B3U-3000P power button): 1 left, 2 right
+        self._emit_def("SW_PUSH2", "SW_Push", "passive", [
+            ("1", "~", -5.08, 0, 0, 2.54, "passive"),
+            ("2", "~", 5.08, 0, 180, 2.54, "passive")],
+            ["(circle (center -2.032 0) (radius 0.508)\n"
+             "\t\t\t\t\t(stroke (width 0) (type default))\n"
+             "\t\t\t\t\t(fill (type none)))",
+             "(circle (center 2.032 0) (radius 0.508)\n"
+             "\t\t\t\t\t(stroke (width 0) (type default))\n"
+             "\t\t\t\t\t(fill (type none)))",
+             poly([(-2.54, 1.27), (2.54, 1.27)]),
+             poly([(0, 1.27), (0, 3.048)]),
+             poly([(-1.27, 3.048), (1.27, 3.048)])],
+            (5.08, 3.3), hide_numbers=True, hide_names=True, ref_prefix="SW")
+        # dual common-cathode Schottky (BAT54CW): 1 = A1 (left), 2 = A2
+        # (right), 3 = K (down). Both anodes conduct INTO the shared cathode.
+        self._emit_def("D_CC", "D_CC", "passive", [
+            ("1", "A1", -7.62, 0, 0, 3.81, "passive"),
+            ("2", "A2", 7.62, 0, 180, 3.81, "passive"),
+            ("3", "K", 0, -5.08, 90, 3.81, "passive")],
+            [poly([(-3.81, 1.27), (-3.81, -1.27), (-1.27, 0), (-3.81, 1.27)]),
+             poly([(-0.762, 1.016), (-1.27, 1.016), (-1.27, -1.016),
+                   (-1.778, -1.016)], 0.254),
+             poly([(3.81, 1.27), (3.81, -1.27), (1.27, 0), (3.81, 1.27)]),
+             poly([(0.762, -1.016), (1.27, -1.016), (1.27, 1.016),
+                   (1.778, 1.016)], 0.254),
+             poly([(-1.27, 0), (1.27, 0)]),
+             poly([(0, 0), (0, -1.27)]),
+             "(circle (center 0 0) (radius 0.254)\n"
+             "\t\t\t\t\t(stroke (width 0) (type default))\n"
+             "\t\t\t\t\t(fill (type outline)))"],
+            (7.62, 5.08), hide_numbers=True, hide_names=True, ref_prefix="D")
         # dual series Schottky (BAT54SW): 1 = A1, 2 = K2, 3 = K1+A2 mid tap.
         # Conduction left-to-right pin1 -> pin3 -> pin2; the tap hangs down.
         self._emit_def("D_SS", "D_SS", "passive", [
@@ -373,15 +405,20 @@ class Sch:
         # enhancement MOSFETs, 1 = G (left), 2 = S (bottom), 3 = D (top) —
         # the SOT-323/SOT-23 3-lead pad order, so the symbol pin numbers are
         # the footprint pad numbers with no translation table.
-        def fet(name, p_channel):
+        # source_top: the high-side P-FET drawing (source up to the rail,
+        # drain down to the load) — the power latch's Q4. Same pads.
+        def fet(name, p_channel, source_top=False):
             arrow = ([(-0.508, 0.635), (-0.508, -0.635), (0.508, 0),
                       (-0.508, 0.635)] if p_channel else
                      [(0.508, 0.635), (0.508, -0.635), (-0.508, 0),
                       (0.508, 0.635)])
+            sy = 1 if source_top else -1
             self._emit_def(name, name, "passive", [
                 ("1", "G", -7.62, 0, 0, 3.81, "passive"),
-                ("2", "S", 2.54, -7.62, 90, 3.81, "passive"),
-                ("3", "D", 2.54, 7.62, 270, 3.81, "passive")],
+                ("2", "S", 2.54, sy * 7.62, 270 if source_top else 90, 3.81,
+                 "passive"),
+                ("3", "D", 2.54, -sy * 7.62, 90 if source_top else 270, 3.81,
+                 "passive")],
                 [poly([(-3.81, 0), (-2.54, 0)]),
                  poly([(-2.54, 2.54), (-2.54, -2.54)]),
                  poly([(-1.27, 2.54), (-1.27, 1.27)]),
@@ -390,13 +427,14 @@ class Sch:
                  poly([(-1.27, 1.905), (2.54, 1.905), (2.54, 3.81)]),
                  poly([(-1.27, -1.905), (2.54, -1.905), (2.54, -3.81)]),
                  poly([(-1.27, 0), (2.54, 0)]),
-                 poly([(2.54, 0), (2.54, -1.905)]),
+                 poly([(2.54, 0), (2.54, sy * 1.905)]),
                  poly(arrow)],
                 (7.62, 7.62), hide_numbers=True, hide_names=True,
                 ref_prefix="Q")
 
         fet("Q_PMOS", True)
         fet("Q_NMOS", False)
+        fet("Q_PMOS_HS", True, source_top=True)
         # SPDT slide switch, 2 = common
         self._emit_def("SW_SPDT", "SW_SPDT", "passive", [
             ("1", "~", -6.35, 2.54, 0, 3.81, "passive"),
@@ -860,8 +898,8 @@ class Sch:
 def mcu_sides():
     gp = {g: p for g, p in GPIO.items()}
     used = {29: "GPIO18", 3: "GPIO1", 9: "GPIO6", 15: "GPIO11", 12: "GPIO8",
-            31: "GPIO19", 42: "GPIO28", 40: "GPIO26/ADC0",
-            43: "GPIO29/ADC3"}
+            31: "GPIO19", 32: "GPIO20", 33: "GPIO21", 42: "GPIO28",
+            40: "GPIO26/ADC0", 43: "GPIO29/ADC3"}
     unused = [(gp[g], f"GPIO{g}") for g in sorted(gp)
               if gp[g] not in used and gp[g] != 43]
     # Side pins are grouped by the block they wire to, with the gaps sized so
@@ -878,7 +916,8 @@ def mcu_sides():
             + [None] * 8
             + [(51, "USB_DM"), (52, "USB_DP")])
     right = [(29, "GPIO18"), (3, "GPIO1"), (9, "GPIO6"), (15, "GPIO11"),
-             (12, "GPIO8"), (31, "GPIO19"), (42, "GPIO28"),
+             (12, "GPIO8"), (31, "GPIO19"), (32, "GPIO20"), (33, "GPIO21"),
+             (42, "GPIO28"),
              (40, "GPIO26/ADC0"), (43, "GPIO29/ADC3")]
     top = [(1, "IOVDD"), (11, "IOVDD"), (20, "IOVDD"), (30, "IOVDD"),
            (38, "IOVDD"), (45, "IOVDD"), (54, "QSPI_IOVDD"),
@@ -942,8 +981,9 @@ IC_SIDES = {
 IC_MIN_W = {"led": 12.7}
 
 PASSIVE_SYM = {"r_": "R", "c_": "C", "vreg_inductor": "L", "crystal": "XTAL",
-               "testpoint": "TP", "battery_clip": "BATT",
+               "testpoint": "TP", "battery_clip": "BATT", "battery_pads": "BATT",
                "bootsel_button": "SW_PUSH", "slide_switch": "SW_SPDT",
+               "power_button": "SW_PUSH2", "cc_diode": "D_CC",
                "or_diode": "D_SS", "sys_diode": "D_SCH",
                "oring_pfet": "Q_PMOS", "lvl_nfet": "Q_NMOS"}
 
@@ -1090,14 +1130,15 @@ def blk_usb(s, cir, bk, x, y):
     s.wire((xg, ybus), (xg, ybus + 2.54))
     s.junction((xg, ybus))
     s.rail("GND", (xg, ybus + 2.54))
-    s.note("J1 is a TYPE-C-31-M-12 right-angle receptacle. VBUS is "
-           "charge-only: there is no VBUS->3V3 path, the MCU always runs "
-           "from the cell.", x - 8.89, ybus + 12.7, 88.0)
+    s.note("J1 is a TYPE-C-31-M-12 right-angle receptacle. VBUS charges "
+           "the cell AND (rev 2) runs the board through D3 -> VSYS while a "
+           "cable is in — see the power-path block.", x - 8.89, ybus + 12.7,
+           88.0)
     s.end()
 
 
 def blk_charger(s, cir, bk, x, y):
-    s.begin("Li-ion charger (LGS4056H, ~41mA) + RJD2032C1 cell")
+    s.begin("Li-ion charger (LGS4056H, 50mA) + LPR302823 LiPo")
     u = put(s, cir, "U2", x, y)
     # VBUS in
     xb = u["4"][0] - 12.7
@@ -1155,7 +1196,7 @@ def blk_charger(s, cir, bk, x, y):
 
 
 def blk_sense(s, cir, bk, x, y):
-    s.begin("Switch / battery sense -> ADC")
+    s.begin("Latch / battery sense -> ADC")
     s.glabel("SW_ON", (x - 10.16, y), rot=180, just="right")
     s.wire((x - 10.16, y), (x, y))
     s.wire((x, y), (x, y + 3.81))
@@ -1176,16 +1217,17 @@ def blk_sense(s, cir, bk, x, y):
     s.junction((x + 15.24, node[1]))
     s.wire(node, (x - 10.16, node[1]))
     s.glabel("VBSENSE", (x - 10.16, node[1]), rot=180, just="right")
-    s.note("1M:1M divider off SW_ON, the switch common (rev 2 — was "
-           "VBATT). Switch ON: VBATT/2 battery telemetry as before. "
-           "Switch OFF + USB: reads 0, telling firmware to show charge "
-           "status instead of running the show. GPIO29/ADC3.",
+    s.note("1M:1M divider off SW_ON, the power latch's output (VBATT "
+           "while the latch is held or the button is pressed). Latch ON: "
+           "VBATT/2 battery telemetry. Latch OFF + USB: reads 0, telling "
+           "firmware to show charge status instead of running the show. "
+           "GPIO29/ADC3.",
            x - 22.86, r12["2"][1] + 12.7, 56.0)
     s.end()
 
 
 def blk_ldo(s, cir, bk, x, y):
-    s.begin("3V3 LDO — EN = slide switch OR USB (diode-OR, clamped)")
+    s.begin("3V3 LDO — EN = power latch OR USB (diode-OR, clamped)")
     u = put(s, cir, "U3", x, y)
     bk.take("U3", "6", "VSYS")   # rev 2: the system rail, not the cell
     # 20.32, not the old 15.24: rev 2 renamed this riser VSYS and gave D2's
@@ -1255,19 +1297,95 @@ def blk_ldo(s, cir, bk, x, y):
     s.wire((u4[0] - 6.35, u4[1] + 1.27), (u4[0] - 7.62, u4[1] + 1.27))
     s.glabel("PWR_EN", (u4[0] - 7.62, u4[1] + 1.27), rot=180,
              just="right", size=1.0)
-    # slide switch: common is SW_ON now, clean VBATT/GND both positions
-    s.wire(d2["1"], (d2["1"][0], d2["1"][1] + 2.54))
-    sw = put(s, cir, "SW2", u4[0] - 38.1, u4[1] + 10.16)
-    bk.take("SW2", "2", "SW_ON")
-    bk.take("SW2", "1", "VBATT")
-    bk.take("SW2", "3", "GND")
-    s.wire(sw["2"], (d2["1"][0], sw["2"][1]))
-    s.label("SW_ON", (sw["2"][0] + 2.54, sw["2"][1]), size=1.0)
-    s.path(sw["1"], (sw["1"][0] - 2.54, sw["1"][1]),
-           (sw["1"][0] - 2.54, sw["1"][1] - 5.08))
-    s.rail("VBATT", (sw["1"][0] - 2.54, sw["1"][1] - 5.08))
-    s.wire(sw["3"], (sw["3"][0] - 2.54, sw["3"][1]))
-    s.rail("GND", (sw["3"][0] - 2.54, sw["3"][1]))
+    # SW_ON (VBATT while the power latch is on) arrives from the latch
+    # block on a global label — it was the slide switch's common until the
+    # LiPo change, and D2 / R11 still read it exactly the same way
+    s.path(d2["1"], (d2["1"][0], d2["1"][1] + 5.08),
+           (d2["1"][0] - 10.16, d2["1"][1] + 5.08))
+    s.glabel("SW_ON", (d2["1"][0] - 10.16, d2["1"][1] + 5.08), rot=180,
+             just="right", size=1.0)
+    s.end()
+
+
+def blk_latch(s, cir, bk, x, y):
+    """(x, y) is Q4's centre. LATCH_G runs left from Q4's gate as a bus:
+    R24 up to the cell, Q5 down (the CPU's hold), D4 at the far end with
+    the button under it and BTN_SENSE out to the left."""
+    s.begin("power button + soft latch")
+    q4 = s.place("Q_PMOS_HS", "Q4", cir.components["Q4"].value, x, y,
+                 footprint=cir.components["Q4"].footprint)
+    bk.take("Q4", "1", "LATCH_G")
+    bk.take("Q4", "2", "VBATT")
+    bk.take("Q4", "3", "SW_ON")
+    xs = x + 2.54
+    s.wire(q4["2"], (xs, y - 12.7))
+    s.rail("VBATT", (xs, y - 12.7))
+    s.path(q4["3"], (xs, y + 12.7), (xs + 12.7, y + 12.7))
+    s.glabel("SW_ON", (xs + 12.7, y + 12.7), size=1.0)
+    # LATCH_G bus, Q4 gate leftwards
+    xr, xq, xe = x - 12.7, x - 17.78, x - 27.94
+    s.wire(q4["1"], (xe, y))
+    s.label("LATCH_G", (xe + 1.27, y), size=1.0)
+    r24 = put(s, cir, "R24", xr, y - 7.62)
+    bk.take("R24", "1", "VBATT")
+    bk.take("R24", "2", "LATCH_G")
+    s.wire(r24["2"], (xr, y))
+    s.junction((xr, y))
+    s.wire(r24["1"], (xr, y - 15.24))
+    s.rail("VBATT", (xr, y - 15.24))
+    # Q5: drain up to the bus, source to GND, gate PWR_HOLD from the left
+    q5 = put(s, cir, "Q5", xq - 2.54, y + 35.56)
+    bk.take("Q5", "1", "PWR_HOLD")
+    bk.take("Q5", "2", "GND")
+    bk.take("Q5", "3", "LATCH_G")
+    s.wire(q5["3"], (xq, y))
+    s.junction((xq, y))
+    s.wire(q5["2"], (xq, y + 45.72))
+    s.rail("GND", (xq, y + 45.72))
+    xpd = xq - 12.7
+    s.wire(q5["1"], (xpd - 2.54, y + 35.56))
+    s.junction((xpd, y + 35.56))
+    r25 = put(s, cir, "R25", xpd, y + 43.18)
+    bk.take("R25", "1", "PWR_HOLD")
+    bk.take("R25", "2", "GND")
+    s.wire(r25["1"], (xpd, y + 35.56))
+    s.wire(r25["2"], (xpd, y + 50.8))
+    s.rail("GND", (xpd, y + 50.8))
+    s.glabel("PWR_HOLD", (xpd - 2.54, y + 35.56), rot=180, just="right")
+    # D4 at the bus's far end: A2 = LATCH_G (right), A1 = BTN_SENSE (left),
+    # K = BTN_N down into the button, which closes to GND
+    # ref/value parked ABOVE the bus: below it they land on the BTN_N run
+    d4 = put(s, cir, "D4", xe - 7.62, y, ref_off=(-3.0, -7.4))
+    bk.take("D4", "1", "BTN_SENSE")
+    bk.take("D4", "2", "LATCH_G")
+    bk.take("D4", "3", "BTN_N")
+    s.wire(d4["1"], (d4["1"][0] - 5.08, y))
+    s.glabel("BTN_SENSE", (d4["1"][0] - 5.08, y), rot=180, just="right")
+    kx = d4["3"][0]
+    s.wire(d4["3"], (kx, y + 12.7))
+    sw = put(s, cir, "SW2", kx - 10.16, y + 12.7)
+    bk.take("SW2", "1", "GND")
+    bk.take("SW2", "2", "BTN_N")
+    s.wire(sw["2"], (kx, y + 12.7))
+    s.label("BTN_N", (kx, y + 10.16), size=1.0)
+    s.wire(sw["1"], (sw["1"][0] - 2.54, y + 12.7))
+    s.wire((sw["1"][0] - 2.54, y + 12.7), (sw["1"][0] - 2.54, y + 16.51))
+    s.rail("GND", (sw["1"][0] - 2.54, y + 16.51))
+    # C27: ESD / debounce on BTN_N, across the button
+    s.junction((kx - 2.54, y + 12.7))
+    vdrop(s, cir, bk, "C27", kx - 2.54, y + 12.7, "GND")
+    s.note("Press: BTN_N -> GND pulls LATCH_G low through D4 A2, Q4 turns "
+           "on, SW_ON = VBATT enables the LDO through D2. The CPU then "
+           "drives PWR_HOLD high so Q5 keeps LATCH_G low after release. "
+           "Long press: firmware drops PWR_HOLD and power falls when the "
+           "button is released. BTN_SENSE (pull-up) reads the button "
+           "through D4 A1. With the board off, BTN_N sits near VBATT, so "
+           "A1 is reverse-biased and nothing reaches the unpowered pin. "
+           "D4 is SILICON (BAV70W), not Schottky: A1's reverse leak x R24 "
+           "must stay under Q4's 0.45V minimum threshold even hot, and a "
+           "BAT54 leaks ~20uA at 85C. C27 = ESD/debounce on the edge "
+           "button.",
+           x - 66.04, y + 58.42, 66.0)
     s.end()
 
 
@@ -1402,7 +1520,7 @@ def blk_en(s, cir, bk, x, y):
     bk.take("R18", "2", "PWR_EN")
     s.wire(r18["1"], (x, r18["1"][1] - 2.54))
     s.rail("VBUS", (x, r18["1"][1] - 2.54))
-    s.note("Rev 2: USB boots the board even with SW2 off. Against "
+    s.note("Rev 2: USB boots the board even with the latch off. Against "
            "R17's pulldown EN sits at ~VBUS/2, and D2's second diode "
            "clamps it to VBATT+Vf (NCP730 abs max V_EN is VIN+0.3, "
            "even during precharge of a dead cell). Firmware then sees "
@@ -1547,7 +1665,8 @@ def blk_mcu(s, cir, bk, cx, cy):
             bk.take("U1", p, "")
             s.nc(u[p])
     # --- used GPIOs out to the rest of the sheet ---
-    for p in ("29", "3", "9", "15", "12", "31", "42", "40", "41", "43"):
+    for p in ("29", "3", "9", "15", "12", "31", "32", "33", "42", "40",
+              "41", "43"):
         net = bk.take("U1", p)
         s.wire(u[p], (u[p][0] + 6.35, u[p][1]))
         s.glabel(net, (u[p][0] + 6.35, u[p][1]))
@@ -1899,6 +2018,7 @@ def build_sheet(design, cir):
     blk_ldo(s, cir, bk, 190, 59)
     blk_loadsw(s, cir, bk, 166, 122)
     blk_en(s, cir, bk, 272, 40)
+    blk_latch(s, cir, bk, LATCH_AT[0], LATCH_AT[1])
     # rev-2 power path + its two satellites: the path sits under the
     # sense/load-switch column, the VBUS tap under the charger it taps,
     # and the level shifter beside the ring it drives
@@ -1999,6 +2119,9 @@ def verify_netlist(cir):
         raise SystemExit(1)
     print(f"  netlist verified against circuit.py: {len(want)} nets match")
     return True
+
+
+LATCH_AT = (668.0, 213.0)  # below the VBUS tap; placed against the measured frames
 
 
 def main():

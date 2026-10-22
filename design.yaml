@@ -3,7 +3,7 @@
 #
 # High-level goals:
 #   - RP2350A (QFN-60) + W25Q16JV QSPI flash on the front
-#   - Rechargeable RJD2032C1 coin cell + holder on the back
+#   - Rechargeable LPR302823 round LiPo taped to the back, on two solder pads
 #   - SK6805-EC10 addressable RGB LEDs around the periphery
 #   - USB-C for charging (LiPo/LiR charger) and UF2 programming
 #   - 4-layer board, JLCPCB rules, all parts sourced at LCSC
@@ -48,26 +48,19 @@ leds:
                          # circuit.py owns the actual net.
 
 power:
-  battery: RJD2032C1     # THIS is the only place the cell is named: it is hand
-                         # fitted, in no netlist, and BT1 is the CLIP
-                         # (MY-2032-12-R, the part JLC actually solders).
-                         # The cell actually fitted (Aug 27 bench ID): 85mAh
-                         # NMC, 3.6mm thick, IR <=700mOhm. It is NOT the LIR2032
-                         # (~40mAh) this line named through the ordered rev —
-                         # capacity, thickness and IR all differ, so re-derive
-                         # anything that leaned on the old number.
-                         # The 3.0-4.2V window the rest of the tree assumes
-                         # (charger CV point, firmware gauge, LED floor math) is
-                         # inherited from the LIR2032 and NOT read off an
-                         # RJD2032C1 datasheet — confirm before trusting 3.0V.
-  charge_current_ma: 40  # the RJD2032C1's rated charge (flat 40mA, no published
-                         # maximum) — ~0.47C here; sets charger Rprog
+  battery: LPR302823     # LiPol round LiPo, Ø28 D-cut, 3.0-3.2mm, 140mAh, 3.8V
+                         # nominal / 4.35V max, PCM inside the outline (cuts at
+                         # 2.75V / 4.355V). Hand-fitted, taped to the back, wired
+                         # to BT1's two pads. design/parts/bt1-lipo-cell.md.
+                         # Charged to 4.20V on purpose (not the LGS4056H-4.35
+                         # variant): the PCM's overcharge trip can be as low as
+                         # 4.305V. Rev-2 coin cell (RJD2032C1 in an MY-2032-12-R
+                         # clip) is in git history at 4538da2.
+  charge_current_ma: 50  # 900/18k; cell max 70mA (0.36C). design/parts/r8-rprog.md
   # Rev 2 splits VBATT (cell only) from VSYS (system), OR'd by D3 from VBUS
   # and Q2 from the cell — so a plugged-in board runs off the cable and the
-  # charger's whole 41mA reaches the cell in either switch position. This is
-  # what retires the R8 22k->15k rework: 22k already equals the cell's rated
-  # 40mA, and the reason 15k was tempting (system eating the charge current)
-  # is gone. Keep 22k.
+  # charger's whole program current reaches the cell in either switch
+  # position (that is what retired the rev-1 R8 22k->15k rework).
   regulator_3v3: LDO     # battery -> 3.3V LDO for RP2350 IOVDD/VREG_VIN
   led_load_switch: true  # high-side switch so LEDs draw zero when off
 

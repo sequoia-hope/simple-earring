@@ -110,6 +110,12 @@ GP_IMU_INT1 = 8   # pin 12           (lower decap gap)
 # CHRG_DONE = GPIO28 (pin 42): straight west out the window (only
 # VBSENSE shares it), In3 vias (-4.6,1.35) -> (7.8,6.6) NE of U2/C16.
 GP_CHRG = 19      # pin 31: low while charging
+# Power latch (LiPo change, 2026-10-22): the slide switch became a momentary
+# button, so the CPU holds its own power on. Both take the unused west-column
+# run after CHRG (pins 32-37 were all NC); the back interior they escape into
+# is open now that BT1's Ø8 centre pad is gone. design/decisions.md.
+GP_PWR_HOLD = 20  # pin 32: high = keep the LDO enabled (-> Q5 gate)
+GP_BTN_SENSE = 21 # pin 33: power button, internal pull-up, low = pressed
 GP_CHRG_DONE = 28 # pin 42: low when charge complete
 
 # LED pin numbering. SK6805-EC10: 1=GND, 2=DIN, 3=VDD, 4=DOUT.
@@ -172,6 +178,8 @@ def build_circuit(design=None):
     u1[GPIO[GP_IMU_INT1]] = "IMU_INT1"
     u1[GPIO[GP_CHRG]] = "CHRG"
     u1[GPIO[GP_CHRG_DONE]] = "CHRG_DONE"
+    u1[GPIO[GP_PWR_HOLD]] = "PWR_HOLD"
+    u1[GPIO[GP_BTN_SENSE]] = "BTN_SENSE"
     for p in GPIO.values():
         u1.setdefault(p, "")  # unused GPIOs NC
     c.add("U1", "mcu", "RP2350A", u1)
@@ -274,7 +282,8 @@ def build_circuit(design=None):
 
     # --- charger (LGS4056H DFN2x2-8) ---
     rprog = design["power"].get("charge_current_ma", 40)
-    rprog_val = "22k"  # 900/22k ≈ 41mA; change part r_22k if design changes
+    rprog_val = "18k"  # 900/18k = 50mA (0.36C) under the LPR302823's 70mA
+                       # max — design/parts/r8-rprog.md. Change r_18k with it.
     c.add("U2", "charger", "LGS4056H", {
         1: "GND",        # TEMP grounded -> NTC disabled
         2: "PROG",
@@ -286,20 +295,19 @@ def build_circuit(design=None):
         8: "VBUS",       # CE high = enabled
         9: "GND",        # EP
     })
-    c.add("R8", "r_22k", rprog_val, {1: "PROG", 2: "GND"})
+    c.add("R8", "r_18k", rprog_val, {1: "PROG", 2: "GND"})
     c.add("C16", "c_10u_0603", "10u", {1: "VBUS", 2: "GND"})
     c.add("C17", "c_10u_0603", "10u", {1: "VBATT", 2: "GND"})
     # (no charge LED: CHRG/DONE go straight to GPIOs with internal
     # pull-ups; software owns the charge indication)
 
     # --- battery ---
-    # BT1 is the CLIP, not the cell: the clip is what JLC solders, so its
-    # value must be the clip's MPN or the BOM Comment column contradicts the
-    # LCSC column next to it (this said "LIR2032", then "RJD2032C1", for a
-    # line whose LCSC has always been a retainer). The cell is hand-fitted
-    # and in no netlist — it is named in design.yaml's power.battery and in
-    # the charger block's title in gen_schematic.py.
-    c.add("BT1", "battery_clip", "MY-2032-12-R", {1: "VBATT", 2: "GND"})
+    # BT1 is two bare solder pads for the LiPol LPR302823's wires (round
+    # Ø28 LiPo, taped to the back — design/intent.md, design/brief.md).
+    # No LCSC part, so it stays out of the JLC BOM/CPL like the test points,
+    # and its value can name the cell without contradicting an LCSC column.
+    # (Through 4538da2 BT1 was the MY-2032-12-R coin clip.)
+    c.add("BT1", "battery_pads", "LPR302823", {1: "VBATT", 2: "GND"})
 
     # --- power path (rev 2): the board runs off VBUS when a cable is in ---
     # Rev 1 hung the LDO input and the LED load switch on VBATT, the same
@@ -354,8 +362,10 @@ def build_circuit(design=None):
     c.add("R22", "r_10k", "10k", {1: "VBUS", 2: "PATH_GATE"})
     c.add("C29", "c_10u_0603", "10u", {1: "VSYS", 2: "GND"})
 
-    # --- 3.3V LDO, EN = slide switch OR USB (rev 2: USB boots the chip
-    # even with SW2 off, so plugged-in charging can be indicated) ---
+    # --- 3.3V LDO, EN = power latch OR USB (rev 2: USB boots the chip
+    # even with the latch off, so plugged-in charging can be indicated).
+    # The notes below were written for the SW2 slide switch; "switch on"
+    # now reads "latch held or button pressed" (see the latch block). ---
     # (MSK12C02 contacts are 50mA-rated: switch the EN signal, not the
     # battery current; SPDT gives clean VBATT/GND levels both positions.)
     # SW2's common is now SW_ON (VBATT on / GND off), no longer wired
@@ -388,7 +398,49 @@ def build_circuit(design=None):
     c.add("U3", "ldo", "NCP730-3.3", {
         1: "3V3", 2: "", 3: "GND", 4: "PWR_EN", 5: "", 6: "VSYS", "EP": "GND",
     })  # 1=OUT 3=GND 4=EN 6=IN
-    c.add("SW2", "slide_switch", "PWR", {1: "VBATT", 2: "SW_ON", 3: "GND"})
+    # --- soft power latch (LiPo change): SW_ON is no longer a slide
+    # switch's common. It is the drain of Q4, a high-side P-FET that is ON
+    # while the power button is held OR while the CPU holds PWR_HOLD high.
+    # Everything downstream of SW_ON (D2 -> PWR_EN, the R11/R12 VBSENSE
+    # divider) is untouched, so "SW_ON = VBATT" still means "on" and
+    # VBSENSE keeps both its jobs. Why the slide switch had to go: the
+    # LPR302823's Ø28 outline covers SW2's old spot at every legal angle
+    # (design/gates/phase4.md M1).
+    #   press:   BTN_N -> GND; D4 A2 pulls LATCH_G to ~0.3V; Q4 on;
+    #            SW_ON = VBATT -> D2 -> PWR_EN -> LDO up -> CPU boots
+    #   latch:   firmware drives PWR_HOLD high first thing in boot; Q5 holds
+    #            LATCH_G low after the button is released
+    #   off:     long press -> firmware drops PWR_HOLD; power falls when the
+    #            button is released (D4 A2 holds Q4 on until then)
+    #   sense:   BTN_SENSE (internal pull-up) reads LOW through D4 A1 while
+    #            pressed. When the board is OFF, BTN_N sits at ~VBATT via
+    #            D4 A2 + R24, so A1 is REVERSE-biased and nothing reaches
+    #            the unpowered GPIO.
+    # The one leak that can false-trigger Q4 when off is D4 A1's REVERSE
+    # current (into the unpowered GPIO) through R24. That is why D4 is a
+    # SILICON pair (BAV70W, IR <= 25nA @20V/25C, ds DS30063 p.2) and not a
+    # Schottky: a BAT54's reverse current at 4V is ~20uA by 85C (Nexperia
+    # BAT54W Fig. 2), which through 100k is 2V — enough to switch Q4 on by
+    # itself in a hot car. The budget is ~0.2V on LATCH_G (CJ2101 |VGS(th)|
+    # min 0.45V, minus its tempco and the subthreshold current R17 turns
+    # into EN volts). BAV70W at 4V/85C is ~1uA -> 0.1V. Gate-1/latch review,
+    # design/gates/phase2.md. The price is VF ~0.5-0.6V at the ~40-100uA
+    # this sees: BTN_SENSE reads ~0.6V pressed against RP2350 VIL 0.8V.
+    # R24 stays 100k (42uA while on).
+    # USB still enables the LDO through R18 whatever the latch says.
+    # (Pin orders on the symmetric parts — SW2's two terminals, R24's ends,
+    # D4's two identical anodes — are chosen so the schematic block draws
+    # with power on top and ground below; electrically interchangeable.)
+    c.add("SW2", "power_button", "PWR", {1: "GND", 2: "BTN_N"})
+    c.add("Q4", "oring_pfet", "CJ2101", {1: "LATCH_G", 2: "VBATT", 3: "SW_ON"})
+    c.add("R24", "r_100k", "100k", {1: "VBATT", 2: "LATCH_G"})
+    c.add("Q5", "lvl_nfet", "BSS138W", {1: "PWR_HOLD", 2: "GND", 3: "LATCH_G"})
+    c.add("R25", "r_100k", "100k", {1: "PWR_HOLD", 2: "GND"})  # off at boot
+    c.add("D4", "cc_diode", "BAV70W", {1: "BTN_SENSE", 2: "LATCH_G", 3: "BTN_N"})
+    # C27: ESD + debounce on the user-touched edge button. A strike on BTN_N
+    # otherwise lands on D4 straight into GPIO21 and Q4's gate (VGS max 8V).
+    # tau = R24 x C27 = 10ms on release; a press discharges it instantly.
+    c.add("C27", "c_100n", "100n", {1: "BTN_N", 2: "GND"})
     c.add("D2", "or_diode", "BAT54S", {1: "SW_ON", 2: "VBATT", 3: "PWR_EN"})
     c.add("R17", "r_100k", "100k", {1: "PWR_EN", 2: "GND"})
     c.add("R18", "r_100k", "100k", {1: "VBUS", 2: "PWR_EN"})

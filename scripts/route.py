@@ -6,13 +6,19 @@
    - LED daisy-chain as constant-radius arcs on F.Cu
    - via drops: every LED VCC pad -> In2 VLED annulus, GND pad -> In1 plane
    - bypass cap via drops
-   - VBATT feed: B.Cu tracks from battery clip feet to front-side vias
    - GND stitching vias
 3. Zones: In1=GND plane, In2=VLED annulus + 3V3 disc, F/B GND pours.
 4. Freerouting (Specctra DSN -> SES) for the remaining point-to-point nets.
 5. Zone fill + save; report unconnected count.
 
 Run with --no-freeroute to skip step 4 (faster placement iteration).
+
+LiPo change (2026-10-22): the coin clip BT1 is gone, and with it the two
+rules it imposed: no vias on the clip feet (|x| 10.2..14.3, |y| < 3.3) and
+no through vias inside r 4.6 (the Ø8 GND contact pad covered the back
+there). Both are removed below. Many comments in this file still explain a
+locked via's position as "r > 4.6" or "west of the clip pad". That is why
+those spots were chosen; they are still legal, just no longer forced.
 """
 import math
 import subprocess
@@ -144,17 +150,6 @@ class Router:
         self.board.Add(v)
         return v
 
-    @staticmethod
-    def in_feet_keepout(x, y):
-        """Back-side keepouts for through vias:
-        - battery clip feet: |x| 10.2..14.3, |y| < 3.3
-        (The SW1 range this used to also list was never implemented, and
-        was stale anyway: SW1 is now the smaller SKRPAME010 at y=-11.2,
-        courtyard |x|<2.10, y -12.8..-9.6.)"""
-        if abs(y) < 3.3 and 10.2 < abs(x) < 14.3:
-            return True
-        return False
-
     def zone(self, layer, netname, poly, priority=0, name=""):
         z = pcbnew.ZONE(self.board)
         z.SetLayer(layer)
@@ -198,8 +193,9 @@ def pad_of(fp, num):
 
 
 def add_keepouts(board, rt):
-    """No-via rule areas where the battery clip feet and BOOTSEL button sit."""
-    rects = [(-14.3, -3.3, -10.2, 3.3), (10.2, -3.3, 14.3, 3.3)]  # clip feet
+    """No-via rule areas. The coin clip's feet were the only entries; the
+    LiPo board has none (its cell is taped over vias, which are tented)."""
+    rects = []
     for x0, y0, x1, y1 in rects:
         z = pcbnew.ZONE(board)
         z.SetIsRuleArea(True)
@@ -634,14 +630,11 @@ def main():
             for k in range(16):
                 ang = math.pi * 2 * k / 16
                 x, y = cx + r * math.cos(ang), cy + r * math.sin(ang)
-                if math.hypot(x, y) < 4.6:
-                    continue  # battery clip back pad
                 from outline import half_width_at
                 if abs(x) > half_width_at(load_design(), y) - 0.45:
                     continue
                 if net == "VLED":
-                    # In4 is a full VLED plane: any through via clear of the
-                    # clip pad (r>4.6, checked above) reaches VLED
+                    # In4 is a full VLED plane: any through via reaches VLED
                     pass
                 elif net == "3V3":
                     # inside the In2 3V3 disc (r=9.55)
@@ -657,10 +650,78 @@ def main():
                     need = 0.55 if p.GetNetname() != net else 0.0
                     if p.GetAttribute() != pcbnew.PAD_ATTRIB_SMD:
                         need = 0.75  # hole-to-hole
+                    if fp.GetReference() == "BT1":
+                        need += 0.6  # hand-soldered wire pad: see precise_via_spot
                     if d < half + need:
                         ok = False
                         break
                 if ok:
+                    return (x, y)
+        return precise_via_spot(cx, cy, net)
+
+    def precise_via_spot(cx, cy, net, radii=(0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.3)):
+        """Fallback for safe_via_spot, using real pad polygons on both outer
+        layers, locked tracks/vias and drilled holes instead of a pad's
+        half-diagonal circle. Only consulted when the coarse rule finds
+        nothing, so every spot the coarse rule already finds is unchanged.
+        Needed since the LiPo change: BT1's wire pads sit on the back behind
+        the tip LEDs (LED1/LED2/LED34), and the half-diagonal circle of a
+        1.0x1.5 pad rotated 30deg walls off a pocket whose real copper
+        leaves room."""
+        from shapely.geometry import LineString, Point, Polygon
+        from outline import half_width_at
+        clr, via_r = 0.2, 0.2
+        # hand-soldered pads (the LiPo's wire pads) get 0.6mm, not 0.2: a
+        # slipped iron there must not reach another net
+        hand = {"BT1": 0.6 - clr}
+        obst = []
+        for fp in board.GetFootprints():
+            grow = hand.get(fp.GetReference(), 0.0)
+            for p in fp.Pads():
+                if p.GetAttribute() != pcbnew.PAD_ATTRIB_SMD and p.GetDrillSize().x > 0:
+                    pp = p.GetPosition()
+                    hr = to_mm(max(p.GetDrillSize().x, p.GetDrillSize().y)) / 2
+                    obst.append(Point(to_mm(pp.x) - 100, to_mm(pp.y) - 100)
+                                .buffer(hr + 0.5 - clr))   # hole-to-hole 0.5
+                if p.GetNetname() == net:
+                    continue
+                for lay in (pcbnew.F_Cu, pcbnew.B_Cu):
+                    if not p.IsOnLayer(lay):
+                        continue
+                    ps = pcbnew.SHAPE_POLY_SET()
+                    p.TransformShapeToPolygon(ps, lay, 0, pcbnew.FromMM(0.005),
+                                              pcbnew.ERROR_INSIDE)
+                    for i in range(ps.OutlineCount()):
+                        o = ps.Outline(i)
+                        obst.append(Polygon([(to_mm(o.CPoint(j).x) - 100,
+                                              to_mm(o.CPoint(j).y) - 100)
+                                             for j in range(o.PointCount())])
+                                    .buffer(grow))
+        for tr in board.GetTracks():
+            if tr.GetNetname() == net:
+                continue
+            if tr.GetClass() == "PCB_VIA":
+                q = tr.GetPosition()
+                obst.append(Point(to_mm(q.x) - 100, to_mm(q.y) - 100)
+                            .buffer(to_mm(tr.GetWidth(pcbnew.F_Cu)) / 2))
+            else:
+                s, e = tr.GetStart(), tr.GetEnd()
+                obst.append(LineString([(to_mm(s.x) - 100, to_mm(s.y) - 100),
+                                        (to_mm(e.x) - 100, to_mm(e.y) - 100)])
+                            .buffer(to_mm(tr.GetWidth()) / 2))
+        d = load_design()
+        for r in radii:
+            for k in range(32):
+                ang = math.pi * 2 * k / 32
+                x, y = cx + r * math.cos(ang), cy + r * math.sin(ang)
+                if abs(x) > half_width_at(d, y) - 0.45:
+                    continue
+                if net == "VLED" and n_layers < 6 and math.hypot(x, y) < 9.65:
+                    continue   # 4-layer: In2 VLED annulus starts at r 9.35
+                if net == "3V3" and math.hypot(x, y) > 9.55 - 0.45:
+                    continue
+                v = Point(x, y).buffer(via_r)
+                if all(g.distance(v) >= clr for g in obst):
                     return (x, y)
         return None
     # same treatment for the mirror pocket on the right tip straight: at

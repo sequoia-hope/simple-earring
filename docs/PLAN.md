@@ -2,6 +2,17 @@
 
 *Last updated 2026-08-31 at commit `bdc87fc`.*
 
+> **2026-10-22: main now carries the LiPo version, placed but NOT routed.**
+> The coin cell + clip (BT1) is replaced by a LiPol LPR302823 round pouch on two
+> wire pads. The SW2 slide switch is replaced by an Omron B3U side-push button
+> plus a CPU-held soft latch (GPIO20 PWR_HOLD / GPIO21 BTN_SENSE, so **firmware
+> must hold power on**). R8 is 18k. Placement is DRC-clean (0 errors) with
+> independent reviews at every gate; routing is deferred to the new
+> autorouter. Requirements, brief, decisions and gate evidence are in
+> **`design/`**. The rest of this document describes rev 2 *as routed at
+> `bdc87fc`*. The coin-cell rev 2 in full is commit `4538da2`, and
+> `out/earring.kicad_pcb` at HEAD is the unrouted LiPo placement.
+
 Two boards exist and they are not the same board:
 
 | | what | where |

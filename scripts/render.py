@@ -71,6 +71,55 @@ TAGS = {
 
 FEED = [
     dict(
+        date="2026-10-22", sha=None, tags=["hardware", "layout", "milestone"],
+        title="LiPo instead of the coin cell: LPR302823 round pouch, wire pads, "
+              "and a soft-latch power button where the slide switch was",
+        lede="140&nbsp;mAh (~120 at 4.2&nbsp;V) against 85, in a 4.7&nbsp;mm "
+             "stack against 3.8. Placed and DRC-clean, <b>not routed yet</b>: "
+             "waiting on brief sign-off.",
+        body="""
+<p><b>The cell.</b> LiPol <b>LPR302823</b>: Ø28&nbsp;mm round pouch with one
+flat, PCM inside the outline, 3.0–3.2&nbsp;mm, 140&nbsp;mAh, 70&nbsp;mA max
+charge. It is a 4.35&nbsp;V "HV" cell, but it stays on the 4.20&nbsp;V
+LGS4056H on purpose: its PCM overcharge trip can be as low as 4.305&nbsp;V.
+R8 goes 22k&nbsp;→&nbsp;18k (50&nbsp;mA, 0.36C). The cell is taped to the back
+on 1.5&nbsp;mm VHB over parts no taller than 1.1&nbsp;mm, flat facing the tip,
+and its wires go to two pre-tinned pads, one each side of J1, ≥0.6&nbsp;mm
+from any other copper.</p>
+
+<p><b>The slide switch had to go.</b> Its inner corner sits 9.4&nbsp;mm from
+centre, inside any Ø28 circle. A sweep against real copper found no cell angle
+that cleared both it and J1. It is replaced by an <b>Omron B3U-3000P
+side-push</b> button higher up the left tip edge, plus a <b>soft latch</b>
+(Q4 CJ2101, Q5 BSS138W, D4 BAV70W, R24/R25, C27). Press and the CPU wakes;
+it drives <b>GPIO20 PWR_HOLD</b> to stay on and reads the button on
+<b>GPIO21</b>; a long press turns it off. Off-state drain is ~µA.
+<b>Firmware must now hold PWR_HOLD</b>, or the board turns off when you let go
+of the button.</p>
+
+<p><b>What it frees.</b> BT1's Ø8 GND centre pad and the six-bump hack are
+gone, along with route.py's "no vias inside r&nbsp;4.6" rule. That disc is
+what stranded LIGHT and VBUS_SENSE in rev 2's route.</p>
+
+<p><b>Reviews.</b> Four independent passes (parts, brief, latch circuit,
+placement) caught real problems that are now fixed:</p>
+<ul>
+<li>a cell rotation that only cleared J1 by courtyard, not by copper;</li>
+<li>pads 0.27&nbsp;mm from VLED vias;</li>
+<li>a Schottky in the latch that would have switched the board on by itself
+in a hot car (now a silicon BAV70W);</li>
+<li>a shapely-vs-KiCad rotation-sign mismatch.</li>
+</ul>
+<p>Everything is in <code>design/</code>: intent, brief, decisions, gates
+0/1/2/4/6.</p>
+""",
+        media=[("lipo_fit.svg",
+                "Back view: the cell's worst-case envelope against every "
+                "back-side part, the pads and the button; and the stack "
+                "height against the coin cell.", True),
+               ("render_place_bottom.png", "back, placed (unrouted)", True)],
+    ),
+    dict(
         date="2026-08-31", sha=None, tags=["bom", "hardware"],
         title="C22363833 would retire the six-bump GND hack — but its land runs "
               "off the board, and the only place it fits is on top of J1",
