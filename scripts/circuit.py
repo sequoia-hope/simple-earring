@@ -293,7 +293,13 @@ def build_circuit(design=None):
     # pull-ups; software owns the charge indication)
 
     # --- battery ---
-    c.add("BT1", "battery_clip", "LIR2032", {1: "VBATT", 2: "GND"})
+    # BT1 is the CLIP, not the cell: the clip is what JLC solders, so its
+    # value must be the clip's MPN or the BOM Comment column contradicts the
+    # LCSC column next to it (this said "LIR2032", then "RJD2032C1", for a
+    # line whose LCSC has always been a retainer). The cell is hand-fitted
+    # and in no netlist — it is named in design.yaml's power.battery and in
+    # the charger block's title in gen_schematic.py.
+    c.add("BT1", "battery_clip", "MY-2032-12-R", {1: "VBATT", 2: "GND"})
 
     # --- power path (rev 2): the board runs off VBUS when a cable is in ---
     # Rev 1 hung the LDO input and the LED load switch on VBATT, the same

@@ -171,7 +171,7 @@ def bat_cr2032_w():
             "  (version 20240108) (generator gen_footprints)",
             '  (layer "F.Cu")',
             '  (descr "QIJEY CR2032-W SMD coin cell retainer clip, LCSC C70373. Clip=+ (pin1), center pad=- (pin2). Cell + marking faces out.")',
-            '  (tags "battery LIR2032 CR2032 retainer")',
+            '  (tags "battery RJD2032C1 CR2032 retainer")',
             "  (attr smd)",
         ]
         + texts
@@ -241,7 +241,7 @@ def bat_my2032_12r():
             "  (version 20240108) (generator gen_footprints)",
             '  (layer "F.Cu")',
             '  (descr "MYOUNG MY-2032-12-R SMD coin cell retainer clip, LCSC C964834. Clip=+ (pin1), center pad=- (pin2). Flat feet, no thru-holes. Copper identical to BAT_CR2032_W (ordered rev).")',
-            '  (tags "battery LIR2032 CR2032 retainer")',
+            '  (tags "battery RJD2032C1 CR2032 retainer")',
             "  (attr smd)",
         ]
         + texts

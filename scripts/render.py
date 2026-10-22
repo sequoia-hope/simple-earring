@@ -71,6 +71,85 @@ TAGS = {
 
 FEED = [
     dict(
+        date="2026-08-31", sha=None, tags=["bom", "hardware"],
+        title="C22363833 would retire the six-bump GND hack — but its land runs "
+              "off the board, and the only place it fits is on top of J1",
+        lede="A socket carries its own negative contact, so it needs no Ø8 "
+             "centre pad. The land is 1.19&nbsp;mm too wide, and it is "
+             "1.9&nbsp;mm taller.",
+        body="""
+<p>The MY-2032-12-R is a <i>retainer</i>: it clamps the coin against a bare Ø8
+pad on the back, and that pad is the negative terminal. That is the awkward
+requirement on this board — 176 B.Cu track endpoints sit inside r9.5, and 35µm
+of copper under 20µm of mask stands ~25µm proud of a bare pad face, so the rigid
+coin rode on soldermask and never touched copper. Today's answer is a ring of
+six mask-defined solder bumps (<code>gen_footprints.py</code>), which works but
+is a hack standing in for a land we could not give it.</p>
+
+<p>A <b>socket</b> removes the requirement outright: the negative contact is a
+tab inside its own base, so the board only needs two ordinary end pads and the
+copper under the coin becomes irrelevant. <b>C22363833</b> (Lianxin CR2032-BS-6,
+gold, SMT, 11k in stock at $0.19/50) is exactly that part class, and its
+mounting drawing confirms it — <b>two pads, no centre land</b>.</p>
+
+<h4>Read the outline, not the bounding box</h4>
+<p>The first pass of this test drew the part as its <b>31.9&nbsp;×&nbsp;16.0
+bounding rectangle</b>, and that was wrong in a way worth recording. The plastic
+body is only <b>28.8&nbsp;long with C1.5 chamfered corners</b>; the ends that
+reach 31.9 are narrow <b>7.1&nbsp;mm metal solder tabs</b>. Treating the box as
+the body overstated the plastic overhang <b>~5×</b> — 2.50&nbsp;mm claimed
+against <b>0.55&nbsp;mm</b> real, at one chamfer vertex. The other chamfer
+vertex is <i>inside</i> the edge by 0.07&nbsp;mm. Panel 1 and 2 above now draw
+the true outline; grey is metal, red is plastic.</p>
+
+<h4>What actually blocks it</h4>
+<ul>
+<li><b>The land is wider than the board — this is the real one.</b> Pads sit at
+<b>±15.30&nbsp;mm</b>; the round body is <b>R&nbsp;15.25</b>. Pad corners reach
+16.44&nbsp;mm, so a centred part hangs <b>1.19&nbsp;mm</b> past the edge. That
+is metal-tab geometry against board outline: <i>no amount of re-placement moves
+it</i>.</li>
+<li><b>…but rotating it does find a legal land.</b> Sweeping position ×
+rotation turns up <b>2227 placements where both pads sit fully on copper</b> —
+all of them rotated ~70–110° so the land runs down the long tip axis, which is
+35.75&nbsp;mm against the 30.5&nbsp;mm width. The best is
+(+1.75,&nbsp;−2.50)&nbsp;@&nbsp;72°. <b>Every single one puts the body on top of
+J1</b>, the USB-C receptacle — and J1 is not a part placement can move: it is
+pinned by the tip geometry and its 1.3&nbsp;mm mating-face overhang. Those
+placements also push the plastic overhang back up to ~1.9&nbsp;mm.</li>
+<li><b>It sits flat — and this one is soft.</b> The incumbent touches down on
+two 3.0×4.5 feet at ±12.4 and arches over everything between them, which is the
+only reason a back side this crowded works. The BS-6's base covers <b>12 of the
+23 back-side parts</b> (TP1/TP2/R11/C21 completely, plus SW2, Q2, D2, C23, C24,
+R12, R17, TP3). Correcting the outline did <i>not</i> reduce that count — it is
+the 16&nbsp;mm width that catches them, not the ends. But unlike the land, these
+are ordinary passives and test points: <b>re-placement could clear them</b>, so
+this should not be counted as a blocker.</li>
+</ul>
+
+<h4>And it is taller</h4>
+<p><b>5.5&nbsp;mm vs 3.60&nbsp;mm — +1.9&nbsp;mm, 53%.</b> Worse, that 5.5 is
+drawn around a 3.2&nbsp;mm CR2032 and the fitted cell is a 3.6&nbsp;mm
+RJD2032C1. A spring clip splays 0.4&nbsp;mm; a moulded pocket does not. It would
+also push the case's <code>--bat</code> (5.30&nbsp;mm) up rather than let it
+shrink.</p>
+
+<p><b>What this establishes as the real requirement:</b> a self-contained
+two-terminal holder with a land pitch inside <b>±13&nbsp;mm</b> and a height at
+or under ~4&nbsp;mm. <code>parts.yaml</code> already tracks BAT-HLD-001 (±11.43)
+and MPD BC-2003 as near-misses on the clip side; the socket side has not been
+surveyed against those two numbers yet. Diagram from
+<code>scripts/gen_bs6_svg.py</code>, which reads the board live, so the
+collision list cannot drift.</p>
+""",
+        media=[("bs6_fit.svg",
+                "1: the incumbent lands on two feet and bridges the rest. "
+                "2: the BS-6 centred — land 1.19mm off the edge. 3: rotated "
+                "into the only land-legal window, where the body lands on J1. "
+                "below: the 1.9mm height penalty.",
+                False)],
+    ),
+    dict(
         date="2026-08-31", sha="bdc87fc", tags=["layout"],
         title="Rev 2 routed to 5 unconnected / 0 errors — and the retry loop "
               "is not buying what it claims",

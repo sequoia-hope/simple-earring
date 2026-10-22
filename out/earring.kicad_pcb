@@ -25227,7 +25227,7 @@
 		(uuid "8fae5d00-5991-4c74-b8c2-72666d861cef")
 		(at 100 100 180)
 		(descr "MYOUNG MY-2032-12-R SMD coin cell retainer clip, LCSC C964834. Clip=+ (pin1), center pad=- (pin2). Flat feet, no thru-holes. Copper identical to BAT_CR2032_W (ordered rev).")
-		(tags "battery LIR2032 CR2032 retainer")
+		(tags "battery RJD2032C1 CR2032 retainer")
 		(property "Reference" "BT1"
 			(at 0 13.2 0)
 			(layer "B.SilkS")
@@ -25241,7 +25241,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Value" "LIR2032"
+		(property "Value" "MY-2032-12-R"
 			(at 0 -13.2 0)
 			(layer "B.Fab")
 			(hide yes)

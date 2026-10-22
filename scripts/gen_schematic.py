@@ -1097,7 +1097,7 @@ def blk_usb(s, cir, bk, x, y):
 
 
 def blk_charger(s, cir, bk, x, y):
-    s.begin("Li-ion charger (LGS4056H, ~41mA) + LIR2032 cell")
+    s.begin("Li-ion charger (LGS4056H, ~41mA) + RJD2032C1 cell")
     u = put(s, cir, "U2", x, y)
     # VBUS in
     xb = u["4"][0] - 12.7

@@ -114,10 +114,16 @@ VBATT -> U2 pin 5 (charger BAT), BT1, C17, SW2   [cell node ONLY]
   Gotchas: a post-flash warm reboot needs an SW2 power cycle, and with a battery
   fitted a USB replug is *not* a reset. Flaky USB was a discharged cell — swap in
   a charged one before blaming the board.
-- **The fitted cell is an RJD2032C1**, not the LIR2032 the schematic names:
+- **The fitted cell is an RJD2032C1**, not the LIR2032 the ordered rev named:
   85mAh NMC, 3.6mm thick, flat 40mA charge with no published maximum, IR
-  ≤700mΩ. `design.yaml` and `circuit.py`'s BT1 value still say LIR2032 —
-  unreconciled, see open work.
+  ≤700mΩ. Reconciled Aug 31, and **the cell and the clip are now listed
+  separately**: `design.yaml`'s `power.battery` is the one place the cell is
+  named (it is hand-fitted and in no netlist), while BT1 — the part JLC
+  actually solders — carries the clip's own MPN, `MY-2032-12-R` / C964834.
+  The BOM's Comment column used to name a cell against a retainer's LCSC
+  number; it agrees with the LCSC column now. **Firmware still lags**:
+  `main.cpp`'s power-budget comment sizes the cell at ~40mAh and `chargePct`
+  corrects 150mV of IR, both LIR2032 numbers — see open work.
 - **"No lights at all" was VLED under the SK6805 floor**, not firmware. Check
   VBATT ≥ 3.7V before suspecting the ring or the code.
 - Firmware in `firmware/` (PlatformIO, arduino-pico): ~2× battery life from
@@ -139,9 +145,12 @@ VBATT -> U2 pin 5 (charger BAT), BT1, C17, SW2   [cell node ONLY]
    not flash that to a rev-1 board.** Not yet written.
 4. **Firmware for the new sensors**: nothing reads the ambient light sensor
    (ADC0) or VBUS_SENSE (ADC1) yet.
-5. **Reconcile the cell** in `design.yaml` / `circuit.py`, and drop `chargePct`'s
-   150mV IR correction to ~28mV (it is ~5× too big for this cell, and on the
-   rev-2 path the cell is unloaded while charging anyway).
+5. **Teach the firmware the real cell.** The design files were reconciled to the
+   RJD2032C1 on Aug 31; `main.cpp` was not. Drop `chargePct`'s 150mV IR
+   correction to ~28mV (~5× too big for a ≤700mΩ cell, and on the rev-2 path the
+   cell is unloaded while charging anyway), and re-derive the power-budget
+   comment at the top from 85mAh instead of ~40mAh — the measured ~1h run and
+   the "2×" target were both scaled to the wrong capacity.
 6. **The TPU case** (`scripts/gen_case.py`) is dimensioned to the **ordered** rev,
    not this tree, and the real cell+clip stack height is still unmeasured
    (`--bat` defaults to 5.30mm).

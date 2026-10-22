@@ -2,7 +2,7 @@
   (version 20240108) (generator gen_footprints)
   (layer "F.Cu")
   (descr "QIJEY CR2032-W SMD coin cell retainer clip, LCSC C70373. Clip=+ (pin1), center pad=- (pin2). Cell + marking faces out.")
-  (tags "battery LIR2032 CR2032 retainer")
+  (tags "battery RJD2032C1 CR2032 retainer")
   (attr smd)
   (fp_text reference "REF**" (at 0 -13.2) (layer "F.SilkS") (effects (font (size 1 1) (thickness 0.15))))
   (fp_text value "CR2032-W" (at 0 13.2) (layer "F.Fab") (effects (font (size 1 1) (thickness 0.15))))

@@ -38,7 +38,7 @@ led:
     GND top-right, DO bottom-right, 0.68mm diagonal grid) so ring
     placement and the locked chain arcs are unchanged. Body 1.1x1.1mm
     (was 1.0), pads 0.37 at +-0.34 (were 0.45 at +-0.35).
-    VDD 3.7-5.5V: still above the LiR2032's 3.0V floor but the BEST of
+    VDD 3.7-5.5V: still above the RJD2032C1's ~3.0V floor but the BEST of
     the in-stock 1010 options (XL-1010RGBC-2812B C5349953 needs
     4.5-5.5V; the outgoing TBA wanted 4.2V) — LEDs dim near end of
     discharge, same compromise the board already shipped with.
