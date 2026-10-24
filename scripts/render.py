@@ -1014,6 +1014,13 @@ controls.rotateSpeed = 4.0;
 controls.zoomSpeed = 1.4;
 controls.panSpeed = 0.6;
 controls.dynamicDampingFactor = 0.12;
+// Draw only when the view changes. Rendering every frame keeps the compositor
+// busy for nothing and makes the whole page scroll slowly; the controls fire
+// 'change' while dragged and while their damping eases out, which is exactly
+// when a frame is worth drawing. Off screen, nothing runs at all.
+let dirty = true, onscreen = true;
+controls.addEventListener('change', () => { dirty = true; });
+new IntersectionObserver(([e]) => { onscreen = e.isIntersecting; }).observe(el);
 new GLTFLoader().load('board.glb?' + Date.now(), g => {
   const obj = g.scene;
   const box = new THREE.Box3().setFromObject(obj);
@@ -1024,17 +1031,20 @@ new GLTFLoader().load('board.glb?' + Date.now(), g => {
   cam.near = r / 1000; cam.far = r * 20;
   cam.updateProjectionMatrix();
   controls.update();
+  dirty = true;
 });
 (function loop() {
   requestAnimationFrame(loop);
+  if (!onscreen) return;
   controls.update();
-  renderer.render(scene, cam);
+  if (dirty) { renderer.render(scene, cam); dirty = false; }
 })();
 window.addEventListener('resize', () => {
   cam.aspect = el.clientWidth / el.clientHeight;
   cam.updateProjectionMatrix();
   renderer.setSize(el.clientWidth, el.clientHeight);
   controls.handleResize();
+  dirty = true;
 });
 </script>
 </body></html>
