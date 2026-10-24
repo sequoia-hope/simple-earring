@@ -89,3 +89,37 @@
 - **GPIOs:** GPIO20/21 = pins 32/33, the unused west-column run (31 =
   CHRG). The BT1 centre pad's removal opens the back interior for their
   escape.
+
+## 2026-10-24 — power-button simulation (ngspice) and the one-button BOOTSEL proposal
+
+- **Testbench:** `design/sim/button/`. The netlist is generated from
+  `circuit.py`, the models are datasheet-fitted with limits swept as
+  typ/cold/hot corners, and the RP2350 is behavioral. ngspice comes from conda
+  (`mamba create -n spice -c conda-forge ngspice`; there is no system
+  package and no sudo).
+- **Found a defect in the committed design (afabd86): it self-starts when
+  hot.** The board turns on at about 70 °C with nobody touching it. The
+  reverse leakage of D2b (BAT54) and D3 (B5819WS) reaches EN. See
+  `design/sim/button/README.md`. **Not fixed yet**: the D3 fix trades USB
+  headroom or footprint, so the user chooses.
+- **Rejected: a VBUS-gated strap ("hold the button while plugging in").** With
+  a charged cell, the press powers the board up from battery before USB
+  arrives, so the bootrom has already sampled QSPI_SS.
+- **Rejected: RUN double-tap (OTP BOOT_FLAGS1.DOUBLE_TAP).** It needs a
+  button on RUN, which would reset the board on every UI press.
+- **Rejected: firmware-only BOOTSEL** as the *only* path. It costs zero parts,
+  and arduino-pico's 1200-baud touch already covers day-to-day uploads. But
+  firmware that dies early would then need SWD, and the SWD pads are under the
+  cell. It stays as a convenience on top of the hardware path.
+- **Proposed (not adopted): a hold timer → RUN pulse + QSPI_SS strap**
+  (`one_button()` in run.py).
+  - Why the P-FET inverter (Q8): D4's diode-OR low is about 0.45 V, too close
+    to the LVC2G14's VT− min of 0.6 V.
+  - Why R27 = 10k: firmware that leaves GPIO21's pull-up on must not walk the
+    timer.
+  - Why 10 s: the Schmitt VT+ spread (1.3–2.2 V), the X7R tolerance and the
+    input leakage together give a ~4× spread. Across corners it fires at
+    2.1–8.5 s.
+  - Why R28 is 560k and not 1.2M: independent review M1. U8's input leakage
+    has to stay small next to the charge current.
+  - Waiting on user sign-off. Adopting it reopens gates 2 and 6.

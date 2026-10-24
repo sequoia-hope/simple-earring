@@ -144,27 +144,60 @@ VBATT -> U2 pin 5 (charger BAT), BT1, C17, SW2   [cell node ONLY]
 
 ## Open work
 
-1. **The five unconnected nets** — the only thing between rev 2 and a fab order.
-2. **Test the retry loop's premise.** Attempts 2–6 of the last route returned
-   *exactly* 30 unconnected every time; only attempt 1 (which started from a
-   board that had never completed a route) differed. `build.py`'s retry unit
-   assumes freerouting is seed-dependent. Reset to the freshly-placed board
-   between attempts and see whether that restores the variance — the last run
-   cost ~2.5h to produce one real sample.
-3. **Firmware pairing for rev-2 boards ONLY**: `main.cpp` needs
-   `gpio_set_outover(LED_DATA, GPIO_OVERRIDE_INVERT)` because Q3 inverts. **Do
-   not flash that to a rev-1 board.** Not yet written.
-4. **Firmware for the new sensors**: nothing reads the ambient light sensor
-   (ADC0) or VBUS_SENSE (ADC1) yet.
-5. **Teach the firmware the real cell.** The design files were reconciled to the
-   RJD2032C1 on Aug 31; `main.cpp` was not. Drop `chargePct`'s 150mV IR
-   correction to ~28mV (~5× too big for a ≤700mΩ cell, and on the rev-2 path the
-   cell is unloaded while charging anyway), and re-derive the power-budget
-   comment at the top from 85mAh instead of ~40mAh — the measured ~1h run and
-   the "2×" target were both scaled to the wrong capacity.
-6. **The TPU case** (`scripts/gen_case.py`) is dimensioned to the **ordered** rev,
-   not this tree, and the real cell+clip stack height is still unmeasured
-   (`--bat` defaults to 5.30mm).
+*Refreshed 2026-10-24 for the LiPo board (afabd86). Gates 0/1/2/4/6 passed; see
+`design/gates/`.*
+
+1. **Hot self-start (found by simulation, affects afabd86).** At about 70 °C,
+   with the board off, reverse leakage from D2b (BAT54 clamp) and D3 (B5819WS)
+   lifts the NCP730's EN past its 0.7 V minimum, and the board turns itself on.
+   Fixing either diode alone isn't enough. Candidate fix: D2 → BAV99W
+   (drop-in), plus D3 → silicon or an ideal diode. Evidence and the
+   temperature table are in `design/sim/button/README.md`. Needs a decision,
+   then gates 1/2/6 re-run.
+2. **ESD on the edge button (found by the review, affects afabd86).** A
+   negative ESD hit on BTN_N acts like a press and pushes ~24 A through D4
+   (BAV70W IFSM 2 A). Add a bidirectional TVS beside SW2.
+3. **One-button BOOTSEL (proposal, simulated, not adopted).** Delete SW1. A
+   10 s hold on the power button forces RUN reset + BOOTSEL, and on battery it
+   is a hardware force-off for hung firmware. It passes every scenario and
+   corner together with the item-1 fix. It costs 11 small parts, so it needs
+   a placement check under the 1.1 mm cell height cap.
+4. **Route** the placed board with the new autorouter, then gate 7 (DRC 0,
+   0 unconnected).
+5. **Gates 8–10**: the rest of simulation/SI (LED rail inrush, charger
+   thermal), silkscreen, then release with a sync check and CPL rotations.
+6. **Firmware for the LiPo board**: assert PWR_HOLD first thing and enable the
+   watchdog; the long-press-off must stay under 2 s if item 3 lands (GPIO21
+   then reads active high). Still open from rev 2: `gpio_set_outover(LED_DATA,
+   INVERT)` for Q3 (**never flash it to a rev-1 board**), the ALS and
+   VBUS_SENSE readers, and battery numbers for the 140 mAh LPR302823.
+7. **TPU case for the LiPo stack**: a 4.7 mm stack, so a ≥5.2 mm cup, plus the
+   B3U actuator aperture. `gen_case.py` is still dimensioned to rev 1.
+8. **Bench checks at bring-up**: a thermocouple on U2 (it sits opposite the
+   cell); whether soldering the cell on powers the board up (C27 charges
+   through R24, as the sim shows); and CV-phase stability on CHRG/DONE with
+   the low-IR cell.
+
+### Roadmap
+
+- **Full-board 3D electromagnetic simulation in Rust, with
+  [picoem](https://deepwiki.com/0x4D44/picoem) as the CPU backend.** picoem is
+  a cycle-accurate RP2350 emulator in Rust that boots the real bootrom and
+  runs real firmware, so the board can be co-simulated:
+  - picoem executes the actual firmware image and its GPIO/PIO/QSPI pin edges
+    become excitation sources.
+  - A Rust 3D field solver (FDTD to start) runs on the stackup and copper
+    taken from the KiCad board, and induced pin voltages are fed back into
+    picoem's inputs.
+  - First targets:
+    - QSPI flash SI at the RP2350's clock rates.
+    - The LED data line and ring as an unintended antenna (EMC pre-scan).
+    - ESD on the edge button.
+    - The bootrom's real QSPI_SS sample time, which the button testbench
+      currently sweeps from 50 µs to 10 ms because the datasheet gives no
+      number.
+  - Validate the field solver against openEMS (sources in `~/openEMS-src`) on
+    simple structures before trusting it on the board.
 
 ## Hard-won constraints (do not relearn)
 

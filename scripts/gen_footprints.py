@@ -324,6 +324,10 @@ def bat_lpr302823_pads():
         '  (fp_text user "-" (at 5.6 -15.3) (layer "F.Fab")'
         " (effects (font (size 0.8 0.8) (thickness 0.12))))",
     ]
+    # cell + VHB tape on the back (scripts/gen_3d_models.py): not a PCB
+    # part, but it makes the 3D view show the real 4.7mm stack
+    model = ['  (model "${KIPRJMOD}/../library/3d/ee.3dshapes/LPR302823.step"',
+             '    (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))']
     pads = [pad_smd(n, x, y, pad_w, pad_h, shape="roundrect")
             .replace(f"(at {x} {y})", f"(at {x} {y} {r})")
             for n, x, y, r in pads_xy]
@@ -339,6 +343,7 @@ def bat_lpr302823_pads():
         + texts
         + lines
         + pads
+        + model
         + [")"]
     )
     (LIB / "BAT_LPR302823_PADS.kicad_mod").write_text(content)
@@ -363,6 +368,10 @@ def sw_b3u_3000p():
         " (effects (font (size 0.4 0.4) (thickness 0.06))))",
     ]
     pads = [pad_smd(1, 1.7, 0, 0.8, 1.7), pad_smd(2, -1.7, 0, 0.8, 1.7)]
+    # stock Omron model: body centred on the origin, actuator toward
+    # footprint -y, pads at +-1.7 — the same frame as this footprint
+    model = ['  (model "${KICAD9_3DMODEL_DIR}/Button_Switch_SMD.3dshapes/SW_SPST_B3U-3000P.step"',
+             '    (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))']
     content = "\n".join(
         ['(footprint "SW_B3U-3000P"',
          "  (version 20240108) (generator gen_footprints)",
@@ -370,7 +379,7 @@ def sw_b3u_3000p():
          '  (descr "Omron B3U-3000P side-actuated tact switch, LCSC C963349. Actuator toward -y, overhangs the board edge. Pads per Omron PCB pad drawing (4.2/2.6 span, 1.7 tall).")',
          '  (tags "switch tactile side B3U")',
          "  (attr smd)"]
-        + texts + lines + pads + [")"]
+        + texts + lines + pads + model + [")"]
     )
     (LIB / "SW_B3U-3000P.kicad_mod").write_text(content)
     print("wrote SW_B3U-3000P.kicad_mod")

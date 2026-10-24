@@ -40,9 +40,9 @@
     (stroke (width 0.1) (type solid)) (fill solid) (layer "F.Fab") (tstamp 3bb17d98-2e36-4280-a453-025e6ea2bc71))
   (pad "1" smd rect (at -0.7 0) (size 0.7 1.7) (layers "F.Cu" "F.Paste" "F.Mask") (tstamp a589602f-c230-4b36-9026-cb3beec13309))
   (pad "2" smd rect (at 0.7 0) (size 0.7 1.7) (layers "F.Cu" "F.Paste" "F.Mask") (tstamp c3e48204-e7c7-44b8-9a52-cb5ab5ad997a))
-  (model "${KICAD7_3DMODEL_DIR}/Inductor_SMD.3dshapes/AOTA-B201610SR47MT.STEP"
-    (offset (xyz 0 0 0.5))
+  (model "${KICAD9_3DMODEL_DIR}/Inductor_SMD.3dshapes/L_Murata_DFE201610P.step"
+    (offset (xyz 0 0 0))
     (scale (xyz 1 1 1))
-    (rotate (xyz -90 0 0))
+    (rotate (xyz 0 0 0))
   )
 )

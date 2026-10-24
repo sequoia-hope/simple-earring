@@ -71,6 +71,44 @@ TAGS = {
 
 FEED = [
     dict(
+        date="2026-10-24", sha=None, tags=["hardware", "simulation"],
+        title="Simulating the power button: a one-button BOOTSEL works, and "
+              "the committed board turns itself on at ~70&nbsp;°C",
+        lede="An ngspice testbench built straight from <code>circuit.py</code>, "
+             "with datasheet corners. It found a real defect before fab. "
+             "<a href='sim/button/'>Full report</a>.",
+        body="""
+<p><b>Hot self-start, in the committed board.</b> With the board off, reverse
+leakage of D2's BAT54 clamp (~20&nbsp;µA at 85&nbsp;°C) and D3's B5819WS
+(~120&nbsp;µA at 75&nbsp;°C) reaches the LDO's EN pin. EN crosses its
+0.7&nbsp;V minimum at about <b>70&nbsp;°C</b>, so the board starts and the
+firmware latches it on: an earring left in a hot car drains itself. Fixing
+either diode alone isn't enough; with both silicon, EN stays at 0.02&nbsp;V up
+to 85&nbsp;°C. <b>Not fixed yet: needs a decision on D3.</b></p>
+
+<p><b>One button instead of two (proposal).</b> SW1 goes. Holding the power
+button 10&nbsp;s makes a Schmitt-gate timer pulse RUN low and hold QSPI_SS
+down, so the bootrom wakes up into BOOTSEL. It fires 2.1–8.5&nbsp;s into the
+hold across corners. On battery the same hold is a hardware force-off for hung
+firmware, which the current board can't do. With the leak fix, every scenario
+passes at every corner (−20/25/85&nbsp;°C, 3.0/3.7/4.2&nbsp;V cell).</p>
+
+<p><b>Also found, by the independent review:</b> a negative ESD hit on the edge
+button acts like a press and pushes ~24&nbsp;A through D4. It needs a
+bidirectional TVS, in the committed design too.</p>
+
+<p><b>Also:</b> 3D models for every part except the test points, including
+SW2 (B3U) and the LPR302823 cell on its VHB tape. The <a href='#viewer'>3D
+viewer</a> now shows the real back-side stack.</p>
+""",
+        media=[("sim/button/plots/tsweep.png",
+                "Board off, no USB: EN vs temperature. Red band = NCP730 EN "
+                "threshold. Purple = both diodes silicon.", True),
+               ("sim/button/plots/bootsel_usb__onebutton_fix__typ__3.7.png",
+                "Hold 10 s with USB in: RUN pulse, strap low, BOOTSEL.", True),
+               ("render_cell_iso.png", "the cell + 1.5 mm VHB on the back", True)],
+    ),
+    dict(
         date="2026-10-22", sha=None, tags=["hardware", "layout", "milestone"],
         title="LiPo instead of the coin cell: LPR302823 round pouch, wire pads, "
               "and a soft-latch power button where the slide switch was",

@@ -1,0 +1,72 @@
+* Behavioral RP2350 + firmware, as far as the power button can see it.
+*
+* Only the pins on the button's nets are modelled, with the numbers the
+* RP2350 datasheet gives (design/datasheets/RP2350.pdf):
+*   QSPI_SS (CSn): bootrom sets it "output disabled, pulled high" and
+*     samples it "shortly after reset" (s5.2.8). Pull-up RPU 32-86k at
+*     IOVDD 3.3V (Table 1683). Low <= 0.8V, high >= 2.0V.
+*   RUN: global asynchronous reset, low = reset (pin table).
+*   GPIO20/21: reset state is pull-down enabled; RPD 36-113k (Table 1683).
+*   POR releases once DVDD passes ~0.96V (s7.6.1); DVDD comes from the
+*     on-chip regulator, whose VREG_VIN needs >= 2.7V (s7.1), so "chip
+*     alive" is 3V3 > 2.7V (2.5V falling). (Was 1.8V until the independent
+*     review flagged it as unphysical.)
+*
+* The bootrom's sample time after reset is not specified, so it is a
+* corner parameter (t_samp). Firmware is scenario stimulus, not the
+* device under test: fwreq (0/1) says whether firmware WANTS PWR_HOLD
+* high, and it only gets to drive the pin once it is running, i.e.
+* t_fw after reset release AND the bootrom did not take the BOOTSEL path.
+*
+* Observation nodes (wrdata these): act, smp, bsel, fwon.
+
+
+.subckt RP2350 VDD RUN CSN PWR_HOLD BTN FWREQ act smp bsel fwon
+* --- reset: power OK and RUN high ---
+Bpw pw0 0 V = V(VDD) > (V(pw) > 0.5 ? 2.5 : 2.7) ? 1 : 0
+Rpw pw0 pw 1k
+Cpw pw 0 1n
+Brn rn0 0 V = V(RUN) > (V(rn) > 0.5 ? 0.8 : 2.0) ? 1 : 0
+Rrn rn0 rn 1k
+Crn rn 0 1n
+Bact act 0 V = V(pw) * V(rn)
+
+* --- digital: sample CSn t_samp after reset release; latch BOOTSEL ---
+Acsl [act] [d_act] abr
+Bcs cslo 0 V = V(CSN) < 1.4 ? 1 : 0
+Acs2 [cslo] [d_cslo] abr
+Afw2 [FWREQ] [d_req] abr
+.model abr adc_bridge(in_low=0.45 in_high=0.55)
+Adly d_act d_smp dly_s
+.model dly_s d_buffer(rise_delay={t_samp} fall_delay=1n)
+Anrst d_act d_rst inv
+.model inv d_inverter(rise_delay=1n fall_delay=1n)
+Aff d_cslo d_smp null d_rst d_bsel d_bsel_n dff
+.model dff d_dff(clk_delay=1n set_delay=1n reset_delay=1n)
+Afwd d_act d_fwt dly_f
+.model dly_f d_buffer(rise_delay={t_fw} fall_delay=1n)
+Axip d_smp d_xipt dly_x
+.model dly_x d_buffer(rise_delay=200u fall_delay=1n)
+Aand1 [d_fwt d_bsel_n] d_fwon and2
+Aand2 [d_xipt d_bsel_n] d_xip and2
+Aand3 [d_fwon d_req] d_hold and2
+.model and2 d_and(rise_delay=1n fall_delay=1n)
+Adac [d_smp d_bsel d_fwon d_xip d_hold] [smp bsel fwon xip hold] dac1
+.model dac1 dac_bridge(out_low=0 out_high=1 t_rise=1u t_fall=1u)
+
+* --- pins ---
+* CSn: bootrom pull-up always; XIP drives it high (40 ohm) once flash boot runs
+Rpu VDD CSN {rpu}
+Bxip 0 CSN I = V(xip) * (V(VDD) - V(CSN)) / 40
+Ccs CSN 0 5p
+* PWR_HOLD (GPIO20): reset pull-down; firmware drives it high (50 ohm)
+Rpd20 PWR_HOLD 0 {rpd}
+Bhold 0 PWR_HOLD I = V(hold) * (V(VDD) - V(PWR_HOLD)) / 50
+* BTN (GPIO21): input, reset pull-down
+Rpd21 BTN 0 {rpd}
+* RUN: input only (R2 on the board is the pull-up)
+Crun RUN 0 5p
+* supply current: ~20mA running, ~1mA in reset; 100k = unpowered leakage
+Roff VDD 0 100k
+Bload VDD 0 I = V(VDD) > 0.3 ? (V(act) * 0.020 + 0.001) * min(1, V(VDD) / 3.0) : 0
+.ends RP2350

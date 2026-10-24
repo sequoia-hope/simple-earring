@@ -204,7 +204,7 @@
     (zone_connect 2) (tstamp ad58fb60-84b9-4c92-8ac0-3d87aa369ac4))
   (pad "61" thru_hole circle (at 1.375 1.375) (size 0.6 0.6) (drill 0.25) (layers "*.Cu")
     (zone_connect 2) (tstamp 20ac8489-c1d2-453c-bd82-229957b429ba))
-  (model "${KISYS3DMOD}/Package_DFN_QFN.3dshapes/QFN-56-1EP_7x7mm_P0.4mm_EP5.6x5.6mm.wrl"
+  (model "${KICAD9_3DMODEL_DIR}/Package_DFN_QFN.3dshapes/QFN-56-1EP_7x7mm_P0.4mm_EP3.2x3.2mm.step"
     (offset (xyz 0 0 0))
     (scale (xyz 1 1 1))
     (rotate (xyz 0 0 0))

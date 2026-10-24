@@ -203,4 +203,9 @@
 		(layers "F.Cu" "F.Paste" "F.Mask")
 		(uuid "f58fa8f3-eb85-40ea-a97c-18caf6ed937f")
 	)
+	(model "${KIPRJMOD}/../library/3d/ee.3dshapes/YZV0004ADAD.step"
+		(offset (xyz 0 0 0))
+		(scale (xyz 1 1 1))
+		(rotate (xyz 0 0 0))
+	)
 )

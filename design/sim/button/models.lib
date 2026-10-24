@@ -1,0 +1,114 @@
+* Device models for the power-button / BOOTSEL testbench.
+*
+* None of these are vendor SPICE models: CJ (CJ2101) publishes none, and the
+* rest are fitted to the datasheet numbers they cite so every parameter
+* traces to a page we have in design/datasheets/. Where a number is a
+* datasheet LIMIT rather than a typical, the testbench sweeps it as a
+* corner (run.py CORNERS) instead of trusting the fit.
+*
+* Corner parameters (overridden per run with .param):
+*   vto_p    CJ2101 VGS(th)    ds: -0.45 min / -0.7 typ (no max given)
+*   vto_n    BSS138W VGS(th)   ds: 0.8 / 1.3 / 1.5
+*   vt_pos   LVC2G14 VT+ @3V   ds Table 6.5: 1.3 .. 2.2
+*   vt_neg   LVC2G14 VT- @3V   ds Table 6.5: 0.6 .. 1.3
+*   en_th    NCP730 EN rising  ds p.4: 0.7 / 0.9 / 1.05
+*   en_hy    NCP730 EN hyst.   ds p.4: 0.01 / 0.1 / 0.2
+*   en_pu    NCP730 EN pull-up ds p.4: 0.01 / 0.3 / 1 uA
+
+
+* ---- MOSFETs (ngspice VDMOS: 3-terminal, body diode included) ----
+* CJ2101 P-ch, SOT-323. RDS(on) 100m@-4.5V, 140m@-2.5V, 210m@-1.8V;
+* Ciss 640p, Coss 120p, Crss 82p (ds p.2). ksubthres gives a real
+* subthreshold tail, which is what the off-state leakage checks lean on.
+* CALIBRATION: the datasheet defines VGS(th) at ID = -250uA. With Kp=3 and
+* ksubthres=0.1 the model reaches 250uA 0.20V before its own Vto, so Vto is
+* offset by -0.20V to make ID(vto_p) = 250uA. ksubthres=0.1 is ~117mV/dec,
+* a pessimistic (hot) slope: at vto_p=-0.45 it gives ID(VGS=0, VDS=-4V)
+* ~30nA, and ~0.4uA at the -0.33V hot corner, both inside IDSS <= 1uA (ds).
+* (Uncalibrated, the -0.33V corner leaked ~25uA at VGS=0 and the latch
+* "turned itself on" in simulation: a model artifact, not the circuit.)
+.model CJ2101 VDMOS(pchan Vto={vto_p-0.2} Kp=3.0 Rd=0.03 Rs=0.01 Rg=5
++ Cgs=560p Cgdmax=150p Cgdmin=40p Cjo=120p Is=1e-11 N=1.2 ksubthres=0.1)
+
+* BSS138W N-ch, SOT-323. VGS(th) 0.8-1.5V, RDS(on) ~3.5 ohm @4.5V,
+* Ciss ~27p (BSS138 family datasheets). Calibration: ID(Vto) = 288uA at
+* VDS 4V with these parameters, i.e. Vto already sits at the 250uA point.
+.model BSS138W VDMOS(nchan Vto={vto_n} Kp=0.12 Rd=0.5 Rs=0.2 Rg=10
++ Cgs=22p Cgdmax=8p Cgdmin=2p Cjo=12p Is=1e-12 N=1.1 ksubthres=0.1)
+
+* ---- diodes ----
+* Reverse leakage IS modelled, through each model's IS and its temperature
+* scaling (EG, XTI), calibrated to the datasheet reverse-current curves at
+* the ~4V reverse bias these parts see on this board:
+*
+* DSI: BAV70W / BAV99W / 1N4148WS silicon switching diodes. 1N4148 forward
+* set: VF = 0.58V @1mA, ~0.43V @30uA (Diodes DS30063 Fig. 2; VF max 0.715V
+* @1mA). IR = IS = 2.5nA at 25C (ds max 25nA @20V); EG=0.85 puts 85C at
+* ~1.1uA, matching the ds trend (25nA @25C -> 30uA @150C, ~x1.8 per 10C).
+* (EG=1.11 would claim ~6uA at 85C, ~8x pessimistic.)
+.model DSI D(Is=2.52n N=1.752 Rs=0.568 Cjo=2p Bv=100 Ibv=100u Eg=0.85 Xti=3)
+* BAT54 Schottky (D2 = BAT54SW). VF 0.24V @0.1mA, 0.32V @1mA (Nexperia
+* Table 7). IR: ~0.15uA @25C -> ~20uA @85C with Schottky EG=0.69/XTI=2,
+* matching Nexperia BAT54W Fig. 2 (~0.3uA / ~20uA typ at 4V).
+.model BAT54 D(Is=1.5e-7 N=1.05 Rs=2.5 Cjo=10p Bv=30 Ibv=2u Eg=0.69 Xti=2)
+* B5819WS 1A Schottky (D3). VF ~0.3V @60mA. IR: ~2uA @25C -> ~130uA @75C,
+* matching Yangjie B5817WS-B5819WS Fig. 4 (~3uA @25C, ~120uA @75C at 10%
+* of rated VR = 4V). design/datasheets/B5819WS_yangjie.pdf
+.model B5819 D(Is=2e-6 N=1.05 Rs=0.08 Cjo=110p Bv=40 Ibv=1m Eg=0.69 Xti=2)
+
+* ---- switch model for the B3U contact: 100 mohm max closed (ds),
+* 100 Mohm min insulation (ds) ----
+.model SWB3U SW(Vt=0.5 Vh=0.05 Ron=0.1 Roff=100Meg)
+
+* ---- hysteretic comparator building block ----
+* out = 1 when in rises above vhi, 0 when it falls below vlo. The state is
+* fed back through a 1k/1n RC so the netlist has no algebraic loop, and the
+* edge is smooth enough for the solver.
+.subckt HYSCMP in out vhi=1 vlo=0.5
+B1 s0 0 V = (V(in) > (V(out) > 0.5 ? {vlo} : {vhi})) ? 1 : 0
+R1 s0 out 1k
+C1 out 0 1n
+.ends HYSCMP
+
+* ---- NCP730 3.3V LDO (behavioral) ----
+* EN comparator: rising en_th, falling en_th-en_hy. EN pull-up current (SPICE: a
+* source "n+ n- I" pushes I out of n-, i.e. into EN)
+* en_pu to IN (ds: "flowing out of the chip"). UVLO 1.95V rising / 0.2V hyst.
+* Soft start ~0.5ms. Dropout 290mV @150mA -> ~2 ohm. Sources only (no
+* sink), so the output caps discharge through the load, as in the part.
+.subckt NCP730 OUT GND EN IN
+XEN EN en_ok HYSCMP vhi={en_th} vlo={en_th-en_hy}
+XUV IN uv_ok HYSCMP vhi=1.95 vlo=1.75
+BPU GND EN I = {en_pu} * (V(IN) > 0.5 ? 1 : 0) * (V(EN) < V(IN) ? 1 : 0)
+Bref r0 GND V = 3.3 * V(en_ok) * V(uv_ok)
+Rss r0 ref 1k
+Css ref GND 0.5u
+Bout GND OUT I = max(0, min(0.25, 2.0 * (min(V(ref), V(IN) - 0.05) - V(OUT))))
+Riq IN GND 2.5Meg
+.ends NCP730
+
+* ---- LGS4056H charger (behavioral) ----
+* CC 50mA (R8 18k) while VCC > BAT + 0.1V and VCC > 3.9V, tapering into
+* CV 4.20V. Only the presence/absence of charge current matters here.
+.subckt LGS4056H VCC BAT GND
+Bchg GND BAT I = (V(VCC) > 3.9 ? 1 : 0) * (V(VCC) > V(BAT) + 0.1 ? 1 : 0)
++ * max(0, min(0.05, 0.5 * (4.2 - V(BAT))))
+Rq VCC GND 10Meg  $ unpowered VCC is high-Z (review N3; 100k flattered VBUS)
+.ends LGS4056H
+
+* ---- 74LVC2G14 one gate (behavioral) ----
+* Schmitt inverter. VT+ vt_pos / VT- vt_neg are the ds Table 6.5 limits at
+* VCC = 3V; they are scaled by VCC/3 here so the gate behaves while VCC
+* ramps (the real thresholds fall with VCC too: 0.3-0.7V at 1.65V).
+* Output = VCC * (not state) through 25 ohm (VOL 0.4V @16mA, ds).
+* Below VCC ~1V the output is held low (unpowered: Ioff = output disabled).
+* Input leakage: corner param ii (A), positive = current INTO node A
+* (ds Table 6.5 II = +-5uA max; real parts are nA, 0.3uA hot is pessimistic).
+.subckt LVC14 A Y VCC GND
+Bii GND A I = {ii} * (V(VCC) > 1.0 ? 1 : 0)
+Bs s0 GND V = V(A) > (V(st) > 0.5 ? {vt_neg} : {vt_pos}) * max(V(VCC), 0.1) / 3.0 ? 1 : 0
+Rs s0 st 1k
+Cs st GND 1n
+By y0 GND V = (V(VCC) > 1.0 ? V(VCC) : 0) * (1 - V(st))
+Ry y0 Y 25
+.ends LVC14
