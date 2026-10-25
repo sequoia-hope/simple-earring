@@ -159,15 +159,21 @@ PESD5V0S1BL at the pad, R30 1k); Q4 → LBSS84WT1G for latch margin
    2026-10-24): left LED1–18, right LED37→19, centre LED38–45. Each zone
    has its own TPS22913, shifter and In2 plane piece. Data GPIO16/17/18,
    enables GPIO1/0/22. Placed, DRC 0; routing is the user's GPU autorouter
-   (no freerouting). Locked: the LEDs, J1, SW2, BT1, U1, U2, U5, R14 and the
-   VREG cluster.
+   (no freerouting). Locked: the LEDs, J1, SW2, BT1, U1, U5, R14, Q1 and the
+   VREG cluster (U2 unlocked 2026-10-25: nothing locked lands on it now).
+0. **19 parts front → back** (branch `back-side-move`, 2026-10-25) to clear
+   the front around U1: flash U7/C25/R3, charger U2/C16/C17/R8, LDO
+   U3/C18/C19, D3/C29/R21/R22/R19/R20, LED_L switch U4/C20/R10. All ≤ 1.1 mm
+   under the cell. Front courtyard area within r < 10: 107 → 57 mm². DRC 0.
 1. **Firmware has to change with the hardware.** LEDs: three 48-bit chains
    (GRB, MSB first, reset ≥ 280 µs), GPIO16/17/18 inverted at the pad, and a
    zone's enable raised ≥ 50 ms before its first frame. Idle each data GPIO
    HIGH (inverted, so DI idles low through the 280 µs reset). **Power zones
    off, don't just blank them**: 45 dark-but-powered WS2816C draw
    31.5–45 mA, which is 3–4.4 h on the 140 mAh cell by itself. Keep a hard
-   brightness cap, since full white is ~0.47 A, 3.4× the cell's 140 mA rating. GPIO21 is now active high
+   brightness cap, since full white is ~0.47 A, 3.4× the cell's 140 mA rating. Cap it lower
+   while on USB: U2 and D3 (which then carries all the LED current) sit
+   under the cell since 2026-10-25. GPIO21 is now active high
    with no pull-up. The long-press-off must be under 2 s. Assert PWR_HOLD
    first thing and enable the watchdog.
 2. **Bring-up checks for the new parts:** a zone that has been switched off
@@ -183,9 +189,19 @@ PESD5V0S1BL at the pad, R30 1k); Q4 → LBSS84WT1G for latch margin
    - Route BTN_EXT as SW2.2 → D6.1 → R30.1, with nothing else on the net.
    - Put a GND via within 1 mm of D6.2.
    - Keep RUN_KICK (a 1 MΩ node) clear of LED_DATA.
-   - Four courtyards sit 0.03–0.07 mm from the 1.6 mm LED courtyards
-     (LED44–D3, LED35–C64, LED42–C26, LED24–R21). Nudge D3, C64, C26 and R21
-     only away from the ring.
+   - Two courtyards sit 0.03–0.07 mm from the 1.6 mm LED courtyards
+     (LED35–C64, LED42–C26). Nudge C64 and C26 only away from the ring.
+   - Keep the back directly under U1 (about ±5.6 × −6…5) for the chip's
+     escape vias. U7 sits just south: SCLK/SD0/SD3 reach its near row,
+     SD1/SD2//CS its far row (they wrap round the body). SD0/SD3 cross
+     between U1 and U7, so swap them on the via layer.
+   - LED_EN_L crosses under U1 from pin 3 (east) to U4 (west), and
+     VBUS_SENSE runs from R19/R20 (east) to pin 41 (west). Both are slow;
+     keep VBUS_SENSE over In1 GND, clear of the QSPI vias.
+   - D3 and U2's EP want thermal vias into In1 GND (both are under the
+     cell).
+   - R3 sits at U7's /CS: keep the QSPI_SS stub short and let BOOTSEL_SW
+     (behind 1k, slow) run the distance to Q7.
    - Q9/R31 (right-zone shifter) sit on the back west of the zone cut, about
      10 mm from LED37. Fine electrically; move them nearer the chevron if
      routing wants it.
@@ -198,8 +214,8 @@ PESD5V0S1BL at the pad, R30 1k); Q4 → LBSS84WT1G for latch margin
    VBUS_SENSE readers, and battery numbers for the 140 mAh LPR302823.
 7. **TPU case for the LiPo stack**: a 4.7 mm stack, so a ≥5.2 mm cup, plus the
    B3U actuator aperture. `gen_case.py` is still dimensioned to rev 1.
-8. **Bench checks at bring-up**: a thermocouple on U2 (it sits opposite the
-   cell); whether soldering the cell on powers the board up (C27 charges
+8. **Bench checks at bring-up**: a thermocouple on the cell over U2 (U2 is
+   under the cell since 2026-10-25; ~65–110 mW while charging, plus D3); whether soldering the cell on powers the board up (C27 charges
    through R24, as the sim shows); and CV-phase stability on CHRG/DONE with
    the low-IR cell.
 
@@ -255,11 +271,11 @@ PESD5V0S1BL at the pad, R30 1k); Q4 → LBSS84WT1G for latch margin
 - **The pin-tip corridor next to the QFN is single-lane** (0.65mm) and each
   decap-column gap fits ONE finisher track — every escape must own its gap with
   disjoint corridor runs. That is why the IMU GPIOs are 6/11/8.
-- **BOOTSEL's R3 must stay on the FRONT**: on the back it squats USB_DP's loop
-  lane under the bottom pin row.
+- *(Superseded 2026-10-25: "R3 must stay on the front" was a freerouting
+  lane problem. R3 is now on the back beside U7's /CS.)*
 - **Interior-LED beautify arcs sweep the r≈9.06–9.76 annulus** between
-  neighbours: no pads in the swept angular range (C70, R3, R8 are all
-  constrained by this).
+  neighbours: no pads in the swept angular range (C70 is constrained by
+  this; R3 and R8 were too until they moved to the back on 2026-10-25).
 - **`finish.py` is layer-aware**: endpoint layers, B-side A*, same-net via
   anchors, zone-cluster synthesis via union-find. **NEVER truth-test a layer id:
   `F_Cu == 0` is falsy.**

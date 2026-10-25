@@ -76,3 +76,34 @@ Gate 6 PASS with conditions, all addressed:
 - A3: schematic VIH text corrected to 3.47 V.
 - C9 / F1: stale comments fixed.
 - B2 / B3 / E1 / E2: firmware and bring-up notes in PLAN.
+
+---
+
+# Gate 6 addendum, 2026-10-25: 19 parts front → back (room around U1)
+
+| check | evidence |
+|---|---|
+| moved | U7/C25/R3 (flash), U2/C16/C17/R8 (charger), U3/C18/C19 (LDO), D3/C29/R21/R22/R19/R20 (power path, VBUS tap), U4/C20/R10 (LED_L switch). Spots: place.py `BACK`, from tools/scan_spot.py in signal order |
+| heights | datasheet max: U2 0.8, U3 0.80, U7 0.60, U4 0.625, 0603 0.90, D3 1.10. All ≤ the 1.1 mm under-cell cap. gen_lipo_fit_svg.py: **clash: none**. It now exits when a part under the cell has no HEIGHT entry (it used to count it as 0) |
+| front freed | front non-LED parts within r < 10: 40 → 26. Courtyard area within r < 10: 107 → 57 mm² |
+| back under U1 | pads kept out of ±5.6 × −6…5 (escape vias) |
+| route.py | dropped the freerouting assists anchored to the old spots: QSPI ×5, CHRG/CHRG_DONE vias + the U2 landing loop, LED_EN_L via, U3 3V3 via (with the now-dead via-spot helpers). U2 unlocked |
+| DRC | **0 errors**, 90 warnings (main: 0 errors), 274 unconnected (unrouted). No new silk overlaps from moved parts. One new warning: U3's own pin-1 dot over its pad, the same library quirk Q2/Q7/D2 already have |
+| renders | out/render_place_top.png, out/render_place_bottom.png |
+
+**Review (stronger model, fresh context), 2026-10-25: PASS with conditions.**
+Heights, pin-level placement, the route.py removals and DRC were all
+verified independently. The reviewer also notes that VBUS, VSYS, VBATT,
+PWR_EN, PATH_GATE and PROG now sit entirely on B.Cu.
+
+| # | sev | finding | resolution |
+|---|---|---|---|
+| 1 | MINOR | R20 and R19's tap sat inside U1's back keepout, under the SE corner where pins 1–3 escape | **fixed**: R19 (7.0, 1.5), R20 (9.2, 0.2). Tap is 1.0 mm pad-to-pad, all pads at x ≥ 6.5. A first try touched C29's courtyard (DRC caught it) and was nudged |
+| 2 | MINOR | the "every QSPI net under 4 mm" claim was false: SD1/SD2//CS are on U7's far row; SD0/SD3 cross | **text fixed** (place.py, decisions.md, PLAN routing notes). The geometry is the same for any row-facing rotation; SCLK stays on the near row |
+| 3 | MINOR | C18 was 2.5 mm from U3.6, with EN/NC between | **fixed**: C18 (−7.8, 5.85) on VSYS between U3.6 and U4.A2. R10 moved north of C20 |
+| 4 | MINOR | D3 carries all the LED current on USB (~0.12 W), next to U2, both under the cell | decisions.md thermal note corrected. PLAN: thermal vias on D3/U2 EP, a firmware brightness cap on USB, and the bring-up check with LEDs lit |
+| 5 | MINOR | stale comments (route.py R3, place.py LOCKED/U2, PLAN beautify list, route.py U7 note) | fixed |
+| 6–10 | NOTE | LED_EN_L / VBUS_SENSE cross under U1; U2's status pins face away; C9 could sit nearer; URL arc clear | routing notes in PLAN; rest accepted |
+
+**Gate 6 (this change): PASS** after the fixes above. DRC was re-run after
+the fixes: 0 errors.

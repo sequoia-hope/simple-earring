@@ -71,6 +71,39 @@ TAGS = {
 
 FEED = [
     dict(
+        date="2026-10-25", sha=None, tags=["hardware"],
+        title="Room around the CPU: 19 parts moved to the back",
+        lede="The charger, LDO, flash, one LED switch and the VBUS parts now sit "
+             "under the cell, all 1.1 mm or less. Front courtyard area near the "
+             "CPU is roughly halved. DRC 0, still unrouted.",
+        body="""
+<p><b>Why:</b> the front around the RP2350 was the crowded part of the board,
+and the GPU autorouter needs room there to fan out the pins. The lower half of
+the back was nearly empty, because the coin-cell clip that used to fill it is
+gone.</p>
+
+<p><b>What moved</b> (all ≤ 1.1&nbsp;mm, the limit under the 1.5&nbsp;mm foam
+tape):</p>
+<ul>
+<li>QSPI flash U7 (0.6&nbsp;mm), directly under the CPU's flash pins, with its
+cap C25 and the BOOTSEL resistor R3 beside its chip-select pin.</li>
+<li>Charger U2 (0.8&nbsp;mm) with C16/C17/R8, next to the power-path FET Q2.
+D3, R21/R22, C29 and the VBUS-sense divider R19/R20 join it on one VBUS
+node.</li>
+<li>LDO U3 (0.8&nbsp;mm) with C18/C19, by its enable network R17/D2.</li>
+<li>LED-left switch U4 with C20/R10, at the edge by the plane piece it
+feeds.</li>
+</ul>
+
+<p><b>Result:</b> front parts within 10&nbsp;mm of centre: 40 → 26, with
+courtyard area 107 → 57&nbsp;mm². The back keeps a clear patch under the CPU
+for its escape vias. DRC 0 errors. Cell-fit check: no clash, and it now
+fails loudly if a part under the cell has no known height.</p>
+""",
+        media=[("render_place_top.png", "front: the CPU's surroundings after the move", True),
+               ("render_place_bottom.png", "back: flash under the CPU, charger east, LDO and LED-left switch west", True)],
+    ),
+    dict(
         date="2026-10-24", sha=None, tags=["hardware"],
         title="16-bit LEDs in three zones",
         lede="The ring is now WS2816C-1313 (16 bits per colour) split into left, "

@@ -46,10 +46,12 @@ LATCH = {
 # they are physically constrained: BT1 (cell wire pads vs the cell envelope).
 # Added because locked copper or a fixed pour lands on their pads, so a
 # nudge would orphan it: U1 (VDD_CORE FB link, ring stubs, VREG pours),
-# U2 (CHRG_DONE landing, CHRG via-in-pad), U5 (VBUS via-in-pad + trunk),
+# U5 (VBUS via-in-pad + trunk),
 # R14 (3V3 via-in-pad), and the RP2350 reference VREG cluster L1 / C11 /
-# C12 / C13 / R13 / C22 (copied from the official minimal board).
-LOCKED = {"J1", "SW2", "BT1", "U1", "U2", "U5", "R14",
+# C12 / C13 / R13 / C22 (copied from the official minimal board). (U2 was
+# locked for its CHRG / CHRG_DONE pre-routes until it moved to the back on
+# 2026-10-25; those pre-routes are gone.)
+LOCKED = {"J1", "SW2", "BT1", "U1", "U5", "R14",
           "L1", "C11", "C12", "C13", "R13", "C22",
           "Q1"}  # ALS-PT19: optical/aesthetic spot by the heart (review C8)
 # LED zone drivers (2026-10-24): (x, y, rot, back), filled in by scan_spot;
@@ -66,6 +68,34 @@ ZONES = {
     "Q10": (-9.00, -6.25, 0, True),
     "R32": (-11.00, -7.25, 90, True),
 }
+# Moved from the front to the back (2026-10-25) to free the area around
+# U1. All of it is <= 1.1 mm (gen_lipo_fit_svg.py HEIGHT, datasheet max),
+# so legal under the cell. (x, y, rot); None = parked off-board until
+# scanned. Spots from tools/scan_spot.py in signal order, pads kept out of
+# the U1 back keepout (+-5.6 x -6..5) for its escape vias, r <= 10.5 at the
+# bottom to stay off the URL silk arc, then nudged clear of other back silk
+# (scan_spot can still miss a courtyard touch: re-run DRC after any move):
+#   U7 flash just south of the QSPI pin row. At rot 180 its north row
+#     carries SCLK/SD0/SD3 (+VCC), a via and ~3 mm each; SD1/SD2//CS are
+#     on the far row and wrap round the body (~6 mm). R3 beside /CS so
+#     the QSPI_SS stub stays short (BOOTSEL_SW, the slow side, runs to
+#     Q7); C25 at pin 8.
+#   East: charger U2 with C17 (VBATT) between it and Q2's drain, C16 (VBUS)
+#     at pin 4, R8 at PROG; D3, R22/R21, C29 and the R19/R20 tap on the
+#     same VBUS run. VBUS_SENSE (DC level, 5k) runs west to pin 41.
+#   West: U4 (LED_L) by the outer-band VLED_L half it feeds, C20 on A1,
+#     R10 north of C20; LED_EN_L (slow GPIO) crosses from pin 3. LDO U3
+#     with EN facing R17/D2, C18 on VSYS between U3.6 and U4.A2, C19 at
+#     the 3V3 pin.
+# Q3/R23 stay on the front: no back spot near the LED_DATA_L -> LED1 line.
+BACK = {
+    "U7": (1.50, 7.00, 180), "C25": (3.25, 5.70, 270),
+    "U2": (5.25, 7.25, 270), "C16": (6.62, 4.62, 0), "C17": (7.25, 6.88, 90), "R8": (3.45, 7.60, 270),
+    "U3": (-5.88, 6.50, 180), "C18": (-7.80, 5.85, 270), "C19": (-3.95, 6.25, 270),
+    "D3": (9.07, 4.82, 90), "C29": (9.60, 1.45, 0), "R22": (9.00, 2.70, 180), "R21": (7.57, 2.95, 90),
+    "R19": (7.00, 1.50, 0), "R20": (9.20, 0.20, 0),
+    "U4": (-8.80, 5.07, 0), "C20": (-9.30, 3.82, 0), "R10": (-8.80, 2.60, 180), "R3": (2.20, 9.85, 0),
+}
 # one-button BOOTSEL + button ESD (2026-10-24): (x, y, rot, back). Every
 # spot came out of tools/scan_spot.py in signal order, with the previously
 # placed ones on the board and a centre keepout of +-5.6 x (-6.0..5.0)
@@ -73,7 +103,8 @@ ZONES = {
 # The button's D6/R30 sit where the crowded tip first had room (4.4mm from
 # SW2.2): the routed order must stay SW2.2 -> D6.1 -> R30 -> BTN_N, so the
 # clamp is ahead of everything it protects. U8 sits east, between R2 (RUN)
-# and R3 (BOOTSEL_SW); Q7 is directly under R3 (one via); Q6/R29 took SW1's
+# and R3's old front spot; Q7 sat directly under R3 (R3 moved beside U7's
+# /CS on 2026-10-25, so BOOTSEL_SW is now a back trace); Q6/R29 took SW1's
 # old front spot (0, -11.2), clear of the silk art, the only place left
 # with room for a SOT-323 near RUN.
 ONEBTN = {
@@ -87,7 +118,7 @@ ONEBTN = {
     "D5": (0.75, -9.25, 0, True),
     "U8": (3.50, -7.00, 0, True),
     "C77": (6.00, -7.00, 90, True),    # beside U8.5 (VCC)
-    "Q7": (7.25, -4.75, 0, True),      # under R3: BOOTSEL_SW is one via
+    "Q7": (7.25, -4.75, 0, True),      # drain BOOTSEL_SW -> R3 (beside U7 /CS)
     "C76": (4.50, -9.25, 90, True),    # beside U8.4 (LONG); RUN_KICK vias to Q6 on the front
     "R29": (-3.25, -12.75, 90, False), # beside Q6's gate
     "Q6": (-1.00, -11.00, 180, False),  # front, SW1's old spot; drain RUN
@@ -379,29 +410,12 @@ def main():
     # pegs — the checker caught R5.1 0.03 into the DP join at y=-15)
     place(fps["R4"], -2.0, -14.6, rot=90)
     place(fps["R5"], 2.0, -14.6, rot=90)
-    place(fps["U2"], 5.5, 5.0, rot=0)
-    # R8 (PROG) stays front near U2 (precision current-set node) but moves
-    # up out of inner LED44's spot at (9.3,-0.5)
-    place(fps["R8"], 8.6, 2.4, rot=90)
-    place(fps["C16"], 8.3, 3.9, rot=90)
-    place(fps["C17"], 7.9, 0.7, rot=90)
+    # (charger U2 + R8/C16/C17: back, see BACK)
     # (charge LED D1 + series R9 removed: CHRG/DONE now route to GPIOs)
 
     # ---------------- power left/right (front) ----------------
-    place(fps["U3"], -6.6, 3.4, rot=0)  # shifted left: clears CFILT (C22)
-    place(fps["C18"], -8.5, 1.2, rot=90)
-    place(fps["C19"], -8.3, 3.6, rot=90)
-    # (R17, the PWR_EN pulldown, lives on the BACK next to D2 — the
-    # front slot east of U7 failed the pad-aware scan: U7's pad tips
-    # reach past its drawn courtyard.)
-    place(fps["U4"], 6.6, -1.6, rot=0)
-    place(fps["C20"], 6.3, -3.8, rot=90)  # tight to U4 output
-    # R10 (LED_EN pulldown): moved to the BACK east pocket (below).
-    # BOOTSEL series R stays FRONT: with R3 on the back, BOOTSEL's route
-    # to it squatted USB_DP's loop lane below the bottom pin row (seen
-    # live: deterministic DP residual). Pads at r<9.0 keep it out of the
-    # LED44->LED45 beautify-arc band.
-    place(fps["R3"], 7.7, -3.85, rot=90)
+    # (LDO U3 + C18/C19, LED_L switch U4 + C20, R3: back, see BACK. R17,
+    # the PWR_EN pulldown, lives on the back next to D2.)
 
     # ---------------- power button (back, left tip straight) ----------------
     # LiPo change: the MSK12C02 slide switch is gone (the Ø28 cell covers
@@ -494,22 +508,7 @@ def main():
     # and at -13.75 that via lands 0.0mm from front LED33.1 (chrg10:
     # shorting_items + LED_D32 stranded).
     place(fps["R14"], 6.3, -13.35, rot=90, back=True) # IMU SDA pull-up
-    place(fps["R10"], 7.6, -13.75, rot=90, back=True) # LED_EN pulldown
-    # QSPI flash (RP2350A revision, no internal flash): FRONT, the pocket
-    # west of the C3/C5 decap column that C68 used to occupy (C68 moved SW,
-    # see the interior-bypass table). This was the ONLY legal spot found:
-    # a full-front 0.1mm grid scan of the 2.24x3.86 pad envelope had zero
-    # hits, the back is walled by BT1's 20.8mm cell-disc courtyard, and the
-    # back tip band shorts J1's tie pads / violates the shell-leg keepouts.
-    # Box: x -8.06..-6.06 (C18 east face .. C3/C5 column west face),
-    # y -1.23..1.77 (drawn 2x3 courtyard); pad tips reach y -1.54/2.08 —
-    # 0.03 from U3's courtyard EDGE but ~0.4 from its pads. QSPI wiring:
-    # freerouting owns it (6-layer: In3 west run; 4-layer: B.Cu around the
-    # locked USB rails' south end, y~7.3, then north along x~-6.2).
-    # y 0.40 not 0.27: at 0.27 pad 5's tip sat 0.07mm from the C3/C5
-    # column's 3V3 via at (-5.9,-1.2) (needs 0.127)
-    place(fps["U7"], -7.06, 0.40, rot=0)
-    place(fps["C25"], -6.75, -2.7, rot=90)   # flash VCC decap, below U7
+    # (R10 and the QSPI flash U7 + C25: back, see BACK)
     # VBSENSE divider: back lower-right shoulder, single-file (mirror band)
     place(fps["C21"], 12.3, 4.5, rot=90, back=True)
     place(fps["R11"], 11.65, 6.55, rot=90, back=True)
@@ -581,27 +580,7 @@ def main():
     # around the annulus or through a via to C17 on the front, and at 40mA
     # neither run costs anything measurable.
     place(fps["Q2"], 9.25, 8.00, rot=90, back=True)
-    # R22 (VBUS -> PATH_GATE) sits on the FRONT right above Q2: VBUS has no
-    # back-side copper anywhere near this shoulder (its only back pads are
-    # at the tip — J1/C28/U5/R18), so putting the tap on the front costs one
-    # via on a 5uA DC node instead of dragging the fat VBUS net around the
-    # annulus. rot 270 faces its VBUS pad north at C16 (1.5mm) and its
-    # PATH_GATE pad south, 0.70mm from Q2's gate one layer down.
-    # (9.30,6.70), not the (9.25,6.75) the coarse scan first returned: the
-    # relaxer settles C16 a hair differently once the new parts are fixed,
-    # and route.py anchors the locked CHRG_DONE landing loop to C16 — at
-    # the original spot this pad ended up 0.1227mm from that track against
-    # a 0.127 rule. A 0.05mm re-scan found clear air 70um east. Lesson
-    # worth keeping: locked pre-route geometry MOVES with the footprints it
-    # is derived from, so a spot scanned before the neighbours settle is
-    # not yet proven — re-run the DRC gate after every placement change.
-    place(fps["R22"], 9.30, 6.70, rot=270)
-    # D3 (VBUS -> VSYS Schottky): the pocket east of U4/C20 — one of only
-    # 120 legal front spots for a SOD-323, and the only cluster of them near
-    # the charger. rot 90 lands the cathode at (9.25,-1.95), 2.4mm from
-    # U4's VSYS input, and points the anode down the open east flank that
-    # the VBUS trunk comes in on.
-    place(fps["D3"], 9.25, -3.25, rot=90)  # -3.00 until the 1.3mm WS2816C LED44
+    # (R22, R21, D3, C29 and the R19/R20 VBUS tap: back, see BACK)
     # Q3 (LED data level shifter) takes the best of those six SC-70 front
     # spots — and it happens to sit almost exactly on the line from the
     # MCU's LED_DATA pin (-2.40,-3.94) to LED1's DI pad (-4.36,-17.40),
@@ -610,47 +589,11 @@ def main():
     # only legal orientation here.
     place(fps["Q3"], -4.25, -10.50, rot=0)
 
-    # R19/R20 below are NOT new to rev 2 — the rev-3 VBUS sense divider
-    # reached the netlist in 619042b but was never placed, so both sat at
-    # the origin and the relaxer scattered them through the MCU decaps.
-    # That is where the C2/C20/C74/LED45 courtyard overlaps came from (the
-    # shipped board has none of them); placing them makes the relaxer
-    # converge again.
-    # C29, the VSYS bulk cap, in the same east pocket as D3 (one of only
-    # 141 legal 0603 spots there), 1.8mm from D3's cathode.
-    place(fps["C29"], 10.00, 2.25, rot=90)  # 1.75 until the 1.3mm WS2816C LED44
     # R23 pulls LEDL_D0 up to VLED_L, 1.8mm off Q3's drain. (Since the zone
     # split it sits over the VLED_C band, so its VLED_L feed is a trace out
     # to the outer band, r > 11.15.)
     place(fps["R23"], -5.25, -8.75, rot=0)
 
-    # R21 (1M gate pulldown) in the east pocket beside C29. PATH_GATE is a
-    # DC node behind a 640pF gate, so its 4mm reach to R22 costs nothing;
-    # rot 90 points that pad north, at R22.
-    place(fps["R21"], 11.25, 3.00, rot=90)
-    # R19/R20, the rev-3 VBUS presence tap — placed for the first time here.
-    # It sits 2.5mm from VBUS at C16/U2 so the FAT (0.4mm) net needs no new
-    # branch at all, and the thin VBUS_SENSE tap makes the trip west to
-    # pin 41 instead. The west-side alternative was measured and rejected:
-    # it shortens the tap to 5.7mm but demands a second long VBUS branch up
-    # the west flank, on top of the tip->U2 haul freerouting already owns.
-    # rot 180 faces pin 1 east at C16 and the tap west at the MCU.
-    place(fps["R19"], 5.25, 3.25, rot=180)
-
-    # R20 closes the divider to GND. The pocket around R19 holds exactly one
-    # 0402 — the nearest legal neighbour is 5.75mm south — so the tap node
-    # is a stub rather than a tight pair. That is fine here and only here:
-    # VBUS_SENSE is a DC level read against thresholds with >0.8V of margin
-    # on both sides, off a 20k source, with no timing to smear. rot 270
-    # points its tap pad north, back at R19.
-    # R20 closes the divider to GND. The pocket around R19 holds exactly ONE
-    # 0402 — with 0.35mm of courtyard margin (cheap insurance against the
-    # relaxer, which slid an earlier R20 0.8mm into R16) the nearest legal
-    # neighbour is 7.3mm away — so the divider is split rather than paired.
-    # Acceptable here and only here: VBUS_SENSE is a DC level read against a
-    # ~1.2V threshold with >0.8V of margin either side, off a 5k Thevenin,
-    # with no edge to smear. rot 0 points the tap pad west, back at R19.
-    place(fps["R20"], 11.50, -1.25, rot=0)
 
     # ---- LED zone drivers (2026-10-24), see ZONES ----
     for i, (ref, spot) in enumerate(ZONES.items()):
@@ -661,6 +604,13 @@ def main():
     # ---- one-button BOOTSEL + button ESD (2026-10-24), see ONEBTN ----
     for ref, (x, y, r, back) in ONEBTN.items():
         place(fps[ref], x, y, rot=r, back=back)
+
+    # ---- front -> back move (2026-10-25), see BACK ----
+    for i, (ref, spot) in enumerate(BACK.items()):
+        if spot is None:
+            place(fps[ref], 30 + 4 * (i % 6), 15 + 4 * (i // 6), back=True)
+        else:
+            place(fps[ref], *spot, back=True)
 
     resolve_overlaps(board, fps)
     # see LOCKED at the top for why each part is locked
@@ -681,7 +631,7 @@ def resolve_overlaps(board, fps, max_iter=300):
     # board, and a relaxer nudge silently invalidates that (R20's scanned
     # spot was legal until relaxation slid it 0.8mm into R16).
     EXEMPT = {"R4", "R5", "R8", "C11", "C12", "R13", "C22",
-              "R19", "R20", "R21", "R22", "R23", "C29"} | set(ONEBTN) | set(ZONES)
+              "R19", "R20", "R21", "R22", "R23", "C29"} | set(ONEBTN) | set(ZONES) | set(BACK)
 
     def movable(ref):
         if ref in EXEMPT:

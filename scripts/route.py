@@ -357,8 +357,8 @@ def main():
     # top-center displaced the corridor they used to tap)
     # ((-0.35,4.5) not (-0.6,4.5): shifted right so the locked FB link can
     # enter the switcher pour's lobe at x=-1.0 with 0.127 via clearance)
-    # ((-5.85,-1.60) not (-5.9,-1.2): the QSPI flash U7 (RP2350A revision)
-    # took the pocket north of it and its pad-5 tip lands 0.07 from the old
+    # ((-5.85,-1.60) not (-5.9,-1.2): the QSPI flash U7 (RP2350A revision,
+    # on the front until 2026-10-25) took the pocket north of it and its pad-5 tip lands 0.07 from the old
     # spot. Grid-scanned (0.05mm, all pads both sides + locked tracks +
     # vias + 3V3-disc/clip-pad radii): this is the nearest legal spot, 0.40
     # away. Re-scan rather than nudge by eye if anything here moves.
@@ -382,12 +382,9 @@ def main():
     # freerouting reliably picks up a pre-placed via on the net's path).
     for pos, net in (((-0.61, 5.02), "USB_DM"),
                      ((-0.26, 4.60), "USB_DP"),
-                     ((1.29, 5.06), "QSPI_SCLK"),
-                     ((1.81, 4.80), "QSPI_SD0"),
-                     ((2.68, 4.28), "QSPI_SD1"),
-                     ((-0.40, 7.53), "QSPI_SD2"),   # under the heart silk, as shipped
-                     ((1.11, 4.21), "QSPI_SD3"),
                      ((7.17, -10.07), "IMU_SDA")):
+    # (QSPI assists dropped 2026-10-25: U7 moved to the back, right under
+    # the bottom pin row, so the shipped board's QSPI transitions are moot.)
     # (no LED_EN assist: the shipped via spot (7.00,-13.92) is 4um from
     # rev-2's re-pitched LED32.4 and every nearby nudge trades that for
     # R10/R14 clearance; LED_EN only strands on some seeds — leave it to
@@ -578,7 +575,7 @@ def main():
     rt.via((6.3, -0.75), "IMU_SDA")
     rt.via((5.15, -5.7), "IMU_SCL")
     rt.via((5.55, -2.35), "IMU_INT1")
-    rt.via((7.35, -2.35), "LED_EN_L")
+    # (LED_EN_L's channel via dropped 2026-10-25: U4 moved to the back-west)
     # R14 (SDA pull-up) 3V3 pad: via-in-pad into the In3 pour's south
     # lobe (tented — C30's VLED via-in-pad is the precedent). The pad
     # sits deep in the tip lobe where no scanned adjacent via spot
@@ -587,8 +584,9 @@ def main():
     rt.via(rel(pad_of(fps["R14"], 2).GetPosition()), "3V3")
     # NB: no channel vias for the USB_DM/DP escapes. The escapes' front
     # loop (DM upper row, DP looping east around R6/R7) only failed when
-    # BOOTSEL's route to a back-side R3 squatted the loop lane — R3 is
-    # back on the front for exactly that reason. Via pairs for DM/DP were
+    # BOOTSEL's route to a back-side R3 squatted the loop lane (a
+    # freerouting-era finding; R3 is on the back again since 2026-10-25,
+    # beside U7's /CS south of the chip). Via pairs for DM/DP were
     # tried and are UNFIXABLE: the pin order (51 west of 52) vs any
     # legal via spots forces a same-layer crossing (the only west via
     # slot at r>4.45 belongs to the (-0.35,4.5) 3V3 via).
@@ -601,37 +599,9 @@ def main():
     # IMU cluster + pour traffic put the long haul past freerouting's
     # plateau; commit the B transition NE of the chip corner
     rt.via((5.3, -4.6), "SWCLK")
-    # CHRG_DONE (U1 pin 42, west column +y end -> U2 pin 6): the only
-    # charger-status pin with a free escape — the NE corner passage fits
-    # two tracks and LED_EN + CHRG own them (pin-4/pin-16 attempts both
-    # plateaued). Exit west through the C5/C22 window (VBSENSE's lane
-    # stays north of y1.5), cross on In3 (empty in the +y half), pop up
-    # NE of the cluster at (7.8,6.6), OUTSIDE the beautify annulus
-    # (r10.23+0.2 > 9.76): the hop drops into the 0.64mm U2-C16 lane
-    # from the NORTH (center x 7.05-7.29 legal) and enters pad 6 from
-    # the east between pins 5/7. Two dead ends, both seen live 6/6:
-    # (5.6,6.6) NW of U2 — pin-5 pad + EP wall that approach and the
-    # thrash strands LED_EN/RUN/IMU_SDA; (7.0,3.7) south — freerouting
-    # self-blocks the lane's south half with C16.2's GND fanout via at
-    # (7.45,4.84) (plus CHRG's own B-transition at (6.8,4.75)). The
-    # lane's NORTH half has no via-worthy pads, so it stays open. Both
-    # spots r>4.6, >=0.25 to U2/C16 pads, >2mm from the octagon LEDs.
-    rt.via((-4.6, 1.35), "CHRG_DONE")
-    rt.via((7.8, 6.6), "CHRG_DONE")
-    # CHRG (U1 pin 31 -> U2 pin 7): private SW exit. East-side homes
-    # are over capacity (29/29 attempts stranded a rotating east net)
-    # and pairing CHRG into CHRG_DONE's C5/C22 window jams it (two
-    # committed via discs wall the window mouth; the pad-tip corridor
-    # is single-lane past pin 42 — seen live as a 5-unc plateau with
-    # CHRG_DONE/VBSENSE/USB_DP stranded). Pins 31-36 are all NC, so
-    # the lane past their tips down to C1's south corner has no other
-    # user. Via at (-4.6,-5.8): 0.225 off the locked USB B rail at
-    # x-5.1 (keep CHRG-side vias x >= -4.69), below C1 (courtyard ends
-    # y-5.23), well west of the crystal cluster. Then In3 across the
-    # center to the landing: via-in-pad dead center in pad 7 (tented;
-    # R14.2/C30 precedent), 0.175 clear of pads 6/8.
-    rt.via((-4.6, -5.8), "CHRG")
-    rt.via((6.5, 4.75), "CHRG")
+    # (CHRG / CHRG_DONE escape vias and U2's landing loop dropped
+    # 2026-10-25: the charger moved to the back. They were freerouting
+    # assists measured off U2's front spot.)
     # NB: do NOT put a rule area over the In2 disc to stop wire crossings —
     # freerouting treats the DSN keepout as a hard obstacle and loses the
     # whole center region (18 unrouted vs the usual 6). Disc splits are
@@ -640,133 +610,7 @@ def main():
     # LED32-34 VLED vias, the C32->C30 link and the LED_D3 fragment are
     # gone. They were freerouting workarounds measured off SK6805 pads, and
     # the board is now routed by the user's own autorouter.)
-    def safe_via_spot(cx, cy, net="3V3", radii=(0.7, 0.9, 1.1)):
-        pads = [(p, fp) for fp in board.GetFootprints() for p in fp.Pads()]
-        for r in radii:
-            for k in range(16):
-                ang = math.pi * 2 * k / 16
-                x, y = cx + r * math.cos(ang), cy + r * math.sin(ang)
-                from outline import half_width_at
-                if abs(x) > half_width_at(load_design(), y) - 0.45:
-                    continue
-                if net == "VLED":
-                    # In4 is a full VLED plane: any through via reaches VLED
-                    pass
-                elif net == "3V3":
-                    # inside the In2 3V3 disc (r=9.55)
-                    if math.hypot(x, y) > 9.55 - 0.45:
-                        continue
-                ok = True
-                for p, fp in pads:
-                    pp = p.GetPosition()
-                    d = math.hypot(to_mm(pp.x) - 100 - x,
-                                   to_mm(pp.y) - 100 - y)
-                    sz = p.GetSize(pcbnew.F_Cu)
-                    half = math.hypot(to_mm(sz.x), to_mm(sz.y)) / 2
-                    need = 0.55 if p.GetNetname() != net else 0.0
-                    if p.GetAttribute() != pcbnew.PAD_ATTRIB_SMD:
-                        need = 0.75  # hole-to-hole
-                    if fp.GetReference() == "BT1":
-                        need += 0.6  # hand-soldered wire pad: see precise_via_spot
-                    if d < half + need:
-                        ok = False
-                        break
-                if ok:
-                    return (x, y)
-        return precise_via_spot(cx, cy, net)
-
-    def precise_via_spot(cx, cy, net, radii=(0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.3)):
-        """Fallback for safe_via_spot, using real pad polygons on both outer
-        layers, locked tracks/vias and drilled holes instead of a pad's
-        half-diagonal circle. Only consulted when the coarse rule finds
-        nothing, so every spot the coarse rule already finds is unchanged.
-        Needed since the LiPo change: BT1's wire pads sit on the back behind
-        the tip LEDs (LED1/LED2/LED34), and the half-diagonal circle of a
-        1.0x1.5 pad rotated 30deg walls off a pocket whose real copper
-        leaves room."""
-        from shapely.geometry import LineString, Point, Polygon
-        from outline import half_width_at
-        clr, via_r = 0.2, 0.2
-        # hand-soldered pads (the LiPo's wire pads) get 0.6mm, not 0.2: a
-        # slipped iron there must not reach another net
-        hand = {"BT1": 0.6 - clr}
-        obst = []
-        for fp in board.GetFootprints():
-            grow = hand.get(fp.GetReference(), 0.0)
-            for p in fp.Pads():
-                if p.GetAttribute() != pcbnew.PAD_ATTRIB_SMD and p.GetDrillSize().x > 0:
-                    pp = p.GetPosition()
-                    hr = to_mm(max(p.GetDrillSize().x, p.GetDrillSize().y)) / 2
-                    obst.append(Point(to_mm(pp.x) - 100, to_mm(pp.y) - 100)
-                                .buffer(hr + 0.5 - clr))   # hole-to-hole 0.5
-                if p.GetNetname() == net:
-                    continue
-                for lay in (pcbnew.F_Cu, pcbnew.B_Cu):
-                    if not p.IsOnLayer(lay):
-                        continue
-                    ps = pcbnew.SHAPE_POLY_SET()
-                    p.TransformShapeToPolygon(ps, lay, 0, pcbnew.FromMM(0.005),
-                                              pcbnew.ERROR_INSIDE)
-                    for i in range(ps.OutlineCount()):
-                        o = ps.Outline(i)
-                        obst.append(Polygon([(to_mm(o.CPoint(j).x) - 100,
-                                              to_mm(o.CPoint(j).y) - 100)
-                                             for j in range(o.PointCount())])
-                                    .buffer(grow))
-        for tr in board.GetTracks():
-            if tr.GetNetname() == net:
-                continue
-            if tr.GetClass() == "PCB_VIA":
-                q = tr.GetPosition()
-                obst.append(Point(to_mm(q.x) - 100, to_mm(q.y) - 100)
-                            .buffer(to_mm(tr.GetWidth(pcbnew.F_Cu)) / 2))
-            else:
-                s, e = tr.GetStart(), tr.GetEnd()
-                obst.append(LineString([(to_mm(s.x) - 100, to_mm(s.y) - 100),
-                                        (to_mm(e.x) - 100, to_mm(e.y) - 100)])
-                            .buffer(to_mm(tr.GetWidth()) / 2))
-        d = load_design()
-        for r in radii:
-            for k in range(32):
-                ang = math.pi * 2 * k / 32
-                x, y = cx + r * math.cos(ang), cy + r * math.sin(ang)
-                if abs(x) > half_width_at(d, y) - 0.45:
-                    continue
-                if net == "VLED" and n_layers < 6 and math.hypot(x, y) < 9.65:
-                    continue   # 4-layer: In2 VLED annulus starts at r 9.35
-                if net == "3V3" and math.hypot(x, y) > 9.55 - 0.45:
-                    continue
-                v = Point(x, y).buffer(via_r)
-                if all(g.distance(v) >= clr for g in obst):
-                    return (x, y)
-        return None
-    # U3's (LDO) 3V3 output pin is walled in by C19's GND pad + GND
-    # fanout at the 2.4mm-pitch seeds — the finisher finds no candidate,
-    # so give it a scanned 3V3-disc via up front
-    px, py = rel(pad_of(fps["U3"], 1).GetPosition())
-    # radii extended past 1.85: the QSPI flash U7 now fills the pocket
-    # south of U3, so the near ring often has no legal spot
-    spot = safe_via_spot(px, py, "3V3",
-                         radii=(0.7, 0.9, 1.1, 1.35, 1.6, 1.85, 2.15,
-                                2.45, 2.75))
-    if spot:
-        rt.via(spot, "3V3")
-    else:
-        print("WARNING: no safe 3V3 via spot near U3")
-    # CHRG_DONE's landing: from the committed via at (7.8,6.6) the final
-    # approach into U2 pad 6 loops EAST around C16 (the shipped board's
-    # own path) — freerouting failed this last 2mm on 6/6 rev-2 seeds
-    # while wandering off west on In1. One change vs shipped: the long
-    # horizontal dropped 4.965 -> 4.93 (shipped cleared C16.1 by 3um;
-    # this rev re-verified by actual DRC, not shipped luck).
-    for a, b in (((7.800, 6.600), (8.100, 6.600)),
-                 ((8.100, 6.600), (8.623, 6.076)),
-                 ((8.623, 6.076), (8.623, 5.178)),
-                 ((8.623, 5.178), (8.410, 4.930)),
-                 ((8.410, 4.930), (7.224, 4.930)),
-                 ((7.224, 4.930), (6.939, 5.250)),
-                 ((6.939, 5.250), (6.500, 5.250))):
-        rt.track(a, b, "CHRG_DONE", width=0.15)
+    # (U3's scanned 3V3-disc via dropped 2026-10-25: U3 moved to the back.)
     pcbnew.SaveBoard(str(PCB), board)
 
     # ---------- freerouting ----------

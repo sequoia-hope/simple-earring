@@ -75,6 +75,10 @@ HEIGHT = {
     "D_SOD-882": 0.50,          # Nexperia DFN1006-2 body 0.48
     "C_0603_1608Metric": 0.90,  # CL10A106KP8NNNC T = 0.8 +-0.1
     "YZV0004ADAD": 0.625,       # TPS22913 DSBGA max height (U9/U10, LED zones, 2026-10-24)
+    # front -> back move (2026-10-25)
+    "DFN-8-1EP_2x2mm_P0.5mm_EP0.9x1.5mm": 0.80,  # LGS4056HDA ds: DFN8 2x2 "0.8 MAX"
+    "WDFN-6-2x2": 0.80,         # NCP730 case 511BJ: A 0.70-0.80
+    "USON-8_L3.0-W2.0-P0.50-BL-EP": 0.60,  # W25Q16JV ds 10.1 "USON 2x3x0.6-mm"
 }
 
 # --- dashboard palette (render.py write_index) ----------------------------
@@ -194,6 +198,11 @@ def build():
              if (p["ref"] == "J1" or (p["h"] or 0) > UNDER_CELL_CAP)
              and p["poly"].intersects(env)]
     under = sorted(p["ref"] for p in parts if p["poly"].intersects(env))
+    # a part under the cell with no known height would pass as 0 mm
+    unknown = sorted(p["ref"] for p in parts
+                     if p["poly"].intersects(env) and p["h"] is None)
+    if unknown:
+        raise SystemExit(f"no HEIGHT entry for parts under the cell: {unknown}")
 
     W, H = 1180, 820
     o = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" '

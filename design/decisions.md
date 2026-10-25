@@ -250,3 +250,80 @@ silicon D3, BAV99W, TVS**.
   - Enable a zone's switch and wait for its rail and the LED's POR (≥ 50 ms
     precedent, charge-indicator memory) before sending data.
   - A dark zone's data line is harmless either way: its pull-up is dead.
+
+## 2026-10-25 — 19 parts moved from the front to the back (room around U1)
+
+User request: "free up some space around the CPU and put more components on
+the back while staying under the foam height."
+
+- **Height limit:** the under-cell cap stays at 1.1 mm (brief §11; VHB 4956
+  1.5 mm tape). Everything moved is at or under it, using datasheet maximums:
+  - U2 LGS4056HDA DFN8 0.8 ("0.8 MAX");
+  - U3 NCP730 WDFN6 0.80 (A 0.70–0.80);
+  - U7 W25Q16JVUXIQ 0.6 (Winbond §10.1 "USON 2x3x0.6"; datasheet now in
+    design/datasheets/W25Q16JV.pdf);
+  - U4 TPS22913 0.625;
+  - 0603 CL10A106KP8NNNC 0.9;
+  - D3 SOD-323 1.10, at the cap.
+  `gen_lipo_fit_svg.py` treated an unknown height as 0 mm. It now refuses to
+  run when a part under the cell has no HEIGHT entry.
+- **Moved:**
+  - flash U7 + C25 + R3;
+  - charger U2 + C16 + C17 + R8;
+  - LDO U3 + C18 + C19;
+  - D3, C29, R21, R22, R19, R20;
+  - LED_L switch U4 + C20, plus R10 (already on the back, moved from the
+    tip to U4).
+  Spots and reasons are in place.py `BACK`.
+- **Kept on the front:**
+  - decaps C1–C9 and C13;
+  - the reference VREG cluster (locked);
+  - crystal Y1 + C14/C15/R1, to keep the oscillator loop on one layer;
+  - Q1/R16/C26, since the light sensor must face out;
+  - the inner-ring caps;
+  - Q3/R23. The back top-left has no SC-70 spot anywhere near the
+    LED_DATA_L → LED1 line (best legal spot was 21 mm of total reach).
+- **Placement choices:**
+  - U7 sits just south of the QSPI pin row. At rot 180 its near row
+    carries SCLK/SD0/SD3 (a via and ~3 mm each). SD1/SD2//CS are on the
+    far row and wrap round the body (~6 mm). That holds for either
+    row-facing rotation, and keeping SCLK on the near side is the better
+    half. *(Corrected after review: the first draft said every QSPI net
+    was under 4 mm.)*
+  - R3 sits at U7's /CS pin. QSPI_SS is the fast side and keeps a short
+    stub; BOOTSEL_SW (slow, behind 1k) carries the distance to Q7.
+  - U4 moved west, by the VLED_L outer-band half it feeds. Its LED_EN_L is
+    a slow GPIO that crosses from pin 3. The alternative, east beside U9,
+    would have run the zone's supply ~12 mm west instead.
+  - U3's EN faces R17/D2.
+  - The charger, D3, R22 and the R19/R20 tap sit on one short VBUS run
+    by C16.
+  - R19/R20 keep their pads out of U1's back keepout. The first spot put
+    R20 under U1's SE corner, where pins 1–3 escape (review). C18 sits on
+    U3's VSYS pin, between U3.6 and U4.A2 (review: it had been 2.5 mm away
+    with EN/NC between).
+  - The back keepout under U1 (about ±5.6 × −6…5) is kept clear for the
+    chip's escape vias.
+- **route.py:** these freerouting assists were removed because they were
+  measured off the old front spots:
+  - CHRG / CHRG_DONE escape vias and U2's locked landing loop;
+  - U3's scanned 3V3 via (and the now-unused via-spot helpers);
+  - the five QSPI straggler vias;
+  - the LED_EN_L channel via.
+  U2 is no longer locked, because nothing locked lands on it any more.
+- **Thermal note:** the charger now sits under the cell. Dissipation is
+  (VBUS − VBAT) × 50 mA ≈ 65 mW typical and 110 mW worst (5.25 V port, 3.0 V
+  cell). Plus D3: on USB, all VSYS current (MCU plus every lit LED) goes
+  through it, so about 0.85 V × 0.14 A ≈ 0.12 W at the brief's ceiling,
+  4.5 mm from U2. The charger's own thermal regulation protects the
+  charger, not the pouch. Firmware should cap brightness while charging,
+  and D3 / U2's EP get thermal vias to In1 GND. On a 30 mm board, the
+  rise is set by the whole board's ~70 K/W to air, not by which side the
+  part is on. Bring-up check: cell-surface temperature while charging, with
+  the LEDs lit (the LiPo's charge limit is 45 °C).
+- **Result:**
+  - front parts within r < 10: 40 → 26;
+  - front courtyard area within r < 10: 107 → 57 mm²;
+  - DRC 0 errors, 274 unconnected (unrouted);
+  - no new silk-to-silk overlaps;
+  - cell fit: no clash.
