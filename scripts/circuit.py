@@ -10,7 +10,8 @@ Pin references verified against:
   - SK6805-EC10 datasheet REV.01 (1=GND, 2=DIN, 3=VDD, 4=DOUT)
 RP2350A (RP2354A pinout, no internal flash): QSPI bus wired to external
 W25Q16JVUXIQ (U7) per the official RPI-RP2350A-MINIMAL R4 (docs/);
-QSPI_SS doubles as the BOOTSEL strap (button + 1k to GND) and U7's /CS.
+QSPI_SS doubles as the BOOTSEL strap (Q7 + 1k to GND, driven by the power
+button's long-hold timer) and U7's /CS.
 """
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -115,7 +116,9 @@ GP_CHRG = 19      # pin 31: low while charging
 # run after CHRG (pins 32-37 were all NC); the back interior they escape into
 # is open now that BT1's Ø8 centre pad is gone. design/decisions.md.
 GP_PWR_HOLD = 20  # pin 32: high = keep the LDO enabled (-> Q5 gate)
-GP_BTN_SENSE = 21 # pin 33: power button, internal pull-up, low = pressed
+GP_BTN_SENSE = 21 # pin 33: power button held, ACTIVE HIGH (Q8 drives it,
+                  # R27 pulls it down). NO internal pull-up: see the one-button
+                  # block. Old latch firmware read it pulled-up/active-low.
 GP_CHRG_DONE = 28 # pin 42: low when charge complete
 
 # LED pin numbering. SK6805-EC10: 1=GND, 2=DIN, 3=VDD, 4=DOUT.
@@ -239,18 +242,9 @@ def build_circuit(design=None):
 
     # --- RUN / BOOTSEL / SWD ---
     c.add("R2", "r_10k", "10k", {1: "RUN", 2: "3V3"})
-    # SKRPAME010 is a 4-terminal SPST tact. Only pads 1 and 4 are netted,
-    # and that is deliberate: the LCSC footprint puts pads 1/3 on one side
-    # of the body and 2/4 on the other, so the two contacts are the
-    # SAME-SIDE pairs {1,3} and {2,4} — not {1,2}/{3,4} as the LCSC symbol
-    # implies. Driving both pads of an assumed pair would have shorted
-    # BOOTSEL_SW straight to GND and left the chip permanently strapped
-    # into the USB bootloader. Pads 1 and 4 are diagonal, so they land on
-    # opposite contacts under EITHER numbering convention; 2 and 3 are left
-    # unnetted (still soldered, and internally tied to their partner) so the
-    # strap is correct without needing the ALPS drawing to settle it.
-    c.add("SW1", "bootsel_button", "BOOTSEL",
-          {1: "BOOTSEL_SW", 2: "", 3: "", 4: "GND"})
+    # (SW1, the SKRPAME010 BOOTSEL key, is gone — 2026-10-24, user decision:
+    # a long hold on the power button now does its job. BOOTSEL_SW is driven
+    # by Q7 in the one-button block below; R3 is unchanged.)
     c.add("R3", "r_1k", "1k", {1: "BOOTSEL", 2: "BOOTSEL_SW"})
     c.add("TP1", "testpoint", "RUN", {1: "RUN"})
     c.add("TP2", "testpoint", "SWCLK", {1: "SWCLK"})
@@ -320,7 +314,7 @@ def build_circuit(design=None):
     # system off the cell it ALL reaches the cell in either switch
     # position — the SW2-off overcurrent hazard that blocked 15k is gone).
     #
-    #   VBUS --|>|-- VSYS      D3, blocking Schottky (~0.3V at our ~60mA)
+    #   VBUS --|>|-- VSYS      D3, blocking SILICON rectifier (~0.8V; see D3)
     #   VBATT --Q2-- VSYS      P-FET, ON only when no cable is present
     #   VSYS  -> U3 (LDO IN), U4 (LED load switch IN)
     #   VBATT -> U2 pin 5 (charger BAT), BT1, C17, SW2  [cell node ONLY]
@@ -357,7 +351,18 @@ def build_circuit(design=None):
     # high one (VIH 3.26V, still failing) — the window is narrower than
     # the corners, so the level has to be shifted, not the rail.
     c.add("Q2", "oring_pfet", "CJ2101", {1: "PATH_GATE", 2: "VSYS", 3: "VBATT"})
-    c.add("D3", "sys_diode", "B5819WS", {1: "VSYS", 2: "VBUS"})  # 1 = cathode
+    # D3 is SILICON (1N4007WS), not the B5819WS Schottky it was through
+    # afabd86. design/sim/button found the Schottky's reverse leakage, from
+    # VSYS into the dead VBUS node (~120uA at 75C, Yangjie Fig. 4), lifts
+    # VBUS through R19+R20 and R18/R17 couple half of it onto the LDO EN:
+    # with D2's leak (below) the board switched ITSELF on at ~70C. The
+    # 1N4007WS leaks ~1uA at 85C (MDD Fig. 2, typ), i.e. 20mV on VBUS.
+    # Price: VF ~0.8V at 100mA (MDD Fig. 3) instead of ~0.3V, so VSYS is
+    # ~4.2V on a 5.0V port and ~3.7V on a 4.5V one — the SK6805 floor. At a
+    # weak port with a full cell, Q2's body diode lets the cell carry some
+    # of the load; harmless (the charger just sees a lighter cell).
+    # Dissipation <=0.12W at the firmware's 140mA system cap.
+    c.add("D3", "sys_diode", "1N4007WS", {1: "VSYS", 2: "VBUS"})  # 1 = cathode
     c.add("R21", "r_1m", "1M", {1: "PATH_GATE", 2: "GND"})
     c.add("R22", "r_10k", "10k", {1: "VBUS", 2: "PATH_GATE"})
     c.add("C29", "c_10u_0603", "10u", {1: "VSYS", 2: "GND"})
@@ -369,11 +374,17 @@ def build_circuit(design=None):
     # (MSK12C02 contacts are 50mA-rated: switch the EN signal, not the
     # battery current; SPDT gives clean VBATT/GND levels both positions.)
     # SW2's common is now SW_ON (VBATT on / GND off), no longer wired
-    # straight to EN — D2 (BAT54S, two Schottkys in SERIES: 1=A1, 2=K2,
-    # 3=K1+A2 midpoint, Nexperia ds Table 2) sits between:
+    # straight to EN — D2 (BAV99W, two SILICON diodes in SERIES: 1=A1, 2=K2,
+    # 3=K1+A2 midpoint, Nexperia ds Table 2 — the BAT54SW pinout) sits between:
     #   diode 1 (SW_ON -> PWR_EN): the switch still enables the LDO
     #     (EN = VBATT - ~0.2V, far above the 1.05V max rising threshold);
     #   diode 2 (PWR_EN -> VBATT): clamps EN to VBATT + Vf. Required:
+    #     (silicon since 2026-10-24: a Schottky here leaked ~20uA at 85C from
+    #     VBATT into R17's 100k = 2V on EN, half of the hot self-start found
+    #     by design/sim/button. BAV99W IR <= 30nA @25V/25C. The clamp is now
+    #     VBATT + ~0.6V, still under VIN + 0.3 because EN is only ever driven
+    #     to VBATT - 0.6 (SW_ON via diode 1) or VBUS/2 (R18) — the clamp only
+    #     engages for a dead cell under USB, where VSYS is VBUS - 0.8.)
     #     NCP730 abs max V_EN is (V_IN + 0.3), NOT an independent rating
     #     — a bare diode from 5V VBUS would violate it whenever
     #     VBUS - 0.3 > VBATT + 0.3, i.e. essentially always.
@@ -412,38 +423,118 @@ def build_circuit(design=None):
     #            LATCH_G low after the button is released
     #   off:     long press -> firmware drops PWR_HOLD; power falls when the
     #            button is released (D4 A2 holds Q4 on until then)
-    #   sense:   BTN_SENSE (internal pull-up) reads LOW through D4 A1 while
-    #            pressed. When the board is OFF, BTN_N sits at ~VBATT via
-    #            D4 A2 + R24, so A1 is REVERSE-biased and nothing reaches
-    #            the unpowered GPIO.
-    # The one leak that can false-trigger Q4 when off is D4 A1's REVERSE
-    # current (into the unpowered GPIO) through R24. That is why D4 is a
+    #   sense:   D4 A1 pulls PRESS_N low while pressed; Q8 turns that into
+    #            an active-high BTN_SENSE (one-button block below). When the
+    #            board is OFF, BTN_N sits at ~VBATT via D4 A2 + R24 and
+    #            PRESS_N is at 0V (3V3 is down), so A1 is REVERSE-biased.
+    # The leaks that can false-trigger Q4 when off are D4 A1's REVERSE
+    # current (into the dead PRESS_N node), D6's (the TVS) and Q5's IDSS,
+    # all through R24 (and see Q4's threshold note below). That is why D4 is a
     # SILICON pair (BAV70W, IR <= 25nA @20V/25C, ds DS30063 p.2) and not a
     # Schottky: a BAT54's reverse current at 4V is ~20uA by 85C (Nexperia
     # BAT54W Fig. 2), which through 100k is 2V — enough to switch Q4 on by
-    # itself in a hot car. The budget is ~0.2V on LATCH_G (CJ2101 |VGS(th)|
-    # min 0.45V, minus its tempco and the subthreshold current R17 turns
-    # into EN volts). BAV70W at 4V/85C is ~1uA -> 0.1V. Gate-1/latch review,
-    # design/gates/phase2.md. The price is VF ~0.5-0.6V at the ~40-100uA
-    # this sees: BTN_SENSE reads ~0.6V pressed against RP2350 VIL 0.8V.
-    # R24 stays 100k (42uA while on).
+    # itself in a hot car. The budget on LATCH_G is Q4's |VGS(th)| min
+    # (0.8V since the LBSS84WT1G swap; it was the CJ2101's 0.45V) minus its
+    # tempco and the subthreshold current R17 turns into EN volts.
+    # BAV70W at 4V/85C is ~1uA -> 0.1V. Gate-1/latch review,
+    # design/gates/phase2.md; adoption review F2, design/gates/phase8.md.
+    # (D4 A1 now drives PRESS_N, not the GPIO: the one-button block.)
+    # R24 stays 100k (42uA while on). D6 (TVS) adds <=100nA at 25C (ds
+    # IRM max at 5V; ~1uA hot by its Fig. 6) — simulated, design/sim/button.
     # USB still enables the LDO through R18 whatever the latch says.
     # (Pin orders on the symmetric parts — SW2's two terminals, R24's ends,
     # D4's two identical anodes — are chosen so the schematic block draws
     # with power on top and ground below; electrically interchangeable.)
-    c.add("SW2", "power_button", "PWR", {1: "GND", 2: "BTN_N"})
-    c.add("Q4", "oring_pfet", "CJ2101", {1: "LATCH_G", 2: "VBATT", 3: "SW_ON"})
+    c.add("SW2", "power_button", "PWR", {1: "GND", 2: "BTN_EXT"})
+    # ESD (gate-8 S4, design/sim/button): the button sits on the board edge
+    # under a fingertip. With only C27 on the line, a -8kV contact discharge
+    # (150pF/330R) put ~24A through D4 (IFSM 2A) and the strike itself
+    # registered as a press. D6 clamps at the switch pad, and R30 then
+    # isolates everything behind it: at the TVS's ~14V clamp only ~14mA can
+    # reach C27/D4, which moves BTN_N by millivolts. R30 costs ~70mV on the
+    # pressed level (LATCH_G ~0.5-0.7V, still >2.2V of Q4 gate drive) and nothing
+    # on release (C27 recharges through R24, not R30).
+    c.add("D6", "tvs_bidir", "PESD5V0S1BL", {1: "BTN_EXT", 2: "GND"})
+    c.add("R30", "r_1k", "1k", {1: "BTN_EXT", 2: "BTN_N"})
+    # Q4 is a HIGH-THRESHOLD P-FET (LBSS84WT1G, |VGS(th)| 0.8-2.0V), not
+    # the CJ2101 (0.45V min) it was through the first one-button pass.
+    # Review F2 (design/gates/phase8.md, design/sim/button/leakstudy.py): with
+    # 0.45V and R24 100k, the board-off leaks into LATCH_G (D4 A1, D6, Q5
+    # IDSS) put EN at 0.67V at 85C if the threshold falls 3mV/C, and the
+    # CJ2101 datasheet gives no tempco. Q4 carries only SW_ON's ~30uA, so
+    # a weak, high-threshold part costs nothing: EN stays 0.07V there. Turn-on:
+    # pressed LATCH_G ~0.7V -> VGS -2.3V at a 3.0V cell vs -2.0V max VGS(th).
+    c.add("Q4", "latch_pfet", "LBSS84WT1G", {1: "LATCH_G", 2: "VBATT", 3: "SW_ON"})
     c.add("R24", "r_100k", "100k", {1: "VBATT", 2: "LATCH_G"})
     c.add("Q5", "lvl_nfet", "BSS138W", {1: "PWR_HOLD", 2: "GND", 3: "LATCH_G"})
     c.add("R25", "r_100k", "100k", {1: "PWR_HOLD", 2: "GND"})  # off at boot
-    c.add("D4", "cc_diode", "BAV70W", {1: "BTN_SENSE", 2: "LATCH_G", 3: "BTN_N"})
-    # C27: ESD + debounce on the user-touched edge button. A strike on BTN_N
-    # otherwise lands on D4 straight into GPIO21 and Q4's gate (VGS max 8V).
-    # tau = R24 x C27 = 10ms on release; a press discharges it instantly.
+    c.add("D4", "cc_diode", "BAV70W", {1: "PRESS_N", 2: "LATCH_G", 3: "BTN_N"})
+    # C27: debounce, and the second ESD stage behind D6/R30.
+    # tau = R24 x C27 = 10ms on release; a press discharges it via R30
+    # in 0.1ms.
     c.add("C27", "c_100n", "100n", {1: "BTN_N", 2: "GND"})
-    c.add("D2", "or_diode", "BAT54S", {1: "SW_ON", 2: "VBATT", 3: "PWR_EN"})
+    c.add("D2", "or_diode", "BAV99W", {1: "SW_ON", 2: "VBATT", 3: "PWR_EN"})
     c.add("R17", "r_100k", "100k", {1: "PWR_EN", 2: "GND"})
     c.add("R18", "r_100k", "100k", {1: "VBUS", 2: "PWR_EN"})
+
+    # --- one button: long hold = BOOTSEL / hardware force-off ---
+    # (2026-10-24, user decision; simulated over corners in design/sim/button
+    # before adoption.) SW1 is gone. Holding the power button ~2-11s (spread
+    # over parts and temperature, ~5s typical) resets the chip with QSPI_SS
+    # strapped low, so the bootrom comes up in BOOTSEL. Nothing in flash is
+    # touched: with USB in it waits as a drive until unplugged/rebooted; on
+    # battery the reset drops PWR_HOLD and the board turns OFF on release —
+    # which is also the force-off for hung firmware the soft latch lacked
+    # (gate-2 M2).
+    #   PRESS_N  D4's spare anode, R26 to 3V3. ~0.45V (one silicon VF) while
+    #            pressed. 0V when the board is off, so D4 A1 is reverse-biased
+    #            exactly as when it went to the GPIO pad: the off-state leak
+    #            budget on LATCH_G is unchanged.
+    #   Q8       P-FET inverter from 3V3: BTN_SENSE (GPIO21) becomes a clean
+    #            active-high 0/3.3V "held". A P-FET because the 0.45V diode-OR
+    #            low is too close to a Schmitt's VT- (0.6V min), but is 2.85V
+    #            of gate drive against CJ2101's -0.45..-1V threshold.
+    #   R27 4.7k BTN_SENSE pull-down. Firmware that still enables GPIO21's
+    #            internal pull-up (32-86k) then holds the node at <=0.42V;
+    #            add U8's input leak at its +1uA spec max x R28 (0.68V) and
+    #            BOOT_TMR is still 1.1V, under VT+ min (1.42V at 3.3V), so
+    #            the timer can't creep up by itself (review F4: 10k left only
+    #            ~0.05V). Costs 0.7mA only while the button is held. FIRMWARE MUST CHANGE WITH THIS BOARD:
+    #            pull-up off, high = pressed, long-press-off well under 2s.
+    #   R28/C75  hold timer, tau 6.8s nominal, charged from BTN_SENSE. 680k so
+    #            U8's input leakage (+-1uA spec max, nA real) stays small
+    #            next to the ~3uA charge current. C75 is X5R: tolerance,
+    #            temperature and DC bias are all in the sim's ctmr corner
+    #            (0.70 hot .. 1.10 cold), which sets the 2.2-10.3s window
+    #            (2.0-19.4s with U8's II at its +-1uA spec max).
+    #   D5       empties C75 into R27 the moment the button is released, so
+    #            holds don't accumulate across presses.
+    #   U8       74LVC2G14: BOOT_TMR -> LONG_N -> LONG (one clean edge).
+    #   Q7       LONG pulls BOOTSEL_SW low -> R3 -> QSPI_SS: the strap the
+    #            bootrom samples, held for as long as the button is.
+    #   C76/R29  differentiate LONG's rising edge into a ~10ms gate pulse
+    #            (10n x 1M: 8-14ms over Q6's VGS(th) 0.8-1.5V). 10n, not
+    #            100n: the edge spike out of U8 is still ~VCC/25R, but it now
+    #            moves 33nC for ~0.25us instead of 330nC (review F5):
+    #   Q6       pulls RUN low -> the chip resets and finds CSn strapped low.
+    # Everything here runs from 3V3, so with the board off it is unpowered
+    # and draws nothing; while on, R26/R27 cost nothing unless pressed.
+    c.add("R26", "r_100k", "100k", {1: "3V3", 2: "PRESS_N"})
+    c.add("Q8", "oring_pfet", "CJ2101", {1: "PRESS_N", 2: "3V3", 3: "BTN_SENSE"})
+    c.add("R27", "r_4k7", "4.7k", {1: "BTN_SENSE", 2: "GND"})
+    c.add("R28", "r_680k", "680k", {1: "BTN_SENSE", 2: "BOOT_TMR"})
+    c.add("C75", "c_10u_0603", "10u", {1: "BOOT_TMR", 2: "GND"})
+    c.add("D5", "si_diode", "1N4148WS", {1: "BTN_SENSE", 2: "BOOT_TMR"})  # 1 = K
+    c.add("U8", "logic_schmitt2", "74LVC2G14", {
+        1: "BOOT_TMR", 6: "LONG_N",      # 1A -> 1Y
+        3: "LONG_N", 4: "LONG",          # 2A -> 2Y
+        5: "3V3", 2: "GND",
+    })
+    c.add("C77", "c_100n", "100n", {1: "3V3", 2: "GND"})  # U8 VCC decap
+    c.add("Q7", "lvl_nfet", "BSS138W", {1: "LONG", 2: "GND", 3: "BOOTSEL_SW"})
+    c.add("C76", "c_10n", "10n", {1: "LONG", 2: "RUN_KICK"})
+    c.add("R29", "r_1m", "1M", {1: "RUN_KICK", 2: "GND"})
+    c.add("Q6", "lvl_nfet", "BSS138W", {1: "RUN_KICK", 2: "GND", 3: "RUN"})
 
     # --- VBUS presence sense -> ADC1 (rev 3) ---
     # CHRG/DONE cannot distinguish "unplugged" from "plugged in and

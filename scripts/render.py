@@ -72,6 +72,44 @@ TAGS = {
 FEED = [
     dict(
         date="2026-10-24", sha=None, tags=["hardware", "simulation"],
+        title="One button, no hot self-start, ESD-proof edge button",
+        lede="The simulated fixes are in the netlist and on the board: SW1 is "
+             "gone, D2/D3 are silicon, and the edge button has a TVS. "
+             "54/54 sim runs pass; DRC 0. <a href='sim/button/'>Report</a>.",
+        body="""
+<p><b>One button.</b> Holding the power button 2.2–10.3&nbsp;s (about 5&nbsp;s
+typical) resets the chip into BOOTSEL. It never erases flash: with USB in, the
+board waits as a drive; on battery, it turns off when you let go. That second
+case is also the hardware force-off for hung firmware. Q6/R29 took SW1's old
+front spot. Everything else (U8 74LVC2G14, Q7, Q8, the timer) is on the back,
+under the cell, ≤&nbsp;1.1&nbsp;mm.</p>
+
+<p><b>Hot self-start fixed.</b> D2 BAT54SW → BAV99W and D3 B5819WS →
+1N4007WS. Off-state EN is now ≤&nbsp;0.03&nbsp;V up to 85&nbsp;°C, where the old
+board reached 2.27&nbsp;V. The cost is VSYS ≈ VBUS − 0.8&nbsp;V on USB.</p>
+
+<p><b>ESD.</b> D6 PESD5V0S1BL clamps at the switch pad, and R30 (1k) keeps
+the strike off D4. At ±8&nbsp;kV, ≤&nbsp;22&nbsp;mA reaches the latch (it was
+~24&nbsp;A) and the strike no longer counts as a press.</p>
+
+<p><b>Independent review fixes.</b> Q4 is now a high-threshold LBSS84WT1G
+(0.8–2.0&nbsp;V instead of the CJ2101's 0.45&nbsp;V), so off-state leakage
+can't switch the latch on when hot, even with a steep threshold tempco
+and extra Q5 leakage. R27 became 4.7k so firmware that leaves GPIO21's
+pull-up on can't creep the timer. C76/R29 became 10n/1M. Q6/R29 moved off
+the silkscreen art.</p>
+
+<p><b>Firmware must change with this board:</b> GPIO21 is active high with no
+pull-up, and the long-press-off must stay at or under 1.5&nbsp;s.</p>
+""",
+        media=[("render_place_bottom.png", "back: the new timer cluster above the MCU", True),
+               ("sim/button/plots/tsweep.png",
+                "board off, no USB: EN vs temperature, board vs afabd86", True),
+               ("sim/button/plots/esd_neg8kv__board__typ__3.7.png",
+                "−8 kV into the button pad: the TVS takes it, the board stays off", True)],
+    ),
+    dict(
+        date="2026-10-24", sha=None, tags=["hardware", "simulation"],
         title="Simulating the power button: a one-button BOOTSEL works, and "
               "the committed board turns itself on at ~70&nbsp;°C",
         lede="An ngspice testbench built straight from <code>circuit.py</code>, "
@@ -104,8 +142,8 @@ viewer</a> now shows the real back-side stack.</p>
         media=[("sim/button/plots/tsweep.png",
                 "Board off, no USB: EN vs temperature. Red band = NCP730 EN "
                 "threshold. Purple = both diodes silicon.", True),
-               ("sim/button/plots/bootsel_usb__onebutton_fix__typ__3.7.png",
-                "Hold 10 s with USB in: RUN pulse, strap low, BOOTSEL.", True),
+               ("sim/button/plots/bootsel_usb__board__typ__3.7.png",
+                "Hold with USB in: RUN pulse, strap low, BOOTSEL.", True),
                ("render_cell_iso.png", "the cell + 1.5 mm VHB on the back", True)],
     ),
     dict(

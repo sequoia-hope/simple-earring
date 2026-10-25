@@ -27,3 +27,30 @@ Verified by the reviewer: D4/D2 pinouts against Nexperia Table 2; CJ2101 orienta
 Re-check after fixes: `gen_schematic.py` 91 nets match (C27 sits on the existing BTN_N/GND); ERC 7 errors, all the baseline `power_pin_not_driven`, no new types.
 
 **Gate 2: PASSED** after fixes.
+
+---
+
+# Gate 2 addendum, 2026-10-24: one-button BOOTSEL, silicon D2/D3, button TVS
+
+**Changes**
+- SW1 deleted.
+- New block "one button: long hold = BOOTSEL / force-off": Q8, R26, R27, R28, C75, D5, U8, C77, Q7, C76, R29, Q6.
+- Latch block: SW2 → BTN_EXT, plus D6 (TVS) and R30. D4 A1 → PRESS_N.
+- D2 → BAV99W, D3 → 1N4007WS.
+- Flash block: R3's BOOTSEL_SW end becomes a label.
+
+| check | evidence |
+|---|---|
+| netlist vs circuit.py | `gen_schematic.py`: "netlist verified against circuit.py: **97 nets match**" (157 components) |
+| ERC | `kicad-cli sch erc --severity-error`: 7 errors, all `power_pin_not_driven` on the power symbols, **the same 7 as the baseline**. No new types |
+| text clashes | the generator's clash checker passes (0) after placing the D5, R3, U8/C77 and D6 text |
+| style | Power is on top and GND at the bottom. Signal runs left → right: PRESS_N → Q8 → BTN_SENSE → R28 ∥ D5 → BOOT_TMR → U8 → LONG → Q7 / C76 → Q6. U8's 1Y/2A pins sit side by side, so the LONG_N link is a two-pin bracket. Global labels appear only for cross-block nets (PRESS_N, BTN_SENSE, BOOTSEL_SW, RUN) |
+| symbols | New: plain `D` (D3, D5) and `D_TVS` (D6). D_CC and D_SS lost the Schottky hooks: D4 has always been silicon (BAV70W), and D2 now is too. The ring-cap bank filter now excludes C75–C77 |
+| renders | scratch crops of out/earring-schematic.pdf, checked |
+
+After review F4/F5: R27 → 4.7k, C76 → 10n, R29 → 1M. Regenerated: 97 nets
+match; text-clash check 0.
+Review F2: Q4 → LBSS84WT1G (`latch_pfet`), drawn with the same Q_PMOS_HS
+symbol. Regenerated: 97 nets match.
+
+**Re-review 2026-10-24: PASS** (see design/gates/phase8.md, "Re-review of the fixes").

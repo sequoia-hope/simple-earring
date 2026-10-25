@@ -37,7 +37,35 @@ LATCH = {
     "Q5": (-5.75, -4.00, 0),
     "D4": (-6.25, -6.50, 0), "Q4": (-8.50, -3.50, 0),
     "R24": (-7.75, -1.75, 0), "R25": (-5.75, -2.25, 0),
-    "C27": (-6.00, -11.75, 270),   # BTN_N ESD cap, beside the button
+    "C27": (-6.75, -8.50, 0),      # BTN_N debounce, behind R30 (D6 took its old spot)
+}
+
+
+# one-button BOOTSEL + button ESD (2026-10-24): (x, y, rot, back). Every
+# spot came out of tools/scan_spot.py in signal order, with the previously
+# placed ones on the board and a centre keepout of +-5.6 x (-6.0..5.0)
+# around U1 so its pin-escape vias keep the back directly under the chip.
+# The button's D6/R30 sit where the crowded tip first had room (4.4mm from
+# SW2.2): the routed order must stay SW2.2 -> D6.1 -> R30 -> BTN_N, so the
+# clamp is ahead of everything it protects. U8 sits east, between R2 (RUN)
+# and R3 (BOOTSEL_SW); Q7 is directly under R3 (one via); Q6/R29 took SW1's
+# old front spot (0, -11.2), clear of the silk art, the only place left
+# with room for a SOT-323 near RUN.
+ONEBTN = {
+    "D6": (-6.00, -11.75, 270, True),  # TVS on the SW2.2 -> R30 line (C27's old spot)
+    "R30": (-5.50, -10.00, 180, True), # pad 1 (BTN_EXT) east, 2 (BTN_N) west
+    "R26": (-2.75, -8.50, 0, True),    # PRESS_N pull-up, under Q8's gate
+    "Q8": (-3.50, -6.75, 0, True),     # drain faces D4/R27
+    "R27": (-4.75, -8.50, 180, True),  # BTN_SENSE pad east, at Q8.3
+    "R28": (-1.00, -6.25, 0, True),
+    "C75": (0.75, -6.75, 90, True),    # BOOT_TMR pad north, toward U8.1
+    "D5": (0.75, -9.25, 0, True),
+    "U8": (3.50, -7.00, 0, True),
+    "C77": (6.00, -7.00, 90, True),    # beside U8.5 (VCC)
+    "Q7": (7.25, -4.75, 0, True),      # under R3: BOOTSEL_SW is one via
+    "C76": (4.50, -9.25, 90, True),    # beside U8.4 (LONG); RUN_KICK vias to Q6 on the front
+    "R29": (-3.25, -12.75, 90, False), # beside Q6's gate
+    "Q6": (-1.00, -11.00, 180, False),  # front, SW1's old spot; drain RUN
 }
 
 
@@ -57,7 +85,7 @@ def polar(r, theta_deg):
 
 def place(fp, x, y, rot=0.0, back=False):
     fp.SetPosition(vec(x, y))
-    if back and fp.GetLayer() != pcbnew.B_Cu:
+    if back != (fp.GetLayer() == pcbnew.B_Cu):  # re-runs: a parked back part may land front
         fp.Flip(fp.GetPosition(), pcbnew.FLIP_DIRECTION_LEFT_RIGHT)
     fp.SetOrientationDegrees(rot)
     # keep reference text small & on fab layer conceptually; just shrink
@@ -493,7 +521,8 @@ def main():
     # more. IMU_INT1, which that corridor existed for, now runs east
     # instead (x 3.4..8.6). Do NOT re-derive a centre corridor from this
     # placement — if you need one back, SW1 and Y1 both have to move.
-    place(fps["SW1"], 0, -11.2, rot=0)
+    # (SW1 removed 2026-10-24: the power button's long hold does BOOTSEL.
+    # Its front top-centre spot is free again.)
     # testpoints: back shoulders, clear of the battery insertion corridor
     # (|x|<10.5, y>9.7) and the clip feet. TP3 sits on the lower-left
     # shoulder (flush pad: may overhang the cell insertion sweep).
@@ -592,6 +621,10 @@ def main():
     # with no edge to smear. rot 0 points the tap pad west, back at R19.
     place(fps["R20"], 11.50, -1.25, rot=0)
 
+    # ---- one-button BOOTSEL + button ESD (2026-10-24), see ONEBTN ----
+    for ref, (x, y, r, back) in ONEBTN.items():
+        place(fps[ref], x, y, rot=r, back=back)
+
     resolve_overlaps(board, fps)
     pcbnew.SaveBoard(str(PCB), board)
     print(f"placed {len(fps)} footprints -> {PCB.name}")
@@ -608,7 +641,7 @@ def resolve_overlaps(board, fps, max_iter=300):
     # board, and a relaxer nudge silently invalidates that (R20's scanned
     # spot was legal until relaxation slid it 0.8mm into R16).
     EXEMPT = {"R4", "R5", "R8", "C11", "C12", "R13", "C22",
-              "R19", "R20", "R21", "R22", "R23", "C29"}
+              "R19", "R20", "R21", "R22", "R23", "C29"} | set(ONEBTN)
 
     def movable(ref):
         if ref in EXEMPT:

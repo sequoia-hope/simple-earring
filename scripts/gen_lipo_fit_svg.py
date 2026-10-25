@@ -69,6 +69,11 @@ HEIGHT = {
     "SOT-323_BAT54SW": 1.10, "SW-TH_MSK12C02": 1.50, "SOT-666": 1.00,
     "SW_B3U-3000P": 1.35,       # Omron ds: 1.2 +0.15
     "TestPoint_Pad_1.5x1.5mm": 0.0,
+    # one-button BOOTSEL + button ESD (2026-10-24)
+    "SOT-363_SC-70-6": 1.10,    # Nexperia SOT363 A max (74LVC2G14 ds p.15)
+    "D_SOD-323": 1.10,          # MDD 1N4007WS drawing 0.043in max; 1N4148WS same pkg
+    "D_SOD-882": 0.50,          # Nexperia DFN1006-2 body 0.48
+    "C_0603_1608Metric": 0.90,  # CL10A106KP8NNNC T = 0.8 +-0.1
 }
 
 # --- dashboard palette (render.py write_index) ----------------------------

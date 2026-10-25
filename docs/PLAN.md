@@ -144,31 +144,36 @@ VBATT -> U2 pin 5 (charger BAT), BT1, C17, SW2   [cell node ONLY]
 
 ## Open work
 
-*Refreshed 2026-10-24 for the LiPo board (afabd86). Gates 0/1/2/4/6 passed; see
-`design/gates/`.*
+*Refreshed 2026-10-24. Gates 0/1/2/4/6 passed for the LiPo board; see
+`design/gates/`. The one-button change below re-ran gates 1/2/6/8.*
 
-1. **Hot self-start (found by simulation, affects afabd86).** At about 70 °C,
-   with the board off, reverse leakage from D2b (BAT54 clamp) and D3 (B5819WS)
-   lifts the NCP730's EN past its 0.7 V minimum, and the board turns itself on.
-   Fixing either diode alone isn't enough. Candidate fix: D2 → BAV99W
-   (drop-in), plus D3 → silicon or an ideal diode. Evidence and the
-   temperature table are in `design/sim/button/README.md`. Needs a decision,
-   then gates 1/2/6 re-run.
-2. **ESD on the edge button (found by the review, affects afabd86).** A
-   negative ESD hit on BTN_N acts like a press and pushes ~24 A through D4
-   (BAV70W IFSM 2 A). Add a bidirectional TVS beside SW2.
-3. **One-button BOOTSEL (proposal, simulated, not adopted).** Delete SW1. A
-   10 s hold on the power button forces RUN reset + BOOTSEL, and on battery it
-   is a hardware force-off for hung firmware. It passes every scenario and
-   corner together with the item-1 fix. It costs 11 small parts, so it needs
-   a placement check under the 1.1 mm cell height cap.
+**Done 2026-10-24 (uncommitted until reviewed):** one-button BOOTSEL (SW1
+deleted; a 2.2–10.3 s hold (up to ~19 s at U8's leakage limit) on the power button resets the chip into BOOTSEL,
+and on battery turns the board off on release); hot self-start fixed (D2 →
+BAV99W, D3 → 1N4007WS silicon); ESD on the edge button fixed (D6
+PESD5V0S1BL at the pad, R30 1k); Q4 → LBSS84WT1G for latch margin
+(review F2). 54/54 sim runs pass and DRC shows 0 errors on the re-placed board. Evidence: `design/sim/button/README.md`,
+`design/gates/phase{1,2,6,8}.md`, `design/decisions.md`.
+
+1. **Firmware has to change with the hardware.** GPIO21 is now active high
+   with no pull-up. The long-press-off must be under 2 s. Assert PWR_HOLD
+   first thing and enable the watchdog.
+2. **Bring-up checks for the new parts:** U8 input leakage (the timer assumes
+   nA; at the 1 µA spec max the earliest fire drops to ~1.9 s), the real
+   BOOTSEL hold time on a few boards, VSYS on a weak USB port (silicon D3:
+   about VBUS − 0.8 V), and whether DONE asserts on a ≤ 4.6 V port with a
+   full cell. There, Q2's body diode lets the cell share the load, so the
+   charge current may never fall to the C/10 termination level. Charging
+   itself is unaffected: U2 runs straight off VBUS (UVLO 4.0 V, 1.2 Ω pass FET).
+3. **Routing constraints:**
+   - Route BTN_EXT as SW2.2 → D6.1 → R30.1, with nothing else on the net.
+   - Put a GND via within 1 mm of D6.2.
+   - Keep RUN_KICK (a 1 MΩ node) clear of LED_DATA.
 4. **Route** the placed board with the new autorouter, then gate 7 (DRC 0,
    0 unconnected).
 5. **Gates 8–10**: the rest of simulation/SI (LED rail inrush, charger
    thermal), silkscreen, then release with a sync check and CPL rotations.
-6. **Firmware for the LiPo board**: assert PWR_HOLD first thing and enable the
-   watchdog; the long-press-off must stay under 2 s if item 3 lands (GPIO21
-   then reads active high). Still open from rev 2: `gpio_set_outover(LED_DATA,
+6. **Firmware for the LiPo board** (see item 1). Still open from rev 2: `gpio_set_outover(LED_DATA,
    INVERT)` for Q3 (**never flash it to a rev-1 board**), the ALS and
    VBUS_SENSE readers, and battery numbers for the 140 mAh LPR302823.
 7. **TPU case for the LiPo stack**: a 4.7 mm stack, so a ≥5.2 mm cup, plus the

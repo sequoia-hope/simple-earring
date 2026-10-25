@@ -8,12 +8,19 @@
 *
 * Corner parameters (overridden per run with .param):
 *   vto_p    CJ2101 VGS(th)    ds: -0.45 min / -0.7 typ (no max given)
+*   vto_p4   LBSS84WT1G VGS(th) ds: -0.8 / -2.0 (Q4; hot corner less 2mV/C)
 *   vto_n    BSS138W VGS(th)   ds: 0.8 / 1.3 / 1.5
-*   vt_pos   LVC2G14 VT+ @3V   ds Table 6.5: 1.3 .. 2.2
-*   vt_neg   LVC2G14 VT- @3V   ds Table 6.5: 0.6 .. 1.3
+*   idss     BSS138W drain leak at 25C (A), x2 per ~15C (ElecSuper's 1uA@25C ->
+*            100uA@125C max slope); hot corner = 1uA at 85C (review F2). A
+*            judgment, not a limit: the spec is at 40-60V, real 4V parts are nA;
+*            leakstudy.py's 3uA column bounds it.
+*   vt_pos   LVC2G14 VT+ @3V   Nexperia ds Table 8: 1.30 / 1.76 / 2.20
+*   vt_neg   LVC2G14 VT- @3V   Nexperia ds Table 8: 0.60 / 1.04 / 1.50
 *   en_th    NCP730 EN rising  ds p.4: 0.7 / 0.9 / 1.05
 *   en_hy    NCP730 EN hyst.   ds p.4: 0.01 / 0.1 / 0.2
 *   en_pu    NCP730 EN pull-up ds p.4: 0.01 / 0.3 / 1 uA
+*   ii       74LVC2G14 input leakage (A, + = into the pin): Nexperia +-1uA max
+*   itvs     PESD5V0S1BL IRM at 25C: 5nA typ / 100nA max
 
 
 * ---- MOSFETs (ngspice VDMOS: 3-terminal, body diode included) ----
@@ -30,6 +37,14 @@
 .model CJ2101 VDMOS(pchan Vto={vto_p-0.2} Kp=3.0 Rd=0.03 Rs=0.01 Rg=5
 + Cgs=560p Cgdmax=150p Cgdmin=40p Cjo=120p Is=1e-11 N=1.2 ksubthres=0.1)
 
+* LBSS84WT1G P-ch, SOT-323 (Q4 since review F2). VGS(th) -0.8 / -2.0V @250uA
+* (corner vto_p4), RDS(on) 2 typ / 6 max @-5V (model ~3), Ciss 38p, Crss 2.7p
+* (ds p.2). CALIBRATION: with Kp=0.14 / ksubthres=0.1 the model reaches 250uA
+* 0.02V before its Vto (gate tied to drain, as the ds test), so Vto is offset
+* by -0.02V to make ID(vto_p4) = 250uA.
+.model BSS84W VDMOS(pchan Vto={vto_p4-0.02} Kp=0.14 Rd=0.5 Rs=0.5 Rg=10
++ Cgs=35p Cgdmax=5p Cgdmin=2p Cjo=5p Is=1e-12 N=1.2 ksubthres=0.1)
+
 * BSS138W N-ch, SOT-323. VGS(th) 0.8-1.5V, RDS(on) ~3.5 ohm @4.5V,
 * Ciss ~27p (BSS138 family datasheets). Calibration: ID(Vto) = 288uA at
 * VDS 4V with these parameters, i.e. Vto already sits at the 250uA point.
@@ -41,7 +56,8 @@
 * scaling (EG, XTI), calibrated to the datasheet reverse-current curves at
 * the ~4V reverse bias these parts see on this board:
 *
-* DSI: BAV70W / BAV99W / 1N4148WS silicon switching diodes. 1N4148 forward
+* DSI: BAV70W (D4) / BAV99W (D2) / 1N4148WS (D5) silicon switching diodes,
+* all IR <= 25-30nA @20-25V at 25C in their datasheets. 1N4148 forward
 * set: VF = 0.58V @1mA, ~0.43V @30uA (Diodes DS30063 Fig. 2; VF max 0.715V
 * @1mA). IR = IS = 2.5nA at 25C (ds max 25nA @20V); EG=0.85 puts 85C at
 * ~1.1uA, matching the ds trend (25nA @25C -> 30uA @150C, ~x1.8 per 10C).
@@ -55,6 +71,35 @@
 * matching Yangjie B5817WS-B5819WS Fig. 4 (~3uA @25C, ~120uA @75C at 10%
 * of rated VR = 4V). design/datasheets/B5819WS_yangjie.pdf
 .model B5819 D(Is=2e-6 N=1.05 Rs=0.08 Cjo=110p Bv=40 Ibv=1m Eg=0.69 Xti=2)
+
+* 1N4007WS (D3 since 2026-10-24), MDD ds design/datasheets/1N4007WS_MDD.pdf.
+* Forward fit to Fig. 3 (typ, 25C): 0.80V @0.1A, 0.97V @1A -> Is 4n, N 1.8,
+* Rs 0.08; EG 1.0 gives Fig. 3's ~-1.3mV/C. Reverse current is NOT the
+* diode's Is here (that would be the forward fit's 4nA): Fig. 2 shows a
+* generation-type leak, ~0.02uA @25C and ~0.6uA @75C at low VR, i.e. x2
+* per ~10C, so it is a separate temperature-scaled source (temper = the
+* simulation temperature). 85C -> ~1.2uA + Is(85C) ~0.26uA.
+.model D4007F D(Is=4n N=1.8 Rs=0.08 Cjo=5p Bv=1000 Ibv=5u Eg=1.0 Xti=3)
+.subckt D4007WS A K
+D1 A K D4007F
+Blk K A I = 20n * exp((temper - 25) / 14.6) * tanh(V(K,A) / 0.1)
+.ends D4007WS
+
+* PESD5V0S1BL bidirectional TVS (D6), Nexperia ds Table 6: VBR 5.5-9.5V
+* @1mA, VCL <=10V @1A and <=14V @12A (8/20us), Cd 35pF. Symmetric smooth
+* clamp, knee 7.5V + 0.4 ohm: ~7.5V @1mA, ~7.9V @1A, ~12.3V @12A.
+* (Not two anti-series diodes: their midpoint is an internal node that
+* starts at 0V under uic, i.e. 3.4V forward on one diode at t=0.)
+* Leakage: corner param itvs = IRM at 25C (5nA typ, 100nA max), scaled by
+* Fig. 6's typical temperature slope (x2 per ~17C: x11.5 from 25 to 85C).
+* tanh() makes it the full IRM from ~0.4V up, i.e. no credit for running at
+* 4V instead of the 5V test voltage.
+.subckt PESD5V0S1BL A B
+Bcl A B I = 0.05 / 0.4 * (ln(1 + exp(min((V(A,B) - 7.5) / 0.05, 60))) + max((V(A,B) - 7.5) / 0.05 - 60, 0)
++ - ln(1 + exp(min((-V(A,B) - 7.5) / 0.05, 60))) - max((-V(A,B) - 7.5) / 0.05 - 60, 0))
+Blk A B I = {itvs} * exp((temper - 25) * 0.04077) * tanh(V(A,B) / 0.2)
+C1 A B 35p
+.ends PESD5V0S1BL
 
 * ---- switch model for the B3U contact: 100 mohm max closed (ds),
 * 100 Mohm min insulation (ds) ----
@@ -97,13 +142,14 @@ Rq VCC GND 10Meg  $ unpowered VCC is high-Z (review N3; 100k flattered VBUS)
 .ends LGS4056H
 
 * ---- 74LVC2G14 one gate (behavioral) ----
-* Schmitt inverter. VT+ vt_pos / VT- vt_neg are the ds Table 6.5 limits at
+* Schmitt inverter. VT+ vt_pos / VT- vt_neg are the Nexperia Table 8 limits at
 * VCC = 3V; they are scaled by VCC/3 here so the gate behaves while VCC
 * ramps (the real thresholds fall with VCC too: 0.3-0.7V at 1.65V).
 * Output = VCC * (not state) through 25 ohm (VOL 0.4V @16mA, ds).
 * Below VCC ~1V the output is held low (unpowered: Ioff = output disabled).
 * Input leakage: corner param ii (A), positive = current INTO node A
-* (ds Table 6.5 II = +-5uA max; real parts are nA, 0.3uA hot is pessimistic).
+* (Nexperia 74LVC2G14 Table 7: II +-0.1uA typ, +-1uA max; TI's is +-5uA).
+* VT+/VT- limits are identical in the Nexperia (Table 8) and TI datasheets.
 .subckt LVC14 A Y VCC GND
 Bii GND A I = {ii} * (V(VCC) > 1.0 ? 1 : 0)
 Bs s0 GND V = V(A) > (V(st) > 0.5 ? {vt_neg} : {vt_pos}) * max(V(VCC), 0.1) / 3.0 ? 1 : 0

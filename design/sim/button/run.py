@@ -4,8 +4,9 @@
 The board-side netlist is NOT hand-copied: it is pulled from
 scripts/circuit.py (the electrical source of truth) by reference designator,
 so a value change there is a value change here. The one-button proposal is
-applied as a patch to that circuit (`one_button()`), written in the same
-c.add() form circuit.py uses, so adopting it is a copy-paste.
+the board as of 2026-10-24: one-button BOOTSEL, silicon D2/D3, TVS on the
+button. The committed design before that (afabd86) is kept as a reference
+patch (`afabd86()`) so its hazards stay demonstrable side by side.
 
     python3 design/sim/button/run.py                # every variant/scenario/corner
     python3 design/sim/button/run.py --quick        # typical corner only
@@ -50,87 +51,50 @@ POWER_REFS = [
     "R19", "R20",                                 # VBUS_SENSE divider (also Q2's gate)
     "U3", "C18", "C19", "R17", "R18", "D2",       # LDO + EN network
     "R11", "R12", "C21",                          # VBSENSE divider
-    "SW2", "Q4", "R24", "Q5", "R25", "D4", "C27", # soft latch
-    "R2", "R3", "SW1",                            # RUN pull-up, BOOTSEL strap
+    "SW2", "D6", "R30",                           # power button + ESD clamp
+    "Q4", "R24", "Q5", "R25", "D4", "C27",        # soft latch
+    "R26", "Q8", "R27", "R28", "C75", "D5",       # one-button: sense + hold timer
+    "U8", "C77", "Q7", "C76", "R29", "Q6",        # one-button: BOOTSEL strap + RUN kick
+    "R2", "R3",                                   # RUN pull-up, BOOTSEL strap R
 ]
-NEW_PARTS = {  # part keys the proposal introduces -> how to simulate them
-    "logic_schmitt2": "LVC2G14",
-    "si_diode": "DSI",
-}
+ONE_BUTTON = ["D6", "R30", "R26", "Q8", "R27", "R28", "C75", "D5", "U8", "C77",
+              "Q7", "C76", "R29", "Q6"]
 
 
-def one_button(c):
-    """Proposal: SW1 deleted; the power button (SW2) also forces BOOTSEL when
-    held ~2-4 s. Same c.add() form as circuit.py.
-
-      PRESS_N  D4's spare anode, pulled up to 3V3 by R26. Low (~0.45V, one
-               silicon VF) while SW2 is pressed. 0V when the board is off, so
-               D4-A1 is reverse-biased exactly as BTN_SENSE's pad was: the
-               off-state leak budget on LATCH_G is unchanged.
-      Q8       P-FET inverter, source 3V3: BTN_SENSE (GPIO21) is now a clean
-               ACTIVE-HIGH 0/3.3V "held" signal. A P-FET because the 0.45V
-               diode-OR low sits too close to a Schmitt's VT- (0.6V min), but
-               is 2.85V of gate drive to a -0.45..-1V threshold.
-      R27 10k  pull-down on BTN_SENSE. 10k, not 100k, so firmware that still
-               turns on GPIO21's internal pull-up (32-86k) can't hold
-               BTN_SENSE above 0.8V and walk the timer up by itself.
-      R28/C75  hold timer, tau 5.6s (X7R +-10%), charged from BTN_SENSE; D5 empties it
-               through R27 the moment the button is released. 560k, not
-               1.2M: U8's input leakage (corner ii, 0.3uA realistic hot)
-               must stay a small fraction of the charge current. NOTE the
-               LVC II spec max (+-5uA) would still break it; real parts are nA.
-               through R27 the moment the button is released.
-      U8       74LVC2G14: BOOT_TMR -> LONG_N -> LONG (clean edge, active high).
-      Q7       LONG pulls BOOTSEL_SW -> R3 1k -> QSPI_SS low: the strap the
-               bootrom samples. Held for as long as the button is.
-      C76/R29  differentiate LONG's rising edge into a ~10ms gate pulse on
-      Q6       which pulls RUN low: the chip resets, and the bootrom finds
-               CSn strapped low -> BOOTSEL.
-    On battery the same gesture is a hardware force-off: the reset drops
-    PWR_HOLD, the board stays up only while the button is held, and goes off
-    on release (fixes "hung firmware with PWR_HOLD high can't be turned off").
-    """
-    del c.components["SW1"]
-    c.components["D4"].pins["1"] = "PRESS_N"
-    c.add("R26", "r_100k", "100k", {1: "3V3", 2: "PRESS_N"})
-    c.add("Q8", "oring_pfet", "CJ2101", {1: "PRESS_N", 2: "3V3", 3: "BTN_SENSE"})
-    c.add("R27", "r_10k", "10k", {1: "BTN_SENSE", 2: "GND"})
-    c.add("R28", "r_560k", "560k", {1: "BTN_SENSE", 2: "BOOT_TMR"})
-    c.add("C75", "c_10u", "10u", {1: "BOOT_TMR", 2: "GND"})
-    c.add("D5", "si_diode", "1N4148WS", {1: "BTN_SENSE", 2: "BOOT_TMR"})  # 1=K 2=A
-    c.add("U8", "logic_schmitt2", "74LVC2G14", {
-        1: "BOOT_TMR", 6: "LONG_N",      # 1A -> 1Y
-        3: "LONG_N", 4: "LONG",          # 2A -> 2Y
-        5: "3V3", 2: "GND",
-    })
-    c.add("Q7", "lvl_nfet", "BSS138W", {1: "LONG", 2: "GND", 3: "BOOTSEL_SW"})
-    c.add("C76", "c_100n", "100n", {1: "LONG", 2: "RUN_KICK"})
-    c.add("R29", "r_100k", "100k", {1: "RUN_KICK", 2: "GND"})
-    c.add("Q6", "lvl_nfet", "BSS138W", {1: "RUN_KICK", 2: "GND", 3: "RUN"})
+def afabd86(c):
+    """The committed design before 2026-10-24, rebuilt from today's circuit.py:
+    SW1 BOOTSEL key, BTN_SENSE read through D4 A1 (pulled-up, active low),
+    BAT54SW on D2, B5819WS on D3, no TVS. Kept so the hot self-start and the
+    unkillable-hung-firmware hazard stay reproducible."""
+    for r in ONE_BUTTON:
+        del c.components[r]
+    c.components["SW2"].pins["2"] = "BTN_N"
+    c.components["D4"].pins["1"] = "BTN_SENSE"
+    c.components["D2"].part = "or_diode_bat54"
+    c.components["D3"].part = "sys_diode_b5819"
+    c.components["Q4"].part = "oring_pfet"
+    c.components["Q4"].value = "CJ2101"
+    c.add("SW1", "bootsel_button", "BOOTSEL", {1: "BOOTSEL_SW", 2: "", 3: "", 4: "GND"})
     return c
 
 
-def leak_fix(c):
-    """Hot self-start fix, found by this testbench (idle_off @85C turns the
-    board on in BOTH variants). Two reverse-leakage paths reach the LDO EN:
-      D2b (BAT54 clamp diode, VBATT -> PWR_EN): ~20uA @85C (Nexperia Fig. 2)
-          into R17 100k = 2V on EN (threshold 0.7-1.05V).
-      D3  (B5819WS, VSYS -> dead VBUS): ~120uA @75C (Yangjie Fig. 4) into
-          R19+R20 = 20k lifts VBUS ~2.4V, which R18/R17 halve onto EN.
-    Fix used here: both diodes silicon. D2 -> BAV99W (same SOT-323 series
-    pair as BAT54S, same pinout), D3 -> a 1A silicon rectifier (VF ~0.75V
-    @60mA: VSYS 4.25V on a 5.0V port, still above the SK6805's 3.7V floor).
-    These are candidates for the user to choose between, not decisions."""
-    c.components["D2"].part = "or_diode_si"
-    c.components["D3"].part = "sys_diode_si"
+def _d2_schottky(c):
+    c.components["D2"].part = "or_diode_bat54"
+    return c
+
+
+def _d3_schottky(c):
+    c.components["D3"].part = "sys_diode_b5819"
     return c
 
 
 VARIANTS = {
-    "asbuilt": lambda c: c,      # SW1 BOOTSEL key + SW2 soft latch (afabd86)
-    "onebutton": one_button,
-    "onebutton_fix": lambda c: leak_fix(one_button(c)),
+    "board": lambda c: c,        # scripts/circuit.py as it stands
+    "afabd86": afabd86,          # reference: the design this testbench found faults in
 }
+# the temperature sweep also puts each Schottky back on its own, to show
+# that both silicon swaps are load-bearing
+SWEEP_VARIANTS = {**VARIANTS, "D2_schottky": _d2_schottky, "D3_schottky": _d3_schottky}
 
 SI = {"p": 1e-12, "n": 1e-9, "u": 1e-6, "m": 1e-3, "k": 1e3, "M": 1e6, "G": 1e9}
 
@@ -164,27 +128,33 @@ def emit(comp):
     if part == "oring_pfet":                      # CJ2101: 1=G 2=S 3=D
         return [f"M{r} {p['3']} {p['1']} {p['2']} CJ2101"]
     if part == "lvl_nfet":                        # BSS138W: 1=G 2=S 3=D
-        return [f"M{r} {p['3']} {p['1']} {p['2']} BSS138W"]
+        return [f"M{r} {p['3']} {p['1']} {p['2']} BSS138W",
+                f"B{r}lk {p['3']} {p['2']} I = {{idss}} * exp((temper - 25) / 21.7)"
+                f" * tanh(V({p['3']},{p['2']}) / 0.2)  $ IDSS (review F2)"]
+    if part == "latch_pfet":                      # LBSS84WT1G: 1=G 2=S 3=D
+        return [f"M{r} {p['3']} {p['1']} {p['2']} BSS84W"]
     if part == "cc_diode":                        # BAV70W: 1=A1 2=A2 3=K
         out = [f"D{r}a {p['1']} {p['3']} DSI", f"D{r}b {p['2']} {p['3']} DSI"]
         return [l for l in out if "None" not in l]
-    if part == "or_diode":                        # BAT54S: 1=A1 2=K2 3=K1/A2
-        return [f"D{r}a {p['1']} {p['3']} BAT54", f"D{r}b {p['3']} {p['2']} BAT54"]
-    if part == "sys_diode":                       # B5819WS: 1=K 2=A
-        return [f"D{r} {p['2']} {p['1']} B5819"]
-    if part == "or_diode_si":                     # BAV99W, BAT54S pinout
+    if part == "or_diode":                        # BAV99W: 1=A1 2=K2 3=K1/A2
         return [f"D{r}a {p['1']} {p['3']} DSI", f"D{r}b {p['3']} {p['2']} DSI"]
-    if part == "sys_diode_si":                    # 1A silicon rectifier: DSI x8 area
-        return [f"D{r} {p['2']} {p['1']} DSI 8"]
-    if part == "si_diode":                        # 1=K 2=A
+    if part == "sys_diode":                       # 1N4007WS: 1=K 2=A
+        return [f"X{r} {p['2']} {p['1']} D4007WS"]
+    if part == "or_diode_bat54":                  # afabd86 D2, BAT54SW (same pinout)
+        return [f"D{r}a {p['1']} {p['3']} BAT54", f"D{r}b {p['3']} {p['2']} BAT54"]
+    if part == "sys_diode_b5819":                 # afabd86 D3, B5819WS: 1=K 2=A
+        return [f"D{r} {p['2']} {p['1']} B5819"]
+    if part == "si_diode":                        # 1N4148WS: 1=K 2=A
         return [f"D{r} {p['2']} {p['1']} DSI"]
+    if part == "tvs_bidir":                       # PESD5V0S1BL, non-polar
+        return [f"X{r} {p['1']} {p['2']} PESD5V0S1BL"]
     if part == "ldo":                             # NCP730: 1=OUT 3=GND 4=EN 6=IN
         return [f"X{r} {p['1']} {p['3']} {p['4']} {p['6']} NCP730"]
     if part == "charger":                         # LGS4056H: 4=VCC 5=BAT
         return [f"X{r} {p['4']} {p['5']} 0 LGS4056H"]
     if part == "battery_pads":                    # 1=+ 2=- : cell, see CELL
         return [f"X{r} {p['1']} {p['2']} CELL"]
-    if part == "power_button":                    # SW2 1=GND 2=BTN_N
+    if part == "power_button":                    # SW2 1=GND 2=BTN_EXT
         return [f"B{r} {p['1']} {p['2']} I = V({p['1']},{p['2']}) * {SW_G.format(ctl='btn')}"]
     if part == "bootsel_button":                  # SW1 pads 1 and 4 (see circuit.py)
         return [f"B{r} {p['1']} {p['4']} I = V({p['1']},{p['4']}) * {SW_G.format(ctl='bsw')}"]
@@ -213,7 +183,7 @@ def board_netlist(variant):
     # U1 pins on these nets
     u1 = c.components["U1"].pins
     nets = set(u1.values())
-    for need in ("RUN", "BOOTSEL", "PWR_HOLD", "BTN_SENSE"):
+    for need in ("RUN", "BOOTSEL", "PWR_HOLD", "BTN_SENSE"):  # noqa
         assert need in nets, f"U1 has no {need} net — circuit.py changed?"
     lines.append("XU1 3V3 RUN BOOTSEL PWR_HOLD BTN_SENSE fwreq act smp bsel fwon RP2350")
     lines.append("CU7cs BOOTSEL 0 6p  $ W25Q16JV /CS input")
@@ -263,9 +233,14 @@ class Scenario:
     vbus: list = field(default_factory=lambda: [(0, 0)])     # plug 0/1
     fwreq: list = field(default_factory=lambda: [(0, 1)])    # firmware wants PWR_HOLD
     cell: str = "3.7"                                         # volts, or "open"
-    variants: tuple = ("asbuilt", "onebutton", "onebutton_fix")
+    variants: tuple = ("board",)
     checks: list = field(default_factory=list)
     tstep: float = 20e-6
+    tmax: float = None                                        # max step (default tstep)
+    corners: tuple = None                                     # None = every corner
+    extra: list = field(default_factory=list)                 # extra netlist lines
+    ic: str = ""                                              # extra .ic terms
+    ov: dict = field(default_factory=dict)                    # corner -> param overrides
 
 
 # check helpers: each takes (wave, ctx) and returns (ok, detail)
@@ -349,7 +324,8 @@ def chk_vgs_q4_off(t0, t1, margin=0.10):
         t = w["time"]
         m = (t >= t0) & (t <= t1)
         vgs = float(np.min(w["LATCH_G"][m] - w["VBATT"][m]))
-        lim = -(abs(ctx["vto_p"]) - margin)
+        vth = ctx["vto_p"] if ctx.get("q4_cj2101") else ctx["vto_p4"]
+        lim = -(abs(vth) - margin)
         return vgs > lim, f"min VGS(Q4) = {vgs*1e3:.0f} mV (must stay above {lim*1e3:.0f} mV)"
     f.__name__ = "Q4 off margin"
     return f
@@ -401,8 +377,41 @@ def chk_no_fire(name="RUN"):
     return f
 
 
+def chk_peak_abs_diff(a, b, r_ohm, limit_a, label):
+    """Peak |I| through a resistor between nodes a and b."""
+    def f(w, ctx):
+        m = w["time"] >= 10e-6
+        i = float(np.max(np.abs(w[a][m] - w[b][m]))) / r_ohm
+        return i <= limit_a, f"peak |I| {label} = {i*1e3:.1f} mA (limit {limit_a*1e3:g} mA)"
+    f.__name__ = f"peak I {label}"
+    return f
+
+
+def chk_band(name, ref, lo, hi, label, t0=10e-6):
+    """name - ref must stay within [lo, hi] V from t0 on (the first uic
+    timepoint is not a physical state)."""
+    def f(w, ctx):
+        m = w["time"] >= t0
+        d = (w[name] - (w[ref] if ref else 0))[m]
+        mn, mx = float(np.min(d)), float(np.max(d))
+        return lo <= mn and mx <= hi, f"{label}: {mn:.2f} .. {mx:.2f} V (allowed {lo} .. {hi})"
+    f.__name__ = label
+    return f
+
+
+def esd(kv):
+    """IEC 61000-4-2 contact-discharge network (150pF / 330R) into the
+    button pad, closing at 20us. No discharge-tip inductance: that only
+    makes the edge faster than the real gun, i.e. pessimistic."""
+    return [f"Cesd esdq 0 150p", "Resd esdq esdr 330",
+            "Vesdsw esdsw 0 PWL(0 0 20u 0 20.001u 1)",
+            "Besd esdr BTN_EXT I = V(esdr,BTN_EXT) * (1e-12 + 1e3 * V(esdsw))"], \
+        f" v(esdq)={kv * 1e3:g}"
+
+
 S = []
 # --- latch behaviour (both variants) ---
+# --- latch behaviour ---
 S.append(Scenario("idle_off", "Battery only, nobody touches it: stays off (leakage corner)",
                   0.5, checks=[chk_off_at(0.49), chk_vgs_q4_off(0.05, 0.5)]))
 S.append(Scenario("power_on", "Press 300ms on battery: firmware latches, stays on after release",
@@ -428,45 +437,89 @@ S.append(Scenario("usb_clicks", "USB in, running: 8 quick clicks never trip BOOT
                   4.5, vbus=[(0, 0), (0.02, 0), (0.0205, 1)],
                   btn=presses([(0.3 + 0.5 * k, 0.5 + 0.5 * k) for k in range(8)]),
                   checks=[chk_mode_at(4.4, "normal"), chk_no_fire()], tstep=100e-6))
-# --- BOOTSEL entry ---
-S.append(Scenario("bootsel_usb", "USB in, running: hold the button 10s -> BOOTSEL, stays in it",
-                  11.0, vbus=[(0, 0), (0.02, 0), (0.0205, 1)], btn=press(0.3, 10.3),
-                  variants=("onebutton", "onebutton_fix"),
-                  checks=[chk_fire_window(0.3, 2.0, 9.0), chk_samples(["high", "low"]),
-                          chk_mode_at(10.9, "bootsel"), chk_on_at(10.9, "USB holds power")],
+# --- BOOTSEL entry / force-off ---
+S.append(Scenario("bootsel_usb", "USB in, running: hold the button 12s -> BOOTSEL, stays in it",
+                  13.0, vbus=[(0, 0), (0.02, 0), (0.0205, 1)], btn=press(0.3, 12.3),
+                  checks=[chk_fire_window(0.3, 2.0, 11.0), chk_samples(["high", "low"]),
+                          chk_mode_at(12.9, "bootsel"), chk_on_at(12.9, "USB holds power")],
                   tstep=100e-6))
-S.append(Scenario("bootsel_usb_sw1", "As-built: hold SW1, plug USB -> BOOTSEL (reference)",
+S.append(Scenario("force_off_hung", "Battery, firmware HUNG with PWR_HOLD high: hold 12s -> off on release",
+                  13.0, btn=presses([(0.05, 0.3), (0.6, 12.6)]), fwreq=[(0, 1)],
+                  checks=[chk_fire_window(0.6, 2.0, 11.0), chk_on_at(12.5, "held"),
+                          chk_off_at(12.95, "released after reset")],
+                  tstep=100e-6))
+# --- review F3/F4/F8 (adoption review): limits, not typicals ---
+# U8 input leakage at the Nexperia II spec max (+-1uA): the hold window
+# stretches to ~18s cold (sinking) and shortens hot (sourcing).
+S.append(Scenario("bootsel_ii_limit", "U8 input leakage at its +-1uA spec max: still fires, window widens",
+                  23.0, vbus=[(0, 0), (0.02, 0), (0.0205, 1)], btn=press(0.3, 22.3),
+                  corners=("cold", "hot"), ov={"cold": dict(ii=-1e-6), "hot": dict(ii=1e-6)},
+                  checks=[chk_fire_window(0.3, 1.5, 20.0), chk_mode_at(22.9, "bootsel")],
+                  tstep=200e-6))
+# Firmware that forgot GPIO21's pull-up is now wrong (active high), but it
+# must not walk the timer into a reset by itself: strongest pull-up (32k)
+# plus U8 sourcing its spec-max 1uA, button never touched.
+S.append(Scenario("pullup_left_on", "Firmware leaves GPIO21's pull-up on, U8 leaks +1uA: no spurious BOOTSEL",
+                  20.0, vbus=[(0, 0), (0.02, 0), (0.0205, 1)],
+                  extra=["Rpu21 3V3 BTN_SENSE 32k  $ RP2350 RPU min (Table 1683)"],
+                  corners=("typ", "hot"), ov={"typ": dict(ii=1e-6), "hot": dict(ii=1e-6)},
+                  checks=[chk_no_fire(), chk_mode_at(19.9, "normal")], tstep=200e-6))
+# A click, then an immediate hold: D5 empties C75 only to one diode drop,
+# so the next hold starts part-charged. Sets the firmware long-press bound.
+S.append(Scenario("click_then_hold", "Quick click then an immediate hold: earliest possible fire",
+                  13.0, vbus=[(0, 0), (0.02, 0), (0.0205, 1)],
+                  btn=presses([(0.3, 0.5), (0.6, 12.6)]),
+                  checks=[chk_fire_window(0.6, 1.5, 11.0)], tstep=100e-6))
+# --- ESD into the button pad (gate-8 S4), board off on the cell ---
+for kv in (-8, 8):
+    lines, ic = esd(kv)
+    S.append(Scenario(f"esd_{'neg' if kv < 0 else 'pos'}8kv",
+                      f"{kv:+d} kV contact discharge into the button pad, board off: "
+                      "D6 takes it, D4/C27 barely notice, board stays off",
+                      0.3, extra=lines, ic=ic, tstep=1e-9, tmax=20e-6, corners=("typ", "hot"),
+                      checks=[chk_band("BTN_EXT", None, -30, 30, "TVS clamp (info: rated 30kV contact)"),
+                              chk_band("BTN_N", "VBATT", -0.6, 0.1, "BTN_N behind R30"),
+                              chk_peak_abs_diff("BTN_EXT", "BTN_N", 1e3, 0.1, "through R30"),
+                              chk_band("LATCH_G", "VBATT", -0.25, 0.8, "Q4 VGS"),
+                              chk_off_at(0.29, "the strike is not a press")]))
+# --- references: the committed design before 2026-10-24 (afabd86) ---
+S.append(Scenario("bootsel_usb_sw1", "afabd86: hold SW1, plug USB -> BOOTSEL (reference)",
                   0.4, vbus=[(0, 0), (0.1, 0), (0.1005, 1)], bsw=press(0.05, 0.35),
-                  variants=("asbuilt",),
+                  variants=("afabd86",), corners=("typ", "cold"),
                   checks=[chk_samples("low"), chk_mode_at(0.3, "bootsel")]))
-S.append(Scenario("force_off_hung", "Battery, firmware HUNG with PWR_HOLD high: hold 10s -> off on release",
-                  11.0, btn=presses([(0.05, 0.3), (0.6, 10.6)]), fwreq=[(0, 1)],
-                  variants=("onebutton", "onebutton_fix"),
-                  checks=[chk_fire_window(0.6, 2.0, 9.0), chk_on_at(10.5, "held"),
-                          chk_off_at(10.95, "released after reset")],
-                  tstep=100e-6))
-S.append(Scenario("hung_asbuilt", "As-built, firmware HUNG with PWR_HOLD high: button can't turn it off",
+S.append(Scenario("hung_afabd86", "afabd86, firmware HUNG with PWR_HOLD high: button can't turn it off",
                   3.0, btn=presses([(0.05, 0.3), (0.6, 2.6)]), fwreq=[(0, 1)],
-                  variants=("asbuilt",),
+                  variants=("afabd86",), corners=("typ",),
                   checks=[chk_on_at(2.95, "documents the gate-2 M2 hazard: still on")],
                   tstep=100e-6))
+S.append(Scenario("selfstart_afabd86", "afabd86 at 85C, nobody touches it: turns ITSELF on (the S1 defect)",
+                  0.5, variants=("afabd86",), corners=("hot",),
+                  checks=[chk_on_at(0.49, "documents the gate-8 S1 defect: self-started")]))
 
 # ---------------------------------------------------------------- corners
 
-TYP = dict(vto_p=-0.7, vto_n=1.3, vt_pos=1.75, vt_neg=0.95, en_th=0.9, en_hy=0.1,
-           en_pu=0.3e-6, t_samp=1e-3, t_fw=20e-3, rpu=50e3, rpd=60e3, ctmr=1.0, temp=25,
-           ii=0)
+TYP = dict(vto_p=-0.7, vto_p4=-1.4, idss=1e-9, vto_n=1.3, vt_pos=1.75, vt_neg=0.95, en_th=0.9, en_hy=0.1,
+           en_pu=0.3e-6, t_samp=1e-3, t_fw=20e-3, rpu=50e3, rpd=60e3, ctmr=0.9, temp=25,
+           ii=0, itvs=5e-9)
+# ctmr scales C75 (CL10A106KP8NNNC, 10uF X5R 0603): +-10% tolerance, X5R
+# +-15% over temperature, and DC-bias loss at the 1.4-2.4V it charges to.
+# typ 0.9 = ~-10% bias at ~1.9V. hot 0.70 = 0.9 x 0.85 x 0.92 (every loss
+# at once: earliest fire). cold 1.10 = +10% and NO bias credit (latest fire).
+# itvs = D6 PESD5V0S1BL IRM at 25C, 5nA typ (ds); models.lib scales it with
+# temperature (Fig. 6), so the hot corner's 100nA max is ~1.15uA at 85C.
 CORNERS = {
     "typ": {},
     # cold: high thresholds, slow boot, timer cap +10%: latest fire, hardest to latch
-    "cold": dict(vt_pos=2.2, vt_neg=1.3, ctmr=1.1, vto_p=-1.0, vto_n=1.5, en_th=1.05,
+    "cold": dict(vt_pos=2.2, vt_neg=1.5, ctmr=1.1, vto_p=-1.0, vto_p4=-2.1, idss=1e-10,
+                 vto_n=1.5, en_th=1.05,
                  en_hy=0.2, t_samp=10e-3, t_fw=50e-3, rpu=86e3, rpd=113e3, temp=-20,
-                 ii=-0.1e-6),  # U8 input SINKS: slows the timer
+                 ii=-0.1e-6, itvs=1e-9),  # U8 input SINKS: slows the timer
     # hot: low thresholds (CJ2101 -0.45V min less ~2mV/C), fast boot, timer cap
     # -10% and -10% DC bias: earliest fire, worst leakage, most false-trigger prone
-    "hot": dict(vt_pos=1.3, vt_neg=0.6, ctmr=0.8, vto_p=-0.33, vto_n=0.8, en_th=0.7,
+    "hot": dict(vt_pos=1.3, vt_neg=0.6, ctmr=0.70, vto_p=-0.33, vto_p4=-0.68, idss=62e-9,
+                vto_n=0.8, en_th=0.7,
                 en_hy=0.01, en_pu=1e-6, t_samp=50e-6, t_fw=5e-3, rpu=32e3, rpd=36e3,
-                temp=85, ii=0.3e-6),  # U8 input SOURCES: speeds the timer
+                temp=85, ii=0.3e-6, itvs=100e-9),  # U8 input SOURCES: speeds the timer
 }
 CELLS = {"3.7": 3.7}  # per-scenario overrides below
 CELL_SWEEP = {"idle_off": ["3.0", "4.2"], "power_on": ["3.0", "4.2"]}
@@ -474,6 +527,8 @@ CELL_SWEEP = {"idle_off": ["3.0", "4.2"], "power_on": ["3.0", "4.2"]}
 
 def tb(scn, variant, corner, cellv, override=None):
     p = {**TYP, **CORNERS.get(corner, {}), **(override or {})}
+    if variant == "afabd86":
+        p["q4_cj2101"] = 1
     board, c = board_netlist(variant)
     cell = ("Rcell plus minus 10Meg  $ PCM open: no cell" if cellv == "open" else
             f"Vcell cp minus {cellv}\nRcell cp plus 0.15  $ LPR302823 IR")
@@ -483,7 +538,7 @@ def tb(scn, variant, corner, cellv, override=None):
     lines = [
         f"* {scn.name} / {variant} / {corner} / cell {cellv}",
         ".param " + " ".join(f"{k}={v:g}" for k, v in p.items()
-                             if k not in ("ctmr", "temp", "tag")),
+                             if k not in ("ctmr", "temp", "tag", "q4_cj2101")),
         f".include {HERE / 'models.lib'}",
         f".include {HERE / 'mcu.lib'}",
         f".options temp={p['temp']} tnom=25",
@@ -496,6 +551,7 @@ def tb(scn, variant, corner, cellv, override=None):
         f"Vplug plug 0 {pwl(scn.vbus)}",
         "Vusb usb5 0 5.0",
         "Busb usb5 VBUS I = V(usb5,VBUS) * (1e-9 + 3.3 * min(max(V(plug), 0), 1))",
+        *scn.extra,
         # (reverse leakage lives in the diode models, calibrated per part)
         # start OFF with the cell already connected (a real board sitting in a
         # drawer). Without this the DC solve is free to pick the latched-ON
@@ -505,19 +561,21 @@ def tb(scn, variant, corner, cellv, override=None):
         ".ic v(3V3)=0 v(PWR_EN)=0 v(SW_ON)=0 v(PWR_HOLD)=0 v(VBUS)=0"
         + ("" if cellv == "open" else
            f" v(LATCH_G)={cellv} v(VBATT)={cellv} v(VSYS)={cellv}"
-           f" v(BTN_N)={float(cellv) - 0.3:g}"),
+           f" v(BTN_N)={float(cellv) - 0.3:g}"
+           + ("" if variant == "afabd86" else f" v(BTN_EXT)={float(cellv) - 0.3:g}"))
+        + scn.ic,
     ]
     probes = ["VBATT", "VBUS", "VSYS", "3V3", "PWR_EN", "LATCH_G", "SW_ON", "BTN_N",
               "BOOTSEL", "RUN", "PWR_HOLD", "BTN_SENSE", "act", "smp", "bsel", "fwon"]
-    if variant.startswith("onebutton"):
-        probes += ["PRESS_N", "BOOT_TMR", "LONG", "RUN_KICK"]
+    if variant != "afabd86":
+        probes += ["PRESS_N", "BOOT_TMR", "LONG", "RUN_KICK", "BTN_EXT"]
     raw = f"{scn.name}__{variant}__{corner}__{cellv}"
     if override and "tag" in override:
         raw += "__" + override["tag"]
     lines += [
         ".control",
         "set wr_singlescale", "set wr_vecnames", "option numdgt=7",
-        f"tran {scn.tstep:g} {scn.tstop:g} 0 {scn.tstep:g} uic",
+        f"tran {scn.tstep:g} {scn.tstop:g} 0 {scn.tmax or scn.tstep:g} uic",
         f"wrdata {OUT / 'data' / raw}.txt " + " ".join(f"v({x})" for x in probes),
         "quit",
         ".endc", ".end",
@@ -535,7 +593,7 @@ def ngspice_bin(arg):
 
 
 def run_one(ng, scn, variant, corner, cellv):
-    raw, net, p, probes = tb(scn, variant, corner, cellv)
+    raw, net, p, probes = tb(scn, variant, corner, cellv, scn.ov.get(corner))
     cir = OUT / "netlists" / f"{raw}.cir"
     cir.write_text(net)
     r = subprocess.run([ng, "-b", str(cir)], capture_output=True, text=True, timeout=1800)
@@ -573,7 +631,7 @@ def plot(w, scn, res, variant, probes):
     groups = [("rails", ["VBATT", "VBUS", "VSYS", "3V3"]),
               ("latch", ["LATCH_G", "BTN_N", "PWR_EN", "PWR_HOLD"]),
               ("boot", ["BOOTSEL", "RUN", "BTN_SENSE"] +
-               (["BOOT_TMR", "LONG"] if variant.startswith("onebutton") else [])),
+               (["BOOT_TMR", "LONG"] if variant != "afabd86" else [])),
               ("mcu", ["act", "smp", "bsel", "fwon"])]
     fig = Figure(figsize=(10, 8.5))
     axs = fig.subplots(len(groups), 1, sharex=True)
@@ -597,23 +655,7 @@ def plot(w, scn, res, variant, probes):
 TSWEEP = [25, 40, 50, 60, 70, 85]
 
 
-def _d2_only(c):
-    c.components["D2"].part = "or_diode_si"
-    return c
-
-
-def _d3_only(c):
-    c.components["D3"].part = "sys_diode_si"
-    return c
-
-
-# the sweep also splits the fix, to show which leak path is which
-SWEEP_VARIANTS = {**VARIANTS,
-                  "fix_D2_only": lambda c: _d2_only(one_button(c)),
-                  "fix_D3_only": lambda c: _d3_only(one_button(c))}
-
-
-def tsweep(ng):
+def tsweep(ng, j):
     """Board OFF, no button, no USB: what voltage do leakage paths put on
     the LDO's EN pin? The LDO is told never to enable (en_th = 10V) so the
     leak can be measured instead of acted on. Typical parts; CJ2101 |VGS(th)|
@@ -623,7 +665,8 @@ def tsweep(ng):
 
     def one(job):
         v, T = job
-        ov = dict(temp=T, en_th=10, vto_p=-0.7 + 0.002 * (T - 25), tag=f"T{T}")
+        ov = dict(temp=T, en_th=10, vto_p=-0.7 + 0.002 * (T - 25),
+                  vto_p4=-1.4 + 0.002 * (T - 25), tag=f"T{T}")
         raw, net, p, probes = tb(scn, v, "typ", "3.7", ov)
         cir = OUT / "netlists" / f"{raw}.cir"
         cir.write_text(net)
@@ -635,7 +678,7 @@ def tsweep(ng):
         last = dict(zip(hdr, arr[-1]))
         return dict(variant=v, T=T, en=last["PWR_EN"], vbus=last["VBUS"],
                     sw_on=last["SW_ON"])
-    with ThreadPoolExecutor(len(jobs)) as ex:
+    with ThreadPoolExecutor(j) as ex:
         rows = list(ex.map(one, jobs))
     from matplotlib.figure import Figure
     fig = Figure(figsize=(8, 4.2))
@@ -688,7 +731,8 @@ tr.ok td{{background:var(--ok)}}tr.bad td{{background:var(--bad)}}img{{max-width
 .mut{{color:var(--mut)}}</style></head><body>
 <h1>Power button / BOOTSEL — ngspice</h1>
 <p><b>{npass}/{len(results)} runs pass.</b> Netlist pulled from <code>scripts/circuit.py</code>;
-variant <i>onebutton</i> is the proposal patch in <code>design/sim/button/run.py</code>.
+variant <i>board</i> is the circuit as it stands; <i>afabd86</i> is the pre-2026-10-24 design,
+kept as a reference patch in <code>design/sim/button/run.py</code>.
 Corners: typ, slow (late timer, high thresholds, slow boot), fast (early timer, low thresholds,
 85&nbsp;°C leakage). Models: <code>design/sim/button/models.lib</code>, <code>mcu.lib</code>.</p>
 <ul class=mut>{titles}</ul>
@@ -714,7 +758,8 @@ def main():
         if a.k not in scn.name:
             continue
         for variant in scn.variants:
-            for corner in (["typ"] if a.quick else CORNERS):
+            cs = list(scn.corners or CORNERS)
+            for corner in ([c for c in cs if c == "typ"] if a.quick else cs):
                 for cellv in ([scn.cell] + ([] if a.quick else CELL_SWEEP.get(scn.name, []))
                               if scn.cell != "open" else ["open"]):
                     jobs.append((scn, variant, corner, cellv))
@@ -727,7 +772,7 @@ def main():
         for n, ok, d in r["checks"]:
             if not ok:
                 print(f"        ✘ {n}: {d}")
-    sweep = None if a.k or a.quick else tsweep(ng)
+    sweep = None if a.k or a.quick else tsweep(ng, a.j)
     if sweep:
         print("off-state EN vs temperature (V):")
         for v in SWEEP_VARIANTS:
