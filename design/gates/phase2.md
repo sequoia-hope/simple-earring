@@ -54,3 +54,14 @@ Review F2: Q4 → LBSS84WT1G (`latch_pfet`), drawn with the same Q_PMOS_HS
 symbol. Regenerated: 97 nets match.
 
 **Re-review 2026-10-24: PASS** (see design/gates/phase8.md, "Re-review of the fixes").
+
+---
+
+# Gate 2 addendum, 2026-10-24 (b): WS2816C ring + three zones
+
+| check | evidence |
+|---|---|
+| netlist vs circuit.py | "netlist verified against circuit.py: **103 nets match**" (167 components) |
+| ERC | 9 errors, all `power_pin_not_driven` on power symbols. The baseline 7, plus VLED split into VLED_L/R/C. No new types |
+| text clashes | 0 |
+| blocks | "LED ring": three zone chains in chain order. "Level shifters": one stage per zone. "Zone load switches": stacked, moved to open sheet space. Bypass banks: one per zone rail. MCU symbol gains GPIO0/16/17/22. Crops checked |

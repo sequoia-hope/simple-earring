@@ -7,7 +7,7 @@ Pin references verified against:
   - RP2350 QFN-60 pin table (from rp2350a-compact, matches datasheet)
   - LGS4056H datasheet rev C (TEMP->GND disables NTC, I=900/R_PROG <300mA)
   - NCP730 WDFN-6, TPS22913 YZV 4-ball, USBLC6-2P6 SOT-666 (from earring)
-  - SK6805-EC10 datasheet REV.01 (1=GND, 2=DIN, 3=VDD, 4=DOUT)
+  - WS2816C-1313/4P datasheet p.2 (1=VDD, 2=DO, 3=GND, 4=DI); was SK6805-EC10
 RP2350A (RP2354A pinout, no internal flash): QSPI bus wired to external
 W25Q16JVUXIQ (U7) per the official RPI-RP2350A-MINIMAL R4 (docs/);
 QSPI_SS doubles as the BOOTSEL strap (Q7 + 1k to GND, driven by the power
@@ -76,9 +76,18 @@ GPIO = {0: 2, 1: 3, 2: 4, 3: 5, 4: 7, 5: 8, 6: 9, 7: 10, 8: 12, 9: 13,
         26: 40, 27: 41, 28: 42}
 
 # GPIO roles
+# LED ring: three zones since 2026-10-24 (left / right / centre), each its
+# own chain, load switch and level shifter, so a dark zone draws nothing.
+# The three data pins are ADJACENT (GPIO16-18, pins 27-29, top-left after
+# the MCU rotation, next to the zones' entry LEDs), so one PIO program can
+# clock all three chains in parallel from consecutive pins.
+GP_LED_DATA_C = 16  # pin 27 -> Q10 -> centre zone (LED38..45)
+GP_LED_DATA_R = 17  # pin 28 -> Q9  -> right zone (LED37 -> LED19, reversed)
+GP_LED_EN_R = 0     # pin 2, next to LED_EN_L's pin 3 -> U9 ON
+GP_LED_EN_C = 22    # pin 34, west-column run after BTN_SENSE -> U10 ON
 GP_LED_DATA = 18  # pin 29: lands top-left after the 180deg MCU rotation,
                   # right next to LED1 at the start of the ring
-GP_LED_EN = 1     # -> TPS22913 ON
+GP_LED_EN = 1     # -> U4 (left zone) ON
 ADC_VBSENSE = 43  # GPIO29_ADC3 pin number
 ADC_LIGHT = 40    # GPIO26_ADC0 pin number: ambient light sensor (rev 2)
 ADC_VBUS = 41     # GPIO27_ADC1 pin number: USB cable present (rev 3)
@@ -121,14 +130,35 @@ GP_BTN_SENSE = 21 # pin 33: power button held, ACTIVE HIGH (Q8 drives it,
                   # block. Old latch firmware read it pulled-up/active-low.
 GP_CHRG_DONE = 28 # pin 42: low when charge complete
 
-# LED pin numbering. SK6805-EC10: 1=GND, 2=DIN, 3=VDD, 4=DOUT.
-# The PHYSICAL pad layout is identical to the old TBA-C1010MB it replaces
-# (DI top-left, VDD bottom-left, GND top-right, DO bottom-right, ~0.7mm
-# diagonal grid) — only the numbering differs, so the ring placement,
-# 45-degree diamond orientation and locked chain arcs are unchanged.
-# route.py reads DI/DO/VDD from here; keep this the single source of
-# truth when swapping LED parts (TBA was 1=DI 2=VCC 3=GND 4=DO).
-LED_PIN = {"GND": 1, "DI": 2, "VDD": 3, "DO": 4}
+# LED pin numbering. WS2816C-1313/4P (since 2026-10-24): 1=VDD, 2=DO,
+# 3=GND, 4=DI (Worldsemi ds p.2; top view VDD TL, DI TR, DO BL, GND BR, 0.8mm
+# grid). That is the SK6805's cyclic pin order rotated 90deg, so DI/DO stay
+# on opposite corners and the 45deg diamond ring scheme is unchanged.
+# Was: SK6805-EC10 1=GND 2=DIN 3=VDD 4=DOUT (DI TL, VDD BL, GND TR, DO BR,
+# 0.68mm grid); before that TBA-C1010MB 1=DI 2=VCC 3=GND 4=DO.
+# place.py / gen_schematic.py read DI/DO/VDD from here; keep this the single
+# source of truth when swapping LED parts.
+LED_PIN = {"VDD": 1, "DO": 2, "GND": 3, "DI": 4}
+
+
+def led_zones(design):
+    """Zone -> LED numbers in CHAIN order (data enters the first one).
+    Perimeter LED1..ring_count runs top-left, down the left side, round the
+    bottom and up the right; the tip chevron follows right-to-left; the
+    interior octagon is last. Left = LED1..18. Right = the rest of the
+    perimeter plus the chevron, chained in REVERSE (LED37 -> LED19), so its
+    data enters at the top-left beside the left zone's. Centre = interior."""
+    n = design["leds"]["count"]
+    ring = design["leds"]["ring_count"]
+    tip = n - ring - design["leds"].get("inner_count", 0)
+    split = 18
+    return {"L": list(range(1, split + 1)),
+            "R": list(range(ring + tip, split, -1)),
+            "C": list(range(ring + tip + 1, n + 1))}
+
+
+def led_zone_of(design):
+    return {i: z for z, chain in led_zones(design).items() for i in chain}
 
 
 def load_parts():
@@ -171,8 +201,12 @@ def build_circuit(design=None):
     u1[RP_PINS["QSPI_IOVDD"]] = "3V3"
     u1[RP_PINS["QSPI_SS"]] = "BOOTSEL"
     u1[RP_PINS["GND"]] = "GND"
-    u1[GPIO[GP_LED_DATA]] = "LED_DATA"  # -> Q3 gate, NOT the ring directly
-    u1[GPIO[GP_LED_EN]] = "LED_EN"
+    u1[GPIO[GP_LED_DATA]] = "LED_DATA_L"  # -> Q3 gate, NOT the ring directly
+    u1[GPIO[GP_LED_DATA_R]] = "LED_DATA_R"
+    u1[GPIO[GP_LED_DATA_C]] = "LED_DATA_C"
+    u1[GPIO[GP_LED_EN]] = "LED_EN_L"
+    u1[GPIO[GP_LED_EN_R]] = "LED_EN_R"
+    u1[GPIO[GP_LED_EN_C]] = "LED_EN_C"
     u1[ADC_VBSENSE] = "VBSENSE"
     u1[ADC_LIGHT] = "LIGHT"
     u1[ADC_VBUS] = "VBUS_SENSE"
@@ -576,11 +610,19 @@ def build_circuit(design=None):
     # SK6805's 3.7V floor, which is exactly when the charge gauge has to
     # be readable). TPS22913 max VIN is 5.5V; VSYS tops out ~4.95V at a
     # 5.25V port. ---
-    c.add("U4", "load_switch", "TPS22913", {
-        "A2": "VSYS", "A1": "VLED", "B1": "GND", "B2": "LED_EN",
-    })
-    c.add("R10", "r_10k", "10k", {1: "LED_EN", 2: "GND"})  # off at boot
-    c.add("C20", "c_10u_0603", "10u", {1: "VLED", 2: "GND"})
+    # Three zones (2026-10-24): one switch per zone, so the WS2816C's
+    # 0.7-1.0mA idle per LED is only paid where something is lit. An
+    # unpowered zone must also be a separate CHAIN: data can't pass through
+    # a dark LED, and a driven DI into an unpowered part back-feeds it
+    # through its input clamp (VI max VDD+0.7). Hence per-zone shifters
+    # below, each pulled up to its OWN zone rail.
+    for u, r, cap, z in (("U4", "R10", "C20", "L"), ("U9", "R33", "C78", "R"),
+                         ("U10", "R34", "C79", "C")):
+        c.add(u, "load_switch", "TPS22913", {
+            "A2": "VSYS", "A1": f"VLED_{z}", "B1": "GND", "B2": f"LED_EN_{z}",
+        })
+        c.add(r, "r_10k", "10k", {1: f"LED_EN_{z}", 2: "GND"})  # off at boot
+        c.add(cap, "c_10u_0603", "10u", {1: f"VLED_{z}", 2: "GND"})
 
     # --- IMU (LSM6DS3TR-C LGA-14, back side, I2C mode 1) ---
     # ds application hints: CS->VDDIO selects I2C, SDx/SCx (unused aux
@@ -672,19 +714,30 @@ def build_circuit(design=None):
     # for rev-2 boards — see parts.yaml lvl_nfet. DO NOT flash that to a
     # rev-1 board: there Q3 does not exist and the ring would see inverted
     # data.
-    c.add("Q3", "lvl_nfet", "BSS138W", {1: "LED_DATA", 2: "GND", 3: "LED_D0"})
-    c.add("R23", "r_1k", "1k", {1: "VLED", 2: "LED_D0"})
+    # (WS2816C keeps VIH = 0.7*VDD, so the shifters stay. One per zone,
+    # each pulled up to its own zone rail: a dark zone's R is dead, so its
+    # first DI is never driven above an unpowered VDD.)
+    for q, r, z in (("Q3", "R23", "L"), ("Q9", "R31", "R"), ("Q10", "R32", "C")):
+        c.add(q, "lvl_nfet", "BSS138W",
+              {1: f"LED_DATA_{z}", 2: "GND", 3: f"LED{z}_D0"})
+        c.add(r, "r_1k", "1k", {1: f"VLED_{z}", 2: f"LED{z}_D0"})
 
-    # --- LED ring (pin numbers from LED_PIN) ---
+    # --- LED ring (pin numbers from LED_PIN), chained per zone ---
+    # Net LED<z>_D<j> feeds the DI of the j-th LED in that zone's chain.
+    pins = {}
+    for z, chain in led_zones(design).items():
+        for j, i in enumerate(chain):
+            pins[i] = {LED_PIN["DI"]: f"LED{z}_D{j}",
+                       LED_PIN["DO"]: f"LED{z}_D{j+1}" if j < len(chain) - 1 else "",
+                       LED_PIN["VDD"]: f"VLED_{z}", LED_PIN["GND"]: "GND"}
+    assert sorted(pins) == list(range(1, n_leds + 1)), "zones must cover the ring"
+    zone_of = led_zone_of(design)
     bypass_every = design["leds"].get("bypass_every", 2)
     for i in range(n_leds):
-        di = f"LED_D{i}"
-        do = f"LED_D{i+1}" if i < n_leds - 1 else ""
-        c.add(f"LED{i+1}", "led", "SK6805-EC10", {
-            LED_PIN["DI"]: di, LED_PIN["VDD"]: "VLED",
-            LED_PIN["GND"]: "GND", LED_PIN["DO"]: do})
+        c.add(f"LED{i+1}", "led", "WS2816C-1313", pins[i + 1])
         if i % bypass_every == 0:
-            c.add(f"C{30+i}", "c_100n", "100n", {1: "VLED", 2: "GND"})
+            c.add(f"C{30+i}", "c_100n", "100n",
+                  {1: f"VLED_{zone_of[i + 1]}", 2: "GND"})
 
     # resolve footprints/lcsc from parts.yaml
     for comp in c.components.values():

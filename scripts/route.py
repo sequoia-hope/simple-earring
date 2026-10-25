@@ -4,10 +4,10 @@
 1. Wipe existing tracks/vias/zones (idempotent).
 2. Scripted, locked routing for the regular structures:
    - LED daisy-chain as constant-radius arcs on F.Cu
-   - via drops: every LED VCC pad -> In2 VLED annulus, GND pad -> In1 plane
+   - via drops: every LED VDD pad -> its zone's In2 VLED_<z> piece, GND pad -> In1 plane
    - bypass cap via drops
    - GND stitching vias
-3. Zones: In1=GND plane, In2=VLED annulus + 3V3 disc, F/B GND pours.
+3. Zones: In1=GND plane, In2=VLED_L/R/C pieces + 3V3 disc, F/B GND pours.
 4. Freerouting (Specctra DSN -> SES) for the remaining point-to-point nets.
 5. Zone fill + save; report unconnected count.
 
@@ -484,23 +484,44 @@ def main():
     n_layers = design["board"]["layers"]
     zp = rt.zone(pcbnew.In1_Cu, "GND", outer, name="gnd_plane")
     zp.SetPadConnection(pcbnew.ZONE_CONNECTION_FULL)
-    z = rt.zone(pcbnew.In2_Cu, "VLED", outer, priority=1, name="vled_annulus")
-    if n_layers >= 6:
-        hole = offset_polygon(design, margin + 3.0, 80)
-        disc_r = 9.55
-    else:
-        # 4-layer: there is no In4 VLED plane, so In2's annulus is the ONLY
-        # plane VLED. Pull its hole in to a circle just inside the interior
-        # LED octagon (VCC pads at r 9.64-9.79, measured) so those eight
-        # LEDs keep a plane drop, and shrink the 3V3 disc to clear it.
-        # The inner VLED consumers below r 9.3 (U4, C20, C68-C74 at
-        # r 6.6-8.6) fall back to routed traces either way.
-        hole = rt.circle_poly(9.35)
-        disc_r = 9.15
-    ol = z.Outline()
-    ol.NewHole()
-    for x, y in hole:
-        ol.Append(mm(CX + x), mm(CY + y), 0, 0)
+    # In2 = the three LED zone rails (2026-10-24) + the 3V3 disc. 4-layer:
+    #   VLED_C  inner band r 9.15-10.85: the interior octagon's VDD pads
+    #           (WS2816C VDD pads at r 9.71-10.23; re-centred, review C1)
+    #   VLED_L / VLED_R  outer band r > 11.15, cut in two by the line
+    #           between the zone boundaries (LED18|LED19 at the bottom,
+    #           LED1|LED37 at the tip); the piece holding LED2 is left
+    # 0.3mm gaps between the pieces, so no two nets' outlines overlap. The
+    # VLED consumers inside r 9.3 (U4/U9/U10, their caps, C68-C74) reach
+    # their rail with routed traces, as before.
+    assert n_layers < 6, "6-layer VLED zone planes not updated for zones"
+    from shapely.geometry import LineString, Point, Polygon
+    from circuit import led_zone_of
+    zone_of = led_zone_of(design)
+    pos = {i: rel(fps[f"LED{i}"].GetPosition()) for i in zone_of}
+    board_poly = Polygon(outer)
+    inner = Point(0, 0).buffer(10.85, 128).difference(Point(0, 0).buffer(9.15, 128))
+    band = board_poly.difference(Point(0, 0).buffer(11.15, 128))
+    ring = design["leds"]["ring_count"]
+    tip = design["leds"]["count"] - ring - design["leds"].get("inner_count", 0)
+    split = max(i for i, z in zone_of.items() if z == "L")
+    pb = [(a + b) / 2 for a, b in zip(pos[split], pos[split + 1])]
+    pt = [(a + b) / 2 for a, b in zip(pos[1], pos[ring + tip])]
+    cut = LineString([pb, pt])
+    cut = LineString([(pb[0] + (pb[0] - pt[0]) * 2, pb[1] + (pb[1] - pt[1]) * 2),
+                      (pt[0] + (pt[0] - pb[0]) * 2, pt[1] + (pt[1] - pb[1]) * 2)])
+    pieces = band.difference(cut.buffer(0.15))
+    pieces = sorted(getattr(pieces, "geoms", [pieces]), key=lambda g: -g.area)[:2]
+    left = [g for g in pieces if g.contains(Point(pos[2]))]
+    assert len(left) == 1, "VLED band split failed"
+    right = [g for g in pieces if g is not left[0]][0]
+    for net, shp in (("VLED_L", left[0]), ("VLED_R", right), ("VLED_C", inner)):
+        z = rt.zone(pcbnew.In2_Cu, net, list(shp.exterior.coords)[:-1],
+                    priority=1, name=f"{net.lower()}_plane")
+        for hole in shp.interiors:
+            z.Outline().NewHole()
+            for x, y in list(hole.coords)[:-1]:
+                z.Outline().Append(mm(CX + x), mm(CY + y), 0, 0)
+    disc_r = 8.95
     # circle disc; overlaps the narrow tip part of the VLED hole, where its
     # higher priority carves VLED back automatically
     rt.zone(pcbnew.In2_Cu, "3V3", rt.circle_poly(disc_r), priority=2,
@@ -509,8 +530,7 @@ def main():
     # disc, so the interior LED ring's VCC fanout drops through to In4
     # instead — through vias reach it anywhere clear of the clip back pad
     # (r>4.6).
-    if n_layers >= 6:
-        rt.zone(pcbnew.In4_Cu, "VLED", outer, name="vled_plane")
+    # (6-layer In4 VLED plane removed with the zone split; see assert above)
     # In3: mostly freerouting's interior signal layer, EXCEPT a 3V3 pour
     # under the back-east IMU cluster: its nine 3V3 pads sit at r 11-14
     # while the nearest 3V3 copper (In2 disc) ends at r 9.55 — without
@@ -558,7 +578,7 @@ def main():
     rt.via((6.3, -0.75), "IMU_SDA")
     rt.via((5.15, -5.7), "IMU_SCL")
     rt.via((5.55, -2.35), "IMU_INT1")
-    rt.via((7.35, -2.35), "LED_EN")
+    rt.via((7.35, -2.35), "LED_EN_L")
     # R14 (SDA pull-up) 3V3 pad: via-in-pad into the In3 pour's south
     # lobe (tented — C30's VLED via-in-pad is the precedent). The pad
     # sits deep in the tip lobe where no scanned adjacent via spot
@@ -616,15 +636,11 @@ def main():
     # freerouting treats the DSN keepout as a hard obstacle and loses the
     # whole center region (18 unrouted vs the usual 6). Disc splits are
     # instead healed post-route by stitch_p3v3_islands() in finish.py.
-    # C30's VLED plane access: via-in-pad (tented) — the only tip-left spot
-    # where a through-via clears SW2's back-side copper
-    rt.via(rel(pad_of(fps["C30"], 1).GetPosition()), "VLED")
-    # LED1/LED2 VCC fanout: the tip-left VLED pocket is hemmed in by the
-    # LED chain (front) and SW2 (back); freerouting strands it on most
-    # seeds. One via per LED, spot scanned against all static copper —
-    # pre-route vias can't conflict with wires (freerouting routes around
-    # them), only pads/holes/edge matter.
-    def safe_via_spot(cx, cy, net="VLED", radii=(0.7, 0.9, 1.1)):
+    # (2026-10-24, WS2816C + zones: the C30 via-in-pad, the LED1-3 /
+    # LED32-34 VLED vias, the C32->C30 link and the LED_D3 fragment are
+    # gone. They were freerouting workarounds measured off SK6805 pads, and
+    # the board is now routed by the user's own autorouter.)
+    def safe_via_spot(cx, cy, net="3V3", radii=(0.7, 0.9, 1.1)):
         pads = [(p, fp) for fp in board.GetFootprints() for p in fp.Pads()]
         for r in radii:
             for k in range(16):
@@ -724,18 +740,6 @@ def main():
                 if all(g.distance(v) >= clr for g in obst):
                     return (x, y)
         return None
-    # same treatment for the mirror pocket on the right tip straight: at
-    # the 2.4mm pitch the finisher deterministically fails to reach the
-    # last straight LEDs' VCC pads without a pre-scanned via
-    ring = design["leds"].get("ring_count", design["leds"]["count"])
-    for ref in ("LED1", "LED2", "LED3",
-                f"LED{ring}", f"LED{ring - 1}", f"LED{ring - 2}"):
-        px, py = rel(pad_of(fps[ref], LED_PIN["VDD"]).GetPosition())
-        spot = safe_via_spot(px, py)
-        if spot:
-            rt.via(spot, "VLED")
-        else:
-            print(f"WARNING: no safe VLED via spot near {ref}")
     # U3's (LDO) 3V3 output pin is walled in by C19's GND pad + GND
     # fanout at the 2.4mm-pitch seeds — the finisher finds no candidate,
     # so give it a scanned 3V3-disc via up front
@@ -749,53 +753,6 @@ def main():
         rt.via(spot, "3V3")
     else:
         print("WARNING: no safe 3V3 via spot near U3")
-    # C32 (the SW2-shadow bypass cap): no legal via spot exists within
-    # 1.85mm — SW2's mount pad and pegs plus the LED3/C30 pads wall in
-    # the whole pocket (scan-verified). Tie its VLED pad to C30's locked
-    # via-in-pad instead. Waypoints are grid-search-verified against every
-    # local pad (half-diagonal disc + 0.127 + track half): worst margin
-    # is +0.21mm (C30.2 GND / SW1.1 / J1's shell leg are the binders) —
-    # a locked-wire clearance violation makes freerouting burn its whole
-    # 900s budget, so re-verify numerically before touching these.
-    c30 = rel(pad_of(fps["C30"], 1).GetPosition())
-    c32 = rel(pad_of(fps["C32"], 1).GetPosition())
-    for a, b in ((c32, (-4.90, -11.60)),
-                 ((-4.90, -11.60), (-4.00, -13.20)),
-                 ((-4.00, -13.20), c30)):
-        rt.track(a, b, "VLED", width=0.15)
-    # LED_D3 (LED3.DO -> LED4.DI): the hop threads between SW2's NPTH
-    # locating peg and the edge — freerouting stranded it on 6/6 rev-2
-    # seeds. Geometry borrowed VERBATIM from the shipped board (43eadc1),
-    # whose LED3/LED4/SW2 placements are identical (the chain re-pitch
-    # pins S[2..4]); 0.143 to the peg hole. Injected + zone-refilled +
-    # kicad-cli DRC'd clean against the rev-2 statics before locking.
-    #
-    # ONE SEGMENT, NOT THE WHOLE HOP (2026-08-31). Locking the full
-    # five-segment polyline hangs freerouting v2.2.4 dead before pass 1 —
-    # silent, 100% CPU, nothing in /tmp/freerouting/freerouting.log after
-    # the settings dump, both 900s tries burned, no SES. Bisected on the
-    # DSN with -mp 2 probes (~90s each, scratchpad bisect*.py):
-    #
-    #   full hop                    HANG      only CHRG_DONE dropped  HANG
-    #   hop dropped entirely        routes    hop's 3 middle segs     HANG
-    #   segment 2 alone             routes    segments 2 + 3          HANG
-    #   segment 3 alone             routes    segments 1 + 2 + 3      HANG
-    #
-    # So the trigger is a fixed POLYLINE here — any two of these segments
-    # meeting at a vertex is enough — not the fact that the ends land on
-    # pads. (Pads are fine: CHRG_DONE below is a seven-segment fixed chain
-    # into U2.6 and the VLED C32->C30 link touches a pad at both ends;
-    # both route.) Nothing else about this spot looks special, and chasing
-    # freerouting's internals further is not worth the probe time.
-    #
-    # A lone fixed fragment still does the job, and matches what already
-    # works for stranded nets on this board (one committed B-transition
-    # via, never a locked path): freerouting must reach both of its ends,
-    # so the wire is forced through the corridor, and it does the two pin
-    # escapes itself. Verified in all four probe SES files — LED_D3 comes
-    # back with the same wire count whether the fragment is there or not.
-    # Keep it to ONE segment. Adding its neighbour back re-hangs the job.
-    rt.track((-7.428, -11.565), (-7.428, -12.188), "LED_D3", width=0.15)
     # CHRG_DONE's landing: from the committed via at (7.8,6.6) the final
     # approach into U2 pad 6 loops EAST around C16 (the shipped board's
     # own path) — freerouting failed this last 2mm on 6/6 rev-2 seeds

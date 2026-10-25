@@ -21,7 +21,7 @@ from pathlib import Path
 import pcbnew
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from circuit import LED_PIN, build_circuit, load_design  # noqa: E402
+from circuit import LED_PIN, build_circuit, led_zones, load_design  # noqa: E402
 from outline import led_path, geometry  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -41,6 +41,31 @@ LATCH = {
 }
 
 
+# Locked for the user's autorouter (2026-10-24); everything else may be
+# nudged. User's list: every LED*, J1 (USB), SW2 (button). Added because
+# they are physically constrained: BT1 (cell wire pads vs the cell envelope).
+# Added because locked copper or a fixed pour lands on their pads, so a
+# nudge would orphan it: U1 (VDD_CORE FB link, ring stubs, VREG pours),
+# U2 (CHRG_DONE landing, CHRG via-in-pad), U5 (VBUS via-in-pad + trunk),
+# R14 (3V3 via-in-pad), and the RP2350 reference VREG cluster L1 / C11 /
+# C12 / C13 / R13 / C22 (copied from the official minimal board).
+LOCKED = {"J1", "SW2", "BT1", "U1", "U2", "U5", "R14",
+          "L1", "C11", "C12", "C13", "R13", "C22",
+          "Q1"}  # ALS-PT19: optical/aesthetic spot by the heart (review C8)
+# LED zone drivers (2026-10-24): (x, y, rot, back), filled in by scan_spot;
+# None = parked off-board until scanned.
+ZONES = {
+    "U9": (6.75, -1.50, 0, True),
+    "R33": (7.75, -1.00, 90, True),
+    "C78": (5.75, 0.25, 0, True),
+    "U10": (-5.75, 2.50, 0, True),
+    "R34": (-6.00, 1.50, 0, True),
+    "C79": (-6.25, 3.75, 0, True),
+    "Q9": (-9.25, -9.75, 0, True),
+    "R31": (-9.50, -8.00, 0, True),
+    "Q10": (-9.00, -6.25, 0, True),
+    "R32": (-11.00, -7.25, 90, True),
+}
 # one-button BOOTSEL + button ESD (2026-10-24): (x, y, rot, back). Every
 # spot came out of tools/scan_spot.py in signal order, with the previously
 # placed ones on the board and a centre keepout of +-5.6 x (-6.0..5.0)
@@ -168,22 +193,28 @@ def main():
     # pseudo polar angle matching the old circular convention
     pthetas = [math.degrees(math.atan2(t[1], t[0])) - 90 for t in tangs]
 
-    best = None
-    for k in range(4):
-        for i in range(n):
-            place(fps[f"LED{i+1}"], *pts[i], rot=(45.0 + 90.0 * k - pthetas[i]))
-        total = 0.0
-        for i in range(n - 1):
-            a = pad_pos(fps[f"LED{i+1}"], LED_PIN["DO"])
-            b = pad_pos(fps[f"LED{i+2}"], LED_PIN["DI"])
-            total += math.hypot(a.x - b.x, a.y - b.y)
-        if best is None or total < best[1]:
-            best = (k, total)
-    k = best[0]
-    for i in range(n):
-        place(fps[f"LED{i+1}"], *pts[i], rot=(45.0 + 90.0 * k - pthetas[i]))
-    print(f"LED path: len={path.length:.1f}mm, orientation k={k}, "
-          f"chain gap total {best[1]/1e6:.2f}mm")
+    # Orientation per ZONE (2026-10-24): each zone is its own chain, and the
+    # right zone runs against the path direction (LED37 -> LED19), so each
+    # picks the quarter-turn k that puts every DO nearest the next DI.
+    ks, gap_total = {}, 0.0
+    for z, chain in led_zones(design).items():
+        best = None
+        for k in range(4):
+            for i in chain:
+                place(fps[f"LED{i}"], *pts[i - 1], rot=(45.0 + 90.0 * k - pthetas[i - 1]))
+            total = 0.0
+            for a_i, b_i in zip(chain, chain[1:]):
+                a = pad_pos(fps[f"LED{a_i}"], LED_PIN["DO"])
+                b = pad_pos(fps[f"LED{b_i}"], LED_PIN["DI"])
+                total += math.hypot(a.x - b.x, a.y - b.y)
+            if best is None or total < best[1]:
+                best = (k, total)
+        ks[z] = best[0]
+        gap_total += best[1]
+        for i in chain:
+            place(fps[f"LED{i}"], *pts[i - 1], rot=(45.0 + 90.0 * best[0] - pthetas[i - 1]))
+    print(f"LED path: len={path.length:.1f}mm, orientation k={ks}, "
+          f"chain gap total {gap_total/1e6:.2f}mm")
 
     # bypass caps at every-2nd chain midpoint, shifted inward; slide along
     # the path if the spot lands on a USB shell THT leg or one of the two
@@ -570,7 +601,7 @@ def main():
     # the charger. rot 90 lands the cathode at (9.25,-1.95), 2.4mm from
     # U4's VSYS input, and points the anode down the open east flank that
     # the VBUS trunk comes in on.
-    place(fps["D3"], 9.25, -3.00, rot=90)
+    place(fps["D3"], 9.25, -3.25, rot=90)  # -3.00 until the 1.3mm WS2816C LED44
     # Q3 (LED data level shifter) takes the best of those six SC-70 front
     # spots — and it happens to sit almost exactly on the line from the
     # MCU's LED_DATA pin (-2.40,-3.94) to LED1's DI pad (-4.36,-17.40),
@@ -587,10 +618,10 @@ def main():
     # converge again.
     # C29, the VSYS bulk cap, in the same east pocket as D3 (one of only
     # 141 legal 0603 spots there), 1.8mm from D3's cathode.
-    place(fps["C29"], 10.00, 1.75, rot=90)
-    # R23 pulls LED_D0 up to VLED, 1.8mm off Q3's drain. At r10.2 it sits
-    # just inside the In2 VLED annulus (hole at r9.35), so the pull-up taps
-    # the plane with a via rather than a trace.
+    place(fps["C29"], 10.00, 2.25, rot=90)  # 1.75 until the 1.3mm WS2816C LED44
+    # R23 pulls LEDL_D0 up to VLED_L, 1.8mm off Q3's drain. (Since the zone
+    # split it sits over the VLED_C band, so its VLED_L feed is a trace out
+    # to the outer band, r > 11.15.)
     place(fps["R23"], -5.25, -8.75, rot=0)
 
     # R21 (1M gate pulldown) in the east pocket beside C29. PATH_GATE is a
@@ -621,11 +652,20 @@ def main():
     # with no edge to smear. rot 0 points the tap pad west, back at R19.
     place(fps["R20"], 11.50, -1.25, rot=0)
 
+    # ---- LED zone drivers (2026-10-24), see ZONES ----
+    for i, (ref, spot) in enumerate(ZONES.items()):
+        if spot is None:
+            place(fps[ref], 30 + 5 * (i % 5), -10 + 5 * (i // 5), back=True)
+        else:
+            place(fps[ref], *spot[:3], back=spot[3])
     # ---- one-button BOOTSEL + button ESD (2026-10-24), see ONEBTN ----
     for ref, (x, y, r, back) in ONEBTN.items():
         place(fps[ref], x, y, rot=r, back=back)
 
     resolve_overlaps(board, fps)
+    # see LOCKED at the top for why each part is locked
+    for ref, fp in fps.items():
+        fp.SetLocked(ref.startswith("LED") or ref in LOCKED)
     pcbnew.SaveBoard(str(PCB), board)
     print(f"placed {len(fps)} footprints -> {PCB.name}")
 
@@ -641,7 +681,7 @@ def resolve_overlaps(board, fps, max_iter=300):
     # board, and a relaxer nudge silently invalidates that (R20's scanned
     # spot was legal until relaxation slid it 0.8mm into R16).
     EXEMPT = {"R4", "R5", "R8", "C11", "C12", "R13", "C22",
-              "R19", "R20", "R21", "R22", "R23", "C29"} | set(ONEBTN)
+              "R19", "R20", "R21", "R22", "R23", "C29"} | set(ONEBTN) | set(ZONES)
 
     def movable(ref):
         if ref in EXEMPT:

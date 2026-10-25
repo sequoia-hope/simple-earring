@@ -74,6 +74,7 @@ HEIGHT = {
     "D_SOD-323": 1.10,          # MDD 1N4007WS drawing 0.043in max; 1N4148WS same pkg
     "D_SOD-882": 0.50,          # Nexperia DFN1006-2 body 0.48
     "C_0603_1608Metric": 0.90,  # CL10A106KP8NNNC T = 0.8 +-0.1
+    "YZV0004ADAD": 0.625,       # TPS22913 DSBGA max height (U9/U10, LED zones, 2026-10-24)
 }
 
 # --- dashboard palette (render.py write_index) ----------------------------

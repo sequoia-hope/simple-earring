@@ -155,10 +155,24 @@ PESD5V0S1BL at the pad, R30 1k); Q4 → LBSS84WT1G for latch margin
 (review F2). 54/54 sim runs pass and DRC shows 0 errors on the re-placed board. Evidence: `design/sim/button/README.md`,
 `design/gates/phase{1,2,6,8}.md`, `design/decisions.md`.
 
-1. **Firmware has to change with the hardware.** GPIO21 is now active high
+0. **LED ring → WS2816C-1313/4P in three zones** (branch `ws2816-zones`,
+   2026-10-24): left LED1–18, right LED37→19, centre LED38–45. Each zone
+   has its own TPS22913, shifter and In2 plane piece. Data GPIO16/17/18,
+   enables GPIO1/0/22. Placed, DRC 0; routing is the user's GPU autorouter
+   (no freerouting). Locked: the LEDs, J1, SW2, BT1, U1, U2, U5, R14 and the
+   VREG cluster.
+1. **Firmware has to change with the hardware.** LEDs: three 48-bit chains
+   (GRB, MSB first, reset ≥ 280 µs), GPIO16/17/18 inverted at the pad, and a
+   zone's enable raised ≥ 50 ms before its first frame. Idle each data GPIO
+   HIGH (inverted, so DI idles low through the 280 µs reset). **Power zones
+   off, don't just blank them**: 45 dark-but-powered WS2816C draw
+   31.5–45 mA, which is 3–4.4 h on the 140 mAh cell by itself. Keep a hard
+   brightness cap, since full white is ~0.47 A, 3.4× the cell's 140 mA rating. GPIO21 is now active high
    with no pull-up. The long-press-off must be under 2 s. Assert PWR_HOLD
    first thing and enable the watchdog.
-2. **Bring-up checks for the new parts:** U8 input leakage (the timer assumes
+2. **Bring-up checks for the new parts:** a zone that has been switched off
+   re-accepts data without a full power cycle (TPS22913B has no output
+   discharge, so a dark rail floats down through the LEDs' own IDD); U8 input leakage (the timer assumes
    nA; at the 1 µA spec max the earliest fire drops to ~1.9 s), the real
    BOOTSEL hold time on a few boards, VSYS on a weak USB port (silicon D3:
    about VBUS − 0.8 V), and whether DONE asserts on a ≤ 4.6 V port with a
@@ -169,6 +183,12 @@ PESD5V0S1BL at the pad, R30 1k); Q4 → LBSS84WT1G for latch margin
    - Route BTN_EXT as SW2.2 → D6.1 → R30.1, with nothing else on the net.
    - Put a GND via within 1 mm of D6.2.
    - Keep RUN_KICK (a 1 MΩ node) clear of LED_DATA.
+   - Four courtyards sit 0.03–0.07 mm from the 1.6 mm LED courtyards
+     (LED44–D3, LED35–C64, LED42–C26, LED24–R21). Nudge D3, C64, C26 and R21
+     only away from the ring.
+   - Q9/R31 (right-zone shifter) sit on the back west of the zone cut, about
+     10 mm from LED37. Fine electrically; move them nearer the chevron if
+     routing wants it.
 4. **Route** the placed board with the new autorouter, then gate 7 (DRC 0,
    0 unconnected).
 5. **Gates 8–10**: the rest of simulation/SI (LED rail inrush, charger

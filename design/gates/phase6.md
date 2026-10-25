@@ -51,3 +51,28 @@ is unchanged. Board regenerated (gen_board → place → pre-route): DRC 0 error
 to (−6.75, −8.5) on purpose (F7), C17 0.114 mm (relaxer). Cell fit: no clash.
 
 **Re-review 2026-10-24: PASS** (see design/gates/phase8.md, "Re-review of the fixes").
+
+---
+
+# Gate 6 addendum, 2026-10-24 (b): WS2816C ring + three zones
+
+| check | evidence |
+|---|---|
+| ring | 45 × LED_WS2816C-1313 at the same centres. Orientation per zone (k L/R/C = 0/2/0; the right chain is reversed). DO→DI gaps: L 1.24–1.87 mm, R 1.27–1.64 mm, C 3.1–7.7 mm |
+| collisions | LED44 hit D3/C29: D3 → (9.25, −3.25), C29 → (10.0, 2.25), both rescanned. The relaxer nudged C18 0.15 mm and C26 0.36 mm (LED39/LED42) |
+| zone drivers | via scan_spot. U9 back under U4 (shared VSYS); U10 back under U3; R33/C78/R34/C79 beside them. Q9 back (−9.25, −9.75), Q10 back (−9.0, −6.25), with R31/R32 beside them. The first front spots for Q9/R32 sat on the "Love Everyone" / "Be Gay" art and were moved |
+| planes | In2: VLED_L 198 mm², VLED_R 233 mm², VLED_C 88 mm² (inner band), 3V3 disc unchanged |
+| DRC | **0 errors**, 282 unconnected (unrouted; the user's GPU router routes it) |
+| cell fit | no clash; under the cell: U9/U10 (0.625), C78/C79 (0.90), Q9/Q10 (1.10, at the cap), R31–R34 |
+| locks | 59 footprints locked (45 LEDs + J1, SW2, BT1, U1, U2, U5, R14, L1, C11, C12, C13, R13, C22, Q1). Reasons are in place.py `LOCKED` |
+
+**Review (stronger model, fresh context), 2026-10-24.** Gates 1 and 2 PASS.
+Gate 6 PASS with conditions, all addressed:
+- C1: VLED_C band re-centred to r 9.15–10.85 on the WS2816C VDD pads, with
+  the outer band from 11.15 and the 3V3 disc at 8.95.
+- C8: Q1 locked.
+- C5 (four 0.03–0.07 mm courtyard gaps) and C3 (Q9/R31 far from LED37):
+  routing notes in PLAN.
+- A3: schematic VIH text corrected to 3.47 V.
+- C9 / F1: stale comments fixed.
+- B2 / B3 / E1 / E2: firmware and bring-up notes in PLAN.

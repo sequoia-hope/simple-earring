@@ -40,8 +40,10 @@ leds:
   # (opposite face from the USB connector): a 3-LED chevron with the middle
   # one higher, continuing the chain right-to-left across the tip.
   # LEDs point pin-1/data tangentially; chain daisy-chains around the ring.
+  # 2026-10-24: WS2816C-1313/4P in three zones (circuit.py led_zones):
+  # left LED1-18, right LED37->19 (reversed), centre LED38-45.
   power_rail: VSYS       # rev 2: cell when unplugged, VBUS-0.3V when not.
-                         # SK6805 wants 3.7-5.5V; the cell alone only clears
+                         # (WS2816C: 3.3-5.5V since 2026-10-24; SK6805 wanted 3.7-5.5V; the cell alone only clears
                          # that above ~3.7V, so on USB the ring finally works
                          # at any state of charge. Costs a data level shifter
                          # (Q3/R23) — VIH is 0.7*VLED. Documentation only;

@@ -912,7 +912,8 @@ class Sch:
 # ---------------------------------------------------------------------------
 def mcu_sides():
     gp = {g: p for g, p in GPIO.items()}
-    used = {29: "GPIO18", 3: "GPIO1", 9: "GPIO6", 15: "GPIO11", 12: "GPIO8",
+    used = {29: "GPIO18", 28: "GPIO17", 27: "GPIO16", 3: "GPIO1", 2: "GPIO0",
+            34: "GPIO22", 9: "GPIO6", 15: "GPIO11", 12: "GPIO8",
             31: "GPIO19", 32: "GPIO20", 33: "GPIO21", 42: "GPIO28",
             40: "GPIO26/ADC0", 43: "GPIO29/ADC3"}
     unused = [(gp[g], f"GPIO{g}") for g in sorted(gp)
@@ -930,7 +931,8 @@ def mcu_sides():
             + [(21, "XIN"), (22, "XOUT")]
             + [None] * 8
             + [(51, "USB_DM"), (52, "USB_DP")])
-    right = [(29, "GPIO18"), (3, "GPIO1"), (9, "GPIO6"), (15, "GPIO11"),
+    right = [(29, "GPIO18"), (28, "GPIO17"), (27, "GPIO16"), (3, "GPIO1"),
+             (2, "GPIO0"), (34, "GPIO22"), (9, "GPIO6"), (15, "GPIO11"),
              (12, "GPIO8"), (31, "GPIO19"), (32, "GPIO20"), (33, "GPIO21"),
              (42, "GPIO28"),
              (40, "GPIO26/ADC0"), (43, "GPIO29/ADC3")]
@@ -984,9 +986,10 @@ IC_SIDES = {
                   ("1", "SDO/SA0")],
             "t": [("8", "VDD"), ("5", "VDDIO")],
             "b": [("6", "GND"), ("7", "GND")]},
-    "led": {"l": [None, ("2", "DI"), None],
-            "r": [None, ("4", "DO"), None],
-            "t": [("3", "VDD")], "b": [("1", "GND")]},
+    # WS2816C-1313/4P: 1 VDD, 2 DO, 3 GND, 4 DI (circuit.py LED_PIN)
+    "led": {"l": [None, ("4", "DI"), None],
+            "r": [None, ("2", "DO"), None],
+            "t": [("1", "VDD")], "b": [("3", "GND")]},
     # 74LVC2G14 (U8): 1A -> 1Y feeds 2A -> 2Y. 1Y and 2A sit next to each
     # other on the right so the LONG_N link is a two-pin bracket, and 2Y
     # leaves below it.
@@ -1644,37 +1647,40 @@ def blk_path(s, cir, bk, x, y):
 
 
 def blk_shift(s, cir, bk, x, y):
-    """(x, y) is Q3's centre: LED_DATA in from the left, LED_D0 out up."""
-    s.begin("LED data level shifter — open-drain into the ring")
-    q3 = put(s, cir, "Q3", x, y)
-    bk.take("Q3", "1", "LED_DATA")
-    bk.take("Q3", "2", "GND")
-    bk.take("Q3", "3", "LED_D0")
-    s.wire(q3["1"], (x - 15.24, y))
-    s.glabel("LED_DATA", (x - 15.24, y), rot=180, just="right")
-    s.wire(q3["2"], (x + 2.54, y + 12.7))
-    s.rail("GND", (x + 2.54, y + 12.7))
-    node = (x + 2.54, y - 15.24)
-    s.wire(q3["3"], node)
-    s.junction(node)
-    s.wire(node, (x + 17.78, node[1]))
-    s.glabel("LED_D0", (x + 17.78, node[1]))
-    r23 = put(s, cir, "R23", x + 2.54, y - 22.86)
-    bk.take("R23", "1", "VLED")
-    bk.take("R23", "2", "LED_D0")
-    s.wire(r23["2"], node)
-    s.wire(r23["1"], (x + 2.54, y - 30.48))
-    s.rail("VLED", (x + 2.54, y - 30.48))
-    s.note("The ring's VIH is 0.7*VLED. On the cell that peaked at 2.94V "
-           "and the MCU drove pixel 1 directly; on VSYS it is 3.29V (3.5V "
-           "at a 5.25V port), past anything a 3.3V pad can output. Q3 "
-           "inverts into R23's pull-up, so the swing is a full VLED rail "
-           "whatever VLED is — 3.0V cell or 5.0V cable. Only pixel 1 needs "
-           "it; every DI after that is driven by the previous DO. Firmware "
-           "must set gpio_set_outover(LED_DATA, GPIO_OVERRIDE_INVERT) — the "
-           "pad override sits after the PIO, so the NeoPixel program is "
-           "untouched.",
-           x - 20.32, y + 20.32, 90.0)
+    """Three LED data level shifters side by side, one per zone. (x, y) is
+    Q3's centre: LED_DATA_<z> in from the left, LED<z>_D0 out to the right,
+    each pull-up on its own zone rail."""
+    s.begin("LED data level shifters — one open-drain stage per zone")
+    for k, (q, r, z) in enumerate((("Q3", "R23", "L"), ("Q9", "R31", "R"),
+                                   ("Q10", "R32", "C"))):
+        xq = x + k * 48.26
+        qq = put(s, cir, q, xq, y)
+        bk.take(q, "1", f"LED_DATA_{z}")
+        bk.take(q, "2", "GND")
+        bk.take(q, "3", f"LED{z}_D0")
+        s.wire(qq["1"], (xq - 15.24, y))
+        s.glabel(f"LED_DATA_{z}", (xq - 15.24, y), rot=180, just="right")
+        s.wire(qq["2"], (xq + 2.54, y + 12.7))
+        s.rail("GND", (xq + 2.54, y + 12.7))
+        node = (xq + 2.54, y - 15.24)
+        s.wire(qq["3"], node)
+        s.junction(node)
+        s.wire(node, (xq + 15.24, node[1]))
+        s.glabel(f"LED{z}_D0", (xq + 15.24, node[1]))
+        rr = put(s, cir, r, xq + 2.54, y - 22.86)
+        bk.take(r, "1", f"VLED_{z}")
+        bk.take(r, "2", f"LED{z}_D0")
+        s.wire(rr["2"], node)
+        s.wire(rr["1"], (xq + 2.54, y - 30.48))
+        s.rail(f"VLED_{z}", (xq + 2.54, y - 30.48))
+    s.note("WS2816C VIH is 0.7*VDD: 2.94V on a full cell, 3.47V on a 5.25V "
+           "port, above a 3.3V pad, so each zone's first pixel is driven "
+           "through an open-drain inverter into a 1k pull-up on THAT zone's "
+           "rail. A dark zone's pull-up is dead, so its first DI is never "
+           "driven into an unpowered LED. Firmware: gpio_set_outover(pin, "
+           "GPIO_OVERRIDE_INVERT) on GPIO16/17/18; one PIO program can clock "
+           "all three consecutive pins.",
+           x - 20.32, y + 20.32, 118.0)
     s.end()
 
 
@@ -1722,33 +1728,40 @@ def blk_light(s, cir, bk, x, y):
 
 
 def blk_loadsw(s, cir, bk, x, y):
-    s.begin("VLED high-side load switch (LEDs draw zero when off)")
-    u = put(s, cir, "U4", x, y)
-    bk.take("U4", "A2", "VSYS")   # rev 2: LEDs run off the cable when in
-    s.wire(u["A2"], (u["A2"][0] - 10.16, u["A2"][1]))
-    s.wire((u["A2"][0] - 10.16, u["A2"][1]),
-           (u["A2"][0] - 10.16, u["A2"][1] - 6.35))
-    s.rail("VSYS", (u["A2"][0] - 10.16, u["A2"][1] - 6.35))
-    bk.take("U4", "A1", "VLED")
-    xo = u["A1"][0] + 12.7
-    s.wire(u["A1"], (xo, u["A1"][1]))
-    s.wire((xo, u["A1"][1]), (xo, u["A1"][1] - 6.35))
-    s.rail("VLED", (xo, u["A1"][1] - 6.35))
-    s.wire((xo, u["A1"][1]), (xo + 12.7, u["A1"][1]))
-    s.junction((xo, u["A1"][1]))
-    vdrop(s, cir, bk, "C20", xo + 12.7, u["A1"][1], "GND")
-    bk.take("U4", "B1", "GND")
-    s.wire(u["B1"], (u["B1"][0], u["B1"][1] + 3.81))
-    s.rail("GND", (u["B1"][0], u["B1"][1] + 3.81))
-    bk.take("U4", "B2", "LED_EN")
-    xn = u["B2"][0] - 10.16
-    s.wire(u["B2"], (xn, u["B2"][1]))
-    s.junction((xn, u["B2"][1]))
-    vdrop(s, cir, bk, "R10", xn, u["B2"][1], "GND")
-    s.wire((xn, u["B2"][1]), (xn - 7.62, u["B2"][1]))
-    s.glabel("LED_EN", (xn - 7.62, u["B2"][1]), rot=180, just="right")
-    s.note("R10 holds the switch off until firmware drives LED_EN high.",
-           x - 25.4, u["B1"][1] + 15.24, 76.0)
+    """Three zone load switches stacked (U4 left, U9 right, U10 centre)."""
+    s.begin("VLED zone load switches (dark zones draw zero)")
+    for k, (uref, rref, cref, z) in enumerate((("U4", "R10", "C20", "L"),
+                                               ("U9", "R33", "C78", "R"),
+                                               ("U10", "R34", "C79", "C"))):
+        yk = y + k * 40.64
+        u = put(s, cir, uref, x, yk)
+        bk.take(uref, "A2", "VSYS")
+        s.wire(u["A2"], (u["A2"][0] - 10.16, u["A2"][1]))
+        s.wire((u["A2"][0] - 10.16, u["A2"][1]),
+               (u["A2"][0] - 10.16, u["A2"][1] - 6.35))
+        s.rail("VSYS", (u["A2"][0] - 10.16, u["A2"][1] - 6.35))
+        bk.take(uref, "A1", f"VLED_{z}")
+        xo = u["A1"][0] + 12.7
+        s.wire(u["A1"], (xo, u["A1"][1]))
+        s.wire((xo, u["A1"][1]), (xo, u["A1"][1] - 6.35))
+        s.rail(f"VLED_{z}", (xo, u["A1"][1] - 6.35))
+        s.wire((xo, u["A1"][1]), (xo + 12.7, u["A1"][1]))
+        s.junction((xo, u["A1"][1]))
+        vdrop(s, cir, bk, cref, xo + 12.7, u["A1"][1], "GND")
+        bk.take(uref, "B1", "GND")
+        s.wire(u["B1"], (u["B1"][0], u["B1"][1] + 3.81))
+        s.rail("GND", (u["B1"][0], u["B1"][1] + 3.81))
+        bk.take(uref, "B2", f"LED_EN_{z}")
+        xn = u["B2"][0] - 10.16
+        s.wire(u["B2"], (xn, u["B2"][1]))
+        s.junction((xn, u["B2"][1]))
+        vdrop(s, cir, bk, rref, xn, u["B2"][1], "GND")
+        s.wire((xn, u["B2"][1]), (xn - 7.62, u["B2"][1]))
+        s.glabel(f"LED_EN_{z}", (xn - 7.62, u["B2"][1]), rot=180, just="right")
+    s.note("One switch per zone: the WS2816C idles at 0.7-1.0mA per LED, so "
+           "only lit zones are powered. The pull-downs hold every zone off "
+           "until firmware drives its LED_EN high.",
+           x - 25.4, y + 2 * 40.64 + 22.86, 76.0)
     s.end()
 
 
@@ -1832,8 +1845,8 @@ def blk_mcu(s, cir, bk, cx, cy):
             bk.take("U1", p, "")
             s.nc(u[p])
     # --- used GPIOs out to the rest of the sheet ---
-    for p in ("29", "3", "9", "15", "12", "31", "32", "33", "42", "40",
-              "41", "43"):
+    for p in ("29", "28", "27", "3", "2", "34", "9", "15", "12", "31", "32",
+              "33", "42", "40", "41", "43"):
         net = bk.take("U1", p)
         s.wire(u[p], (u[p][0] + 6.35, u[p][1]))
         s.glabel(net, (u[p][0] + 6.35, u[p][1]))
@@ -2084,62 +2097,63 @@ def blk_imu(s, cir, bk, x, y):
 
 
 def blk_leds(s, cir, bk, design, x, y, per_row, pitch):
+    from circuit import led_zones
     n = design["leds"]["count"]
-    s.begin(f"Addressable LED ring — {n} x SK6805-EC10 daisy chain")
-    rows = [(r, list(range(r * per_row, min(n, (r + 1) * per_row))))
-            for r in range((n + per_row - 1) // per_row)]
-    # geometry comes from the symbol so a wider or taller LED box cannot
-    # silently leave the chain wires hanging in mid-air
+    s.begin(f"Addressable LED ring — {n} x WS2816C-1313 in three zone chains")
+    zones = led_zones(design)
+    rows = []
+    for z, chain in zones.items():
+        for r0 in range(0, len(chain), per_row):
+            rows.append((z, chain[r0:r0 + per_row]))
     ext_w = s.defs["led"].extent[0]
     ext_h = s.defs["led"].extent[1]
     gap = pitch - 2 * ext_w
     assert gap >= 7.62, (f"LED pitch {pitch} leaves only {gap:.1f}mm between "
                          "boxes — no room for the chain label")
     rowh = 2 * ext_h + 30.48
-    for r, idx in rows:
+    for r, (z, idx) in enumerate(rows):
         cy = y + r * rowh
         ytop, ybot = cy - ext_h - 5.08, cy + ext_h + 5.08
-        first = None
         for k, i in enumerate(idx):
-            ref = f"LED{i + 1}"
+            ref = f"LED{i}"
             xi = x + k * pitch
             p = put(s, cir, ref, xi, cy, hide_value=True,
                     ref_off=(-9.0, -8.4))
-            if first is None:
-                first = p
-            bk.take(ref, "3", "VLED")
-            bk.take(ref, "1", "GND")
-            s.wire(p["3"], (xi, ytop))
-            s.wire(p["1"], (xi, ybot))
+            bk.take(ref, "1", f"VLED_{z}")
+            bk.take(ref, "3", "GND")
+            s.wire(p["1"], (xi, ytop))
+            s.wire(p["3"], (xi, ybot))
             if k:
                 s.junction((xi, ytop))
                 s.junction((xi, ybot))
-            din = bk.take(ref, "2")
-            dout = bk.take(ref, "4")
+            din = bk.take(ref, "4")
+            dout = bk.take(ref, "2")
             if k:
-                prev = f"LED{idx[k - 1] + 1}"
-                assert cir.components[prev].pins["4"] == din
-                s.wire((xi - pitch + ext_w, cy), p["2"])
+                prev = f"LED{idx[k - 1]}"
+                assert cir.components[prev].pins["2"] == din
+                s.wire((xi - pitch + ext_w, cy), p["4"])
                 s.label(din, (xi - pitch + ext_w + 1.27, cy), size=1.0)
             else:
-                s.wire(p["2"], (xi - ext_w - 3.81, cy))
+                s.wire(p["4"], (xi - ext_w - 3.81, cy))
                 s.glabel(din, (xi - ext_w - 3.81, cy), rot=180, just="right")
             if k == len(idx) - 1:
                 if dout:
-                    s.wire(p["4"], (xi + ext_w + 3.81, cy))
+                    s.wire(p["2"], (xi + ext_w + 3.81, cy))
                     s.glabel(dout, (xi + ext_w + 3.81, cy))
                 else:
-                    s.nc(p["4"])
+                    s.nc(p["2"])
         xa, xb = x, x + (len(idx) - 1) * pitch
         s.wire((xa, ytop), (xb, ytop))
         s.wire((xa, ybot), (xb, ybot))
         s.wire((xa, ytop), (xa, ytop - 3.81))
-        s.rail("VLED", (xa, ytop - 3.81))
+        s.rail(f"VLED_{z}", (xa, ytop - 3.81))
         s.wire((xa, ybot), (xa, ybot + 3.81))
         s.rail("GND", (xa, ybot + 3.81))
-    s.note("Chain runs LED1 -> LED%d in board order; each row break carries "
-           "on through LED_D<n>. VLED is the switched battery rail, so the "
-           "ring is dark until LED_EN goes high." % n,
+    s.note("Three independent chains, each with its own switched rail: left "
+           "LED1->LED18, right LED37->LED19 (entering at the tip chevron), "
+           "centre LED38->LED45. A dark zone is unpowered, so data never "
+           "crosses a zone boundary; each row break carries on through "
+           "LED<z>_D<n>.",
            x - 8.89, y + (len(rows) - 1) * rowh + 24.13, 320.0, size=1.6)
     s.end()
 
@@ -2171,7 +2185,7 @@ def build_sheet(design, cir):
     blk_charger(s, cir, bk, 58, 196)
     blk_sense(s, cir, bk, 164, 164)
     blk_ldo(s, cir, bk, 190, 59)
-    blk_loadsw(s, cir, bk, 166, 122)
+    blk_loadsw(s, cir, bk, 640, 340)  # three zones: moved to open sheet
     blk_en(s, cir, bk, 272, 40)
     blk_latch(s, cir, bk, LATCH_AT[0], LATCH_AT[1])
     blk_onebutton(s, cir, bk, ONEBTN_AT[0], ONEBTN_AT[1])
@@ -2180,7 +2194,7 @@ def build_sheet(design, cir):
     # and the level shifter beside the ring it drives
     blk_path(s, cir, bk, 189.3, 254.4)
     blk_vbussense(s, cir, bk, 620.4, 118.2)
-    blk_shift(s, cir, bk, 450.3, 391.1)
+    blk_shift(s, cir, bk, 468.3, 391.1)
     blk_light(s, cir, bk, 232, 176)
     blk_imu(s, cir, bk, 510, 137)
 
@@ -2195,16 +2209,18 @@ def build_sheet(design, cir):
     blk_xtal(s, cir, bk, u)
     blk_sys(s, cir, bk, u)
 
-    ring_caps = sorted((r for r in cir.components
-                        if r.startswith("C") and r[1:].isdigit()
-                        and int(r[1:]) >= 30
-                        and cir.components[r].pins.get("1") == "VLED"),
-                       key=lambda r: int(r[1:]))  # C75+ are not ring caps
-    blk_leds(s, cir, bk, design, 28.0, 336.0, 15, 26.67)
-    blk_bank(s, cir, bk,
-             "LED ring bypass — 100n VLED-GND, one per two LEDs",
-             ring_caps, 448.0, 274.0, "VLED", pitch=11.43, rows=2,
-             note="C30..C74, distributed around the ring next to their LEDs")
+    def ring_caps(rail):
+        return sorted((r for r in cir.components
+                       if r.startswith("C") and r[1:].isdigit()
+                       and 30 <= int(r[1:]) < 75
+                       and cir.components[r].pins.get("1") == rail),
+                      key=lambda r: int(r[1:]))  # C75+ are not ring caps
+    blk_leds(s, cir, bk, design, 42.0, 336.0, 15, 26.67)
+    for k, (z, name) in enumerate((("L", "left"), ("R", "right"), ("C", "centre"))):
+        blk_bank(s, cir, bk,
+                 f"LED bypass, {name} zone — 100n VLED_{z}-GND, one per two LEDs",
+                 ring_caps(f"VLED_{z}"), *BANK_AT[z], f"VLED_{z}", pitch=11.43,
+                 rows=1, note="next to their LEDs around the ring" if k == 0 else None)
 
     bk.report()
     s.check_frames(verbose=bool(os.environ.get("SCH_LAYOUT")))
@@ -2279,6 +2295,7 @@ def verify_netlist(cir):
     return True
 
 
+BANK_AT = {"L": (730.0, 325.0), "R": (730.0, 381.0), "C": (730.0, 437.0)}
 LATCH_AT = (668.0, 213.0)  # below the VBUS tap; placed against the measured frames
 ONEBTN_AT = (760.0, 213.0)
 

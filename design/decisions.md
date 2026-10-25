@@ -193,3 +193,60 @@ silicon D3, BAV99W, TVS**.
   pre-route is left to the user's autorouter as a constraint.
 - **F6** (silicon D3 on weak ports, DONE may not assert): accepted. It is
   on the bring-up list.
+
+## 2026-10-24 — LED ring → WS2816C-1313/4P in three zones (user decision)
+
+- **Part:** Worldsemi WS2816C-1313/4P (C42417612, 67k stock).
+  - Why: 16-bit per channel plus 4-bit gamma, so the earring's low brightness
+    has fine steps; the user's motivation, with the bigger 140 mAh cell.
+  - VDD floor is 3.3 V (SK6805: 3.7 V).
+  - Costs:
+    - idle current 0.7 typ / 1.0 max mA per LED (SK6805: 0.3);
+    - operating temperature only −40…+65 °C;
+    - MSL 5a;
+    - 0.65 mm tall;
+    - 2× frame time and a 280 µs reset (firmware).
+  - VIH is 0.7·VDD. I first quoted 0.55 from the A-variant survey, which was
+    wrong, so the level shifters stay.
+  - Footprint: the EasyEDA land (0.50 pads at ±0.40), checked against the
+    datasheet drawing. The pin order is the SK6805's rotated 90°, so the
+    diamond ring and the k-loop carry over.
+  - Fit check: 1.6 mm courtyards clear each other at the tightest LED
+    spacing (2.33 mm). Only LED44 forced moves: D3 0.25 mm, C29 0.5 mm. The
+    relaxer moved C18 0.15 mm and C26 0.36 mm.
+- **Three zones (user chose 3 of 1/2/3/5):**
+  - left LED1–18;
+  - right LED19–37, chained in REVERSE so data enters at the chevron
+    (LED37), beside the left zone's entry;
+  - centre LED38–45.
+- **Each zone is its own chain + switch + shifter:**
+  - U4/U9/U10 TPS22913, with R10/R33/R34 pull-downs and C20/C78/C79.
+  - Q3/Q9/Q10 + R23/R31/R32. Each pull-up goes to its own zone rail, so a
+    dark zone's first DI is never driven above an unpowered VDD.
+  - Rejected: per-zone power on one shared chain. A dark LED breaks the
+    chain, and the still-driven DI back-feeds it through its clamp.
+- **GPIOs:**
+  - Data: GPIO16/17/18 (pins 27–29, adjacent, so one PIO program can clock
+    all three chains in parallel).
+  - Enables: GPIO1 (L, existing), GPIO0 (R, pin 2), GPIO22 (C, pin 34).
+- **In2:**
+  - VLED_C is an inner band (r 9.35–10.75) for the octagon.
+  - VLED_L / VLED_R split the outer band (r > 11.05) along the line between
+    the zone boundaries.
+  - The 3V3 disc is unchanged.
+- **route.py:** the SK6805-specific freerouting workarounds (C30 via-in-pad,
+  LED1-3/LED32-34 VLED vias, C32→C30 link, LED_D3 fragment) are removed.
+  The board is routed by the user's own GPU autorouter. `build.py route`
+  (freerouting) is no longer the plan.
+- **Locking (user request):**
+  - The LEDs, J1 and SW2.
+  - Also BT1 (cell envelope).
+  - Also every part that locked copper or a fixed pour lands on: U1, U2, U5,
+    R14, and the reference VREG cluster L1/C11/C12/C13/R13/C22.
+  - Everything else may be nudged by the router.
+- **Firmware obligations:**
+  - Three chains, 48-bit GRB, MSB first, reset ≥ 280 µs.
+  - Invert GPIO16/17/18 at the pad (each zone has a Q-inverter).
+  - Enable a zone's switch and wait for its rail and the LED's POR (≥ 50 ms
+    precedent, charge-indicator memory) before sending data.
+  - A dark zone's data line is harmless either way: its pull-up is dead.

@@ -71,6 +71,31 @@ TAGS = {
 
 FEED = [
     dict(
+        date="2026-10-24", sha=None, tags=["hardware"],
+        title="16-bit LEDs in three zones",
+        lede="The ring is now WS2816C-1313 (16 bits per colour) split into left, "
+             "right and centre zones that power off independently. Placed, DRC 0, "
+             "waiting for the GPU autorouter.",
+        body="""
+<p><b>Why:</b> the earring runs very dim, where 8-bit LEDs step visibly. The
+WS2816C has 16 bits per colour plus gamma, and runs down to 3.3&nbsp;V (the
+SK6805 needed 3.7&nbsp;V). It idles at 0.7&nbsp;mA per LED instead of 0.3, so
+the ring is split into three zones that each switch off: left (LED1–18),
+right (LED37→19, entering at the tip), and centre (the inner eight).</p>
+
+<p><b>How:</b> each zone has its own chain, load switch and level shifter, plus
+its own piece of the In2 power plane. A dark zone draws nothing, and it can't
+be back-fed through its data line. The three data lines are adjacent pins
+(GPIO16–18), so one PIO program can clock all three.</p>
+
+<p><b>For the router:</b> the LEDs, USB, button, cell pads, and every part with
+locked copper (MCU, charger, ESD, VREG cluster) are locked. Everything else
+can be nudged.</p>
+""",
+        media=[("render_place_top.png", "front: 45 WS2816C on the same ring", True),
+               ("render_place_bottom.png", "back: zone switches U9/U10 and shifters Q9/Q10", True)],
+    ),
+    dict(
         date="2026-10-24", sha=None, tags=["hardware", "simulation"],
         title="One button, no hot self-start, ESD-proof edge button",
         lede="The simulated fixes are in the netlist and on the board: SW1 is "

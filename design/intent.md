@@ -69,8 +69,12 @@ From `design/datasheets/LPR302823.pdf` (LiPol dwg FD_6110_20, 2020-08-17):
   ≳ 3.4 V to regulate, so the firmware still decides when to shut down, and the
   gauge window moves from 3.0–4.2 V to the LiPo curve. That is firmware work,
   listed below, with no hardware change.
-- **The SK6805 3.7 V floor is unchanged.** On battery the ring is only within
+- **(Superseded 2026-10-24, see the addendum below.) The SK6805 3.7 V floor is unchanged.** On battery the ring is only within
   spec above ~3.7 V, the same as before. USB-powered operation still fixes it.
+  *(2026-10-24, user decision: the ring is now WS2816C-1313/4P, 16-bit, with a
+  3.3 V floor, in three switched zones (left / right / centre). Idle current
+  rises to 0.7–1.0 mA per LED, and only powered zones pay it. Operating
+  temperature is limited to 65 °C. See decisions.md.)*
 - **The power path (D3/Q2, VBATT/VSYS split, R19/R20 load-bearing for Q2) is
   unchanged.** VBATT is still "the cell node only".
 - **Power control: momentary button + CPU-held latch** (user decision

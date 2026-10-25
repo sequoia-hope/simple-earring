@@ -59,3 +59,18 @@ This covers the parts the change adds or swaps. Stock and price were checked
 **Extended parts added:** BAV99W, 1N4007WS, PESD5V0S1BL, 74LVC2G14GW, the 680k, BAV70W (Nexperia), and LBSS84WT1G (Q4). BAT54SW and B5819WS leave, and SKRPAME010 (SW1) leaves.
 
 **Re-review 2026-10-24: PASS** (see design/gates/phase8.md, "Re-review of the fixes").
+
+---
+
+# Gate 1 addendum, 2026-10-24 (b): WS2816C ring + three zones
+
+| ref | part (LCSC) | datasheet | pinout → footprint | key numbers |
+|---|---|---|---|---|
+| LED1–45 | WS2816C-1313/4P Worldsemi (C42417612, 67,115 stock, ext) | `WS2816C-1313-4P.pdf` (Chinese, p.2–4) | p.2 top view: 1 VDD TL, 2 DO BL, 3 GND BR, 4 DI TR. New `LED_WS2816C-1313` = EasyEDA C42417612 land (0.50 pads at ±0.40), pad numbers checked | VDD 3.3–5.5 V; VIH 0.7·VDD; IDD < 0.8 mA static, 0.7/1.0 mA dyn; Iout 10–11.5 mA total; Topt −40…65 °C; MSL 5a; 1.3 × 1.3 × 0.65 |
+| U9, U10 | TPS22913 (C544698, existing part) | — | existing YZV land | as U4 |
+| Q9, Q10 | BSS138W ElecSuper (existing) | `BSS138W_elecsuper.pdf` | existing | as Q3 |
+| R31–R34, C78, C79 | 1k / 10k / 10 µF, existing BOM lines | — | — | as R23 / R10 / C20 |
+
+No new extended part beyond the LED (which replaces the SK6805 extended
+line). TPS22913 YZV height 0.625 mm max: U9/U10 sit under the cell (fit: no
+clash).

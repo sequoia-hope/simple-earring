@@ -26,27 +26,29 @@ flash:
     8=VCC — wiring copied from RPI-RP2350A-MINIMAL R4 (docs/).
 
 led:
-  mpn: SK6805-EC10-000
-  lcsc: C22394946
-  footprint: LED_SK6805-EC10
-  verified: yes          # 2026-08-05: LCSC 4095 in stock (~91 boards at 45/ea),
-                         # $0.096@5. Datasheet REV.01 checked (OPSCO).
+  mpn: WS2816C-1313/4P
+  lcsc: C42417612
+  footprint: LED_WS2816C-1313
+  verified: yes          # 2026-10-24: LCSC 67,115 in stock, $0.071@50; Worldsemi ds
+                         # design/datasheets/WS2816C-1313-4P.pdf (Chinese, 7 p.)
   notes: >
-    Replaces TBA-C1010MB-J2I16 (C22461778, down to 15 pcs). Pinout
-    1=GND 2=DIN 3=VDD 4=DOUT — see LED_PIN in circuit.py; PHYSICAL pad
-    layout is identical to the TBA part (DI top-left, VDD bottom-left,
-    GND top-right, DO bottom-right, 0.68mm diagonal grid) so ring
-    placement and the locked chain arcs are unchanged. Body 1.1x1.1mm
-    (was 1.0), pads 0.37 at +-0.34 (were 0.45 at +-0.35).
-    VDD 3.7-5.5V: still above the RJD2032C1's ~3.0V floor but the BEST of
-    the in-stock 1010 options (XL-1010RGBC-2812B C5349953 needs
-    4.5-5.5V; the outgoing TBA wanted 4.2V) — LEDs dim near end of
-    discharge, same compromise the board already shipped with.
-    VIH = 0.7*VDD -> 2.94V at 4.2V, so 3.3V GPIO data still clears it.
-    800kHz protocol, IDD 0.3mA quiescent each.
-    Footprint/WRL via easyeda2kicad C22394946; it is the datasheet land
-    rotated 90 CW (pure rotation, verified pad-by-pad against REV.01
-    sections 4-6) and place.py's k-loop picks the right quadrant.
+    Since 2026-10-24 (user decision; was SK6805-EC10 C22394946, 8-bit).
+    16-bit per channel + internal 4-bit gamma, so the earring's very low
+    brightness levels still have fine steps. 10kHz PWM. GRB order, MSB first,
+    48 bits per pixel; T0H 200-320ns, T1H 520-800ns, bit period >= 1.25us,
+    reset >= 280us (SK6805: 80us). Pin map (ds p.2, top view): 1 VDD (TL),
+    2 DO (BL), 3 GND (BR), 4 DI (TR); 0.40 pads on a 0.80 grid. Land = the
+    LCSC/EasyEDA C42417612 footprint (0.50 pads at +-0.40), checked against
+    the ds drawing; courtyard 1.6 square. That is the SK6805's cyclic pin order
+    rotated 90deg, so DI/DO stay diagonal and place.py's k-loop picks the
+    rotation. VDD 3.3-5.5V (SK6805 3.7V); VIH 0.7*VDD (so Q3/Q9/Q10 stay);
+    IDD static <0.8mA, IDDdyn 0.7 typ / 1.0 max mA per LED (SK6805 0.3) —
+    why the ring is split into three switched zones. Iout 10-11.5mA total
+    (R+G+B, fixed; no current-gain register on the C variant). 90/190/25 mcd.
+    **Operating -40..+65C, storage -40..+85C.** **MSL 5a** (24h floor life,
+    bake 70-75C >= 24h on reel) — JLC handles MSL parts but may charge for
+    baking. Body 1.3 x 1.3 x 0.65mm (SK6805 0.33): front side, check the
+    TPU case clearance.
 
 charger:
   mpn: LGS4056HDA
@@ -353,6 +355,10 @@ lvl_nfet:
   footprint: SOT-323_MOSFET
   verified: yes          # 2026-08-31: JLC 30,927 in stock, $0.025@1
   notes: >-
+    (2026-10-24: the ring is WS2816C, same VIH = 0.7*VDD, and there are now
+    three of these, Q3/Q9/Q10, one per LED zone, each pulled up to its own
+    zone rail; Q6/Q7/Q5 use the part too. The SK6805 text below still
+    holds for the numbers.)
     Q3, the LED data level shifter that the power path FORCES. SK6805-EC10
     wants VIH = 0.7*VDD; on the cell that was 2.94V at a full 4.2V (a 3.3V
     GPIO clears it, which is why rev 1 needs no shifter), but on VSYS it
