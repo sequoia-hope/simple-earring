@@ -356,7 +356,8 @@ def main():
     # centered they filled the crystal->SW1 corridor wall-to-wall (chrg10
     # routed both stuck nets with it open). They now flank the 3225 crystal
     # (Y1 cy right +1.925, C7 cy left +2.245 -> 0.32 gap) and C8 is what the
-    # re-scanned 3V3 pocket via at (-4.25,-7.55) in route.py feeds.
+    # re-scanned 3V3 pocket via at (-4.25,-7.55) in route.py fed (dropped
+    # 2026-10-28; the router now fans C8 out to In2 itself).
     # The old "do NOT flank SW1" warning STILL APPLIES, with new numbers:
     # SW1 is the SKRPAME010 at y=-11.2, and its pad copper reaches x
     # +-2.625 while its courtyard is only +-2.10 — so 0.53mm of copper

@@ -374,7 +374,11 @@ def main():
     # has no 3V3 vias there — that south-center zone is where its QSPI
     # and USB_DM/DP routes made their B->F transitions. The drifted pair
     # squatted on that corridor and QSPI/USB_DM/DP stranded chronically.
-    for pos in ((-5.85, -1.60), (6.2, 2.6), (-4.25, -7.55)):
+    # (-5.85,-1.60) and (-4.25,-7.55) DROPPED 2026-10-28: ultraroute's own
+    # fanout reached the In2 disc without them (lab vled-width-1 s0), so
+    # they were left touching In2 only and KiCad flagged them dangling.
+    # (6.2,2.6) stays: that route uses it.
+    for pos in ((6.2, 2.6),):
         rt.via(pos, "3V3")
     # (Straggler assists for USB_DM, USB_DP and IMU_SDA dropped
     # 2026-10-27: they were freerouting assists, vias at the shipped
