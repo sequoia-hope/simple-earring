@@ -376,20 +376,10 @@ def main():
     # squatted on that corridor and QSPI/USB_DM/DP stranded chronically.
     for pos in ((-5.85, -1.60), (6.2, 2.6), (-4.25, -7.55)):
         rt.via(pos, "3V3")
-    # Straggler assists: ONE committed transition via per chronically
-    # stranded long net, at the EXACT via position the shipped board's
-    # own route used (proven to coexist with this placement + statics;
-    # freerouting reliably picks up a pre-placed via on the net's path).
-    for pos, net in (((-0.61, 5.02), "USB_DM"),
-                     ((-0.26, 4.60), "USB_DP"),
-                     ((7.17, -10.07), "IMU_SDA")):
-    # (QSPI assists dropped 2026-10-25: U7 moved to the back, right under
-    # the bottom pin row, so the shipped board's QSPI transitions are moot.)
-    # (no LED_EN assist: the shipped via spot (7.00,-13.92) is 4um from
-    # rev-2's re-pitched LED32.4 and every nearby nudge trades that for
-    # R10/R14 clearance; LED_EN only strands on some seeds — leave it to
-    # freerouting/finish.)
-        rt.via(pos, net)
+    # (Straggler assists for USB_DM, USB_DP and IMU_SDA dropped
+    # 2026-10-27: they were freerouting assists, vias at the shipped
+    # board's own transitions. Their tracks were never locked, so with
+    # ultraroute's --strip they stood free and ended up dangling.)
     # VREG single-point ground return: two vias INSIDE the transplanted
     # local GND pour, at the official minimal design's spots (rotated);
     # separate dedicated via for CFILT's GND
@@ -464,7 +454,9 @@ def main():
             ("B", (-0.25, -14.60), (-0.25, -15.00)),  # pad stubs to vias
             ("B", (0.75, -14.60), (0.75, -15.00)),
             ("F", (-0.25, -15.00), (0.75, -15.00)),   # duplicate-pad join
-            ("B", (0.75, -15.00), (0.75, -13.00)),    # rise through B6
+            # (the "rise through B6" to y -13 was dropped 2026-10-27: it
+            # ran 0.47 mm past the pad and dangled; the router takes B6 on
+            # to U5.6)
         ],
     }
     for net, segs in USB_PAIR.items():
@@ -572,16 +564,18 @@ def main():
     # corridor: LED_EN (pin3, y1.5) north of C6; SDA (pin9, y-0.9) the
     # middle gap; INT1 (pin12, y-2.1) the lower gap; SCL (pin15, y-3.3)
     # the south passage between C2 and C13.
-    rt.via((6.3, -0.75), "IMU_SDA")
-    rt.via((5.15, -5.7), "IMU_SCL")
-    rt.via((5.55, -2.35), "IMU_INT1")
+    # (Dropped 2026-10-27, like the stragglers above: the router never
+    # joins a free-standing locked via, so they only dangled.)
     # (LED_EN_L's channel via dropped 2026-10-25: U4 moved to the back-west)
     # R14 (SDA pull-up) 3V3 pad: via-in-pad into the In3 pour's south
     # lobe (tented — C30's VLED via-in-pad is the precedent). The pad
     # sits deep in the tip lobe where no scanned adjacent via spot
     # clears R10's pads, the J1 leg keepout and the front LED chain
     # simultaneously (seen live as the last stuck edge, 6/6 seeds).
-    rt.via(rel(pad_of(fps["R14"], 2).GetPosition()), "3V3")
+    # (6+ layers only: on 4 layers there is no In3 pour and the via
+    # dangled)
+    if n_layers >= 6:
+        rt.via(rel(pad_of(fps["R14"], 2).GetPosition()), "3V3")
     # NB: no channel vias for the USB_DM/DP escapes. The escapes' front
     # loop (DM upper row, DP looping east around R6/R7) only failed when
     # BOOTSEL's route to a back-side R3 squatted the loop lane (a
@@ -594,11 +588,12 @@ def main():
     # at x -5.1/-5.4 wall the west back from y -8 to +6.9, so the wire
     # must cross to B WEST of them — commit that with a via left of the
     # chip (TP3's D1-era shoulder move put it past freerouting's patience)
-    rt.via((-6.0, -3.1), "SWDIO")
+    # (via dropped 2026-10-27: a freerouting assist that dangled under
+    # ultraroute)
     # SWCLK to TP2 (back east shoulder): same story on the east — the
     # IMU cluster + pour traffic put the long haul past freerouting's
     # plateau; commit the B transition NE of the chip corner
-    rt.via((5.3, -4.6), "SWCLK")
+    # (via dropped 2026-10-27, same reason as SWDIO's)
     # (CHRG / CHRG_DONE escape vias and U2's landing loop dropped
     # 2026-10-25: the charger moved to the back. They were freerouting
     # assists measured off U2's front spot.)
@@ -695,7 +690,7 @@ def main():
     VBUS_TRUNK = [((-2.35, -13.45), (-0.50, -12.40)),
                   ((-0.50, -12.40), (0.92, -11.50)),
                   ((0.92, -11.50), (1.60, -12.20)),
-                  ((1.60, -12.20), (2.35, -13.45))]
+                  ((1.60, -12.20), (2.20, -12.99))]  # ends on the moved via (was 2.35,-13.45, which left it dangling)
     vb_blocked = 0
     pw = design["jlcpcb"]["power_track_mm"]
     for a, b2 in VBUS_TRUNK:

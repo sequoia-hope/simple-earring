@@ -71,6 +71,194 @@ TAGS = {
 
 FEED = [
     dict(
+        date="2026-10-27", sha=None, tags=["layout"],
+        title="LED supply tracks widened to 0.3 mm and re-routed",
+        lede="VLED_L/C/R now have their own net class: 0.3 mm tracks, narrowed to no "
+             "less than 0.2 mm at the LED pads. They were 0.15 mm. The re-route is "
+             "complete. KiCad: 0 errors, 0 unconnected, 0 dangling.",
+        body="""
+<p><b>Rules:</b> a new <code>vled</code> net class (0.3&nbsp;mm) takes
+<code>VLED_*</code>, and a rule in <code>earring.kicad_dru</code> sets its
+minimum at 0.2&nbsp;mm. The largest zone, VLED_R, feeds 19 LEDs.</p>
+
+<p><b>Route:</b> lab experiment <code>vled-width-1</code>, run
+<code>s0</code>. Same recipe as the pour-aware route
+(<code>--planes In1.Cu --pour-cost 3</code>), seed 0, on ultraroute
+8c691ec. Seeds 0 and 3 routed completely; seeds 1 and 2 left 3 and 2 nets
+open.</p>
+
+<p><b>Against the pour-aware route:</b></p>
+<ul>
+<li>VLED tracks: 196&nbsp;mm at 0.3&nbsp;mm and 3.5&nbsp;mm necked to
+0.23&nbsp;mm. None are narrower.</li>
+<li>In2 LED supply pours: 335&nbsp;mm&sup2; (was 326). VLED_C 55 in 4
+pieces, VLED_L 132, VLED_R 148.</li>
+<li>3V3: 106&nbsp;mm&sup2;. GND plane: one piece, 670&nbsp;mm&sup2;.</li>
+<li>Vias: 479 (was 495).</li>
+<li>USB pair: 24.6 / 24.5&nbsp;mm (was 23.8 / 24.2).</li>
+<li>No part moved.</li>
+</ul>
+
+<p>This seed reached the 3V3 disc without two of the locked 3V3 access vias
+from <code>route.py</code>. They connected on one layer only, so they were
+removed after routing.</p>
+
+<p><b>Still to review:</b> the USB pair still runs partly uncoupled; that
+fix is queued in ultraroute.</p>
+""",
+        media=[("layout_top.png", "front copper, routed", True),
+               ("layout_bottom.png", "back copper, routed", True),
+               ("layout_layers.png", "all four copper layers", True)],
+    ),
+    dict(
+        date="2026-10-27", sha=None, tags=["layout"],
+        title="Pour-aware route: In2's LED supply pours a third bigger (superseded 10-27)",
+        lede="ultraroute's new pour cost keeps signals from carving up In2's VLED and "
+             "3V3 pours. In2 copper is up from 320 to 426 mm², and VLED_C is 2 pieces "
+             "instead of 6. KiCad: 0 errors, 0 unconnected, 0 dangling.",
+        body="""
+<p><b>Route:</b> lab experiment <code>pours-1</code>, run
+<code>w3-s1</code>. Same recipe as before, with <code>--planes In1.Cu
+--pour-cost 3</code>, on ultraroute a190e63.</p>
+
+<p><b>Against the previous route:</b></p>
+<ul>
+<li>VLED_C: 56&nbsp;mm&sup2; in 2 pieces (was 32 in 6).</li>
+<li>VLED_R: 154&nbsp;mm&sup2; (was 78).</li>
+<li>3V3: 100&nbsp;mm&sup2; (was 96).</li>
+<li>GND plane: still one piece, 666&nbsp;mm&sup2;.</li>
+<li>Vias: 495 (was 411).</li>
+<li>USB pair: 23.8 / 24.2&nbsp;mm (was 21.3 / 21.3).</li>
+<li>No part moved.</li>
+</ul>
+
+<p><b>Still to review:</b> the VLED nets' 0.15&nbsp;mm track width, set by
+the board's net class. The USB pair also still runs partly uncoupled; that
+fix is queued in ultraroute.</p>
+""",
+        media=[("layout_top.png", "front copper, routed", True),
+               ("layout_bottom.png", "back copper, routed", True),
+               ("layout_layers.png", "every copper layer", True)],
+    ),
+    dict(
+        date="2026-10-27", sha=None, tags=["layout"],
+        title="Clean route: freerouting leftovers gone, USB pair 21.3 / 21.3 mm, nothing dangling",
+        lede="route.py lost its last freerouting assists: 8 free-standing locked vias "
+             "and two overshooting stubs. ultraroute re-routed the board with In1 kept "
+             "as the ground plane. KiCad: 0 errors, 0 unconnected, 0 dangling; only "
+             "silk and library warnings remain.",
+        body="""
+<p><b>What was wrong:</b> the router input carried 8 locked vias that no
+track or pad touched: USB_DM/DP, IMU_SDA/SCL/INT1, SWDIO and SWCLK. They were
+freerouting-era assists whose tracks were never locked. ultraroute strips
+unlocked tracks and doesn't join free-standing copper, so the vias dangled on
+every route. Two locked stubs also dangled:</p>
+<ul>
+<li>USB_C_DP's B.Cu run went 0.47&nbsp;mm past J1's B6 pad.</li>
+<li>The VBUS trunk still ended at the tie via's spot from before its
+Aug&nbsp;7 move.</li>
+</ul>
+<p>All of these are fixed in route.py.</p>
+
+<p><b>Route:</b> lab experiment <code>earring-noassist</code>, run
+<code>N-s3</code>, the P-s1 recipe (<code>--planes In1.Cu</code>) on
+ultraroute 802cb3a. Seeds 0&ndash;2 left 1&ndash;2 nets open.</p>
+<ul>
+<li>USB_DM and USB_DP are both 21.3&nbsp;mm.</li>
+<li>In1 carries no signal, and the GND plane is one piece.</li>
+<li>VLED_R is one piece again (78&nbsp;mm&sup2;).</li>
+<li>No part moved.</li>
+</ul>
+
+<p><b>Still to review:</b> In2 carries 480&nbsp;mm of signal. VLED_C fills
+only 32&nbsp;mm&sup2; in 6 pieces, and the VLED nets run 0.15&nbsp;mm
+tracks.</p>
+""",
+        media=[("layout_top.png", "front copper, routed", True),
+               ("layout_bottom.png", "back copper, routed", True),
+               ("layout_layers.png", "every copper layer", True)],
+    ),
+    dict(
+        date="2026-10-27", sha=None, tags=["layout"],
+        title="Re-routed with the GND plane kept whole: USB 25 mm, In1 signal-free",
+        lede="ultraroute re-routed the board with differential pairs, no power-net "
+             "necking, and In1 reserved as the ground plane. KiCad: 0 errors, "
+             "0 unconnected, no net differences from the schematic. Button sim still "
+             "passes 54/54.",
+        body="""
+<p><b>Source:</b> ultraroute lab experiment <code>earring-planes-in1</code>,
+run <code>P-s1</code>.</p>
+<ul>
+<li><b>Recipe:</b> lab <code>general-57</code>'s
+(<code>earring-kicad-locked</code>, locked copper kept, pre-fanout, diff
+pairs, negotiate, rip-up, region plough, tighten) plus <code>--planes
+In1.Cu</code>.</li>
+<li><b>Run:</b> 1 thread, 240&nbsp;s budget. No part moved, so R16 is back at
+its committed spot.</li>
+<li><b>Seeds:</b> 1 and 2 routed with 0 open; seed 0 left VBSENSE
+open.</li>
+</ul>
+
+<p><b>Why reserve In1:</b> the best unreserved run (<code>general-57</code>
+L-s0) still put 297&nbsp;mm of signal on In1, the GND reference plane under
+F.Cu. easy_pcb's routing flow marks plane layers with <code>--planes</code>,
+and the earring had never been routed that way.</p>
+
+<p><b>Result:</b></p>
+<ul>
+<li>In1 carries no signal at all. The GND plane fills as one piece
+(690&nbsp;mm&sup2;, up from three pieces and 582&nbsp;mm&sup2;).</li>
+<li>USB_DM is 25.1&nbsp;mm and USB_DP 24.8&nbsp;mm, matched to 0.3&nbsp;mm,
+mostly on In2 right next to that plane. The 10-26 route had 61.5 and
+34.1&nbsp;mm.</li>
+<li>VSYS's narrowest track is 0.23&nbsp;mm, for 0.1&nbsp;mm.</li>
+<li>The cost: 415 vias (was 323), and more signal on In2.</li>
+</ul>
+
+<p><b>To review:</b> In2's power pours are more cut up. VLED_R fills
+63&nbsp;mm&sup2; (was 178), VLED_C splits into 9 pieces, and 3V3 into 8. Every
+pad still connects, but more of the LED current now rides 0.15&nbsp;mm
+tracks.</p>
+""",
+        media=[("layout_top.png", "front copper, routed", True),
+               ("layout_bottom.png", "back copper, routed", True),
+               ("layout_layers.png", "every copper layer", True)],
+    ),
+    dict(
+        date="2026-10-26", sha=None, tags=["layout"],
+        title="Fully routed by ultraroute: 0 unconnected, 0 DRC errors (superseded 10-27)",
+        lede="The GPU autorouter routed the bb22fb7 placement with every locked "
+             "track and via kept. KiCad's DRC after a zone refill: 0 errors, "
+             "0 unconnected, schematic parity clean. The button sim still passes 54/54. "
+             "Not orderable yet: the USB pair is split round opposite sides of the board.",
+        body="""
+<p><b>How:</b> ultraroute's locked-copper recipe (pre-fanout, negotiate,
+rip-up, nudge, tighten, plough search), six seeds at 240&nbsp;s each on 2
+threads. Seeds 3 and 4 finished at 0 open; the others left 1–2 nets open
+(LIGHT, CHRG, VBSENSE, LEDC_D6). Lab experiment
+<code>earring-reroute-21</code>.</p>
+
+<p><b>Kept: seed 3</b>, 45&nbsp;s, 321 vias, 1354&nbsp;mm of track. Its only
+part move is R16, 0.5&nbsp;mm north (now in place.py). Seed 4 was slightly
+shorter but nudged C26 onto the silk art.</p>
+
+<p><b>Checked against the plan's routing constraints:</b> BTN_EXT runs
+SW2.2&nbsp;→&nbsp;D6.1&nbsp;→&nbsp;R30, and a GND via sits 0.98&nbsp;mm from
+D6.2. Routing added no new DRC warning. The 7 dangling items left are the
+designer's own locked pre-route vias and tracks (18 before routing).</p>
+
+<p><b>Not yet acceptable (gate 7):</b> the router has no notion of a
+differential pair. USB_DM runs about 60&nbsp;mm on In2, all the way round the
+east half of the board. USB_DP runs about 34&nbsp;mm round the west half,
+across In1 and In2 with 8 vias. 324&nbsp;mm of signal also runs on In1, which
+is the GND reference plane under F.Cu. The fix is either a locked USB pre-route
+from J1/R6/R7 to U1 pins 51/52 before routing, or pair support in the router.</p>
+""",
+        media=[("layout_top.png", "front copper, routed", True),
+               ("layout_bottom.png", "back copper, routed", True),
+               ("layout_layers.png", "every copper layer", True)],
+    ),
+    dict(
         date="2026-10-25", sha=None, tags=["hardware"],
         title="Room around the CPU: 19 parts moved to the back",
         lede="The charger, LDO, flash, one LED switch and the VBUS parts now sit "

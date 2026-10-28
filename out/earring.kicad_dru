@@ -16,3 +16,10 @@
 (rule "JLC SMD pad to pad"
   (condition "A.Pad_Type == 'SMD' && B.Pad_Type == 'SMD'")
   (constraint clearance (min 0.15mm)))
+
+# LED supply: 0.3mm class width, necked to no less than 0.2mm at the
+# WS2816C's 0.5mm pads. The largest zone (VLED_R, 19 LEDs) at full
+# white pulls several hundred mA; 0.15mm was the default class.
+(rule "VLED min width"
+  (condition "A.NetClass == 'vled'")
+  (constraint track_width (min 0.2mm)))

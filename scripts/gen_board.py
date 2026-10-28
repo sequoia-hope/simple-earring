@@ -71,7 +71,7 @@ def setup_rules(board, design):
     default.SetViaDrill(mm(j["via_drill_mm"]))
     # "power" class: fat VBUS (Sequoia hand-routed it 0.4mm on In3; the
     # netclass width flows into the freerouting DSN so generated builds
-    # keep it). VBATT/VLED/3V3 stay default — they feed from planes.
+    # keep it). VBATT/3V3 stay default — they feed from planes.
     power = pcbnew.NETCLASS("power")
     power.SetTrackWidth(mm(j["power_track_mm"]))
     power.SetClearance(mm(j["min_clearance_mm"]))
@@ -84,6 +84,17 @@ def setup_rules(board, design):
     # fat either, and 60mA needs ~0.05mm of the default 0.15mm. Widening it
     # would push a second 0.4mm trunk across a board that still has nets
     # stranding at 9-unconnected.
+    # "vled" class: the LED zone supplies (VLED_L/C/R). They feed from In2
+    # pours, but the pours are cut into pieces joined by tracks, so the
+    # ring's full-white current runs on tracks too. The 0.2mm neck-down
+    # floor at the LED pads is in out/earring.kicad_dru.
+    vled = pcbnew.NETCLASS("vled")
+    vled.SetTrackWidth(mm(0.3))
+    vled.SetClearance(mm(j["min_clearance_mm"]))
+    vled.SetViaDiameter(mm(j["via_diameter_mm"]))
+    vled.SetViaDrill(mm(j["via_drill_mm"]))
+    ns.SetNetclass("vled", vled)
+    ns.SetNetclassPatternAssignment("VLED_*", "vled")
     # "usb" class: same geometry as default, but carries diff-pair
     # width/gap so KiCad's interactive router pairs USB_C_DP/USB_C_DN
     # (trailing-p/n names) when hand-finishing. Freerouting ignores it;

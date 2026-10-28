@@ -327,3 +327,160 @@ the back while staying under the foam height."
   - DRC 0 errors, 274 unconnected (unrouted);
   - no new silk-to-silk overlaps;
   - cell fit: no clash.
+
+## 2026-10-26 — First full route by ultraroute (seed 3 of 6)
+
+- Routed the bb22fb7 placement with ultraroute's locked-copper recipe at its
+  working-tree build of 2026-10-26 11:51 (commit a73afa0 plus the uncommitted
+  cleanup change). Recipe: `--negotiate --rip-up --nudge --tighten --strip
+  --prefanout --shove-plough rip --shove-repair 20 --shove-ties
+  --shove-passes 60 --shove-patience 8`, 240 s, 2 threads. Seeds 0–5 left
+  2/1/1/0/0/1 open. Lab experiment `earring-reroute-21`.
+- Kept seed 3: 321 vias, 1354 mm of track. It adds no DRC warning beyond the
+  placed board's, and its only placement change is R16 moving 0.5 mm north
+  (now in place.py). Seed 4 was shorter (316 vias, 1287 mm) but put C26's silk
+  over the art.
+- The rp2350_power group the router job adds was stripped, so the board
+  matches what the pipeline makes.
+- Project DRC: 0 errors, 0 unconnected, schematic parity 0. 74 warnings, all
+  of them silk, library or the locked pre-route vias' dangling flags.
+- Open (gate 7 not passed): the USB pair is split. DM goes about 60 mm round
+  the east side on In2, and DP about 34 mm round the west side across In1 and
+  In2 with 8 vias. 324 mm of signal runs on In1, the GND reference plane. Next
+  step is a locked USB pre-route, or diff-pair support in the router.
+
+## 2026-10-27 — Re-routed with In1 kept as a plane (lab earring-planes-in1, P-s1)
+
+- This supersedes the 2026-10-26 seed-3 route, which was never committed.
+- First pick was lab `general-57` run `L-s0`:
+  - The router was the working-tree build at 5a8428d, with diff pairs and
+    power nets that don't neck below their pad's width.
+  - The job was `earring-kicad-locked`: bb22fb7 with its locked copper kept.
+  - It has the fewest vias of that build's 0-open runs.
+  - negotiate2-reg4 ear-s1 was shorter, but it necks VSYS to 0.127 mm for
+    2.9 mm.
+  - But L-s0 still ran 297 mm of signal on In1, the GND plane, including
+    the USB pair.
+- easy_pcb's routing flow reserves plane layers with `--planes`, and the
+  earring had never been routed that way. Re-ran L-s0's recipe with
+  `--planes In1.Cu`, seeds 0-2.
+  - The router was the same binary, built 01:03.
+  - Recipe: `--negotiate --rip-up --nudge --tighten --prefanout --diff-pairs
+    --shove-plough region --shove-reach 0.5 --shove-repair 20 --shove-ties
+    --shove-passes 60 --shove-patience 8 --strip --planes In1.Cu --threads 1
+    --timeout 240`.
+  - Seeds 1 and 2 reached 0 open; seed 0 left VBSENSE open.
+- Kept seed 1 (`P-s1`):
+  - In1 carries no signal; the GND plane fills as one piece of 690 mm²
+    (L-s0: 3 pieces, 582 mm²).
+  - USB_DM is 25.1 mm and USB_DP 24.8 mm, 0.3 mm apart, mostly on In2 next
+    to that plane. The 10-26 route had 61.5 and 34.1 mm.
+  - VSYS's narrowest track is 0.23 mm, for 0.1 mm.
+  - 415 vias in all.
+- Nudge moved no parts, so R16 stays at bb22fb7's (4.5, 7.6), and the
+  place.py edit from the seed-3 route was dropped.
+- The rp2350_power group was stripped and the zones refilled.
+- Project DRC: 0 errors, 0 unconnected.
+  - 77 warnings: silk, library, and 10 dangling items. All 8 dangling vias
+    are locked pre-route vias.
+  - Schematic parity: no net differences. The 28 parity items are no-connect
+    pins and the BOM-exclude flags on BT1/TP1-3, the same 28 as before.
+- Button sim (design/sim/button): 54/54 PASS. It builds from circuit.py and
+  is independent of the layout.
+- Open for review: In2's power pours are cut up more.
+  - VLED_R fills 63 mm² (L-s0: 178); VLED_C is in 9 pieces and 3V3 in 8.
+  - Every pad still connects, but the VLED nets run on 0.15 mm tracks. If
+    the ring's full-white current matters, the VLED net class needs a wider
+    track.
+
+## 2026-10-27 (later) — Freerouting assist vias removed; re-routed (lab earring-noassist, N-s3)
+
+- ultraroute reported 8 locked vias standing free in the router input.
+  The user's call was to fix it on the earring side.
+  - They were freerouting-era assists in route.py: the USB_DM/DP and
+    IMU_SDA straggler vias, plus the IMU_SDA/SCL/INT1, SWDIO and SWCLK
+    channel vias.
+  - Their tracks were never locked, so `--strip` left them floating, and
+    the router doesn't join free-standing copper.
+  - All 8 are removed from route.py.
+- The same pass fixed three more locked items in route.py:
+  - USB_C_DP's B.Cu "rise through B6" ran 0.47 mm past the pad and
+    dangled; dropped.
+  - The VBUS F.Cu trunk's last segment ended at (2.35, -13.45), the old
+    spot of the tie via moved on Aug 7. It now ends on the via at
+    (2.20, -12.99).
+  - R14's 3V3 via-in-pad into an In3 pour now goes in only on 6+ layers.
+    On 4 layers there is no In3, and the via dangled.
+- The regenerated pre-route board (`route.py --no-freeroute`) differs from
+  the bb22fb7 router input by exactly those 11 items. Pre-route DRC: 0
+  errors.
+- Routed with the P-s1 recipe (`--planes In1.Cu`, 1 thread, 240 s) on the
+  ultraroute target-dev build of 02:10 (802cb3a), seeds 0-3.
+  - Seeds 0-2 left 2/1/1 open (LIGHT+VSYS / VBUS_SENSE / QSPI_SD2).
+  - Kept seed 3 (`N-s3`).
+- N-s3:
+  - USB_DM and USB_DP are both 21.3 mm, with 4 and 2 vias.
+  - In1 carries no signal; the GND plane fills as 1 piece of 694 mm².
+  - In2 pours: VLED_R is 1 piece of 78 mm² (P-s1: 3 pieces, 63 mm²);
+    VLED_C is 6 pieces of 32 mm²; VLED_L 3 pieces of 114 mm²; 3V3 5
+    pieces of 96 mm².
+  - VSYS's narrowest track is 0.23 mm, for 2.6 mm. 411 vias in all.
+  - No part moved.
+  - One 0.127 mm 3V3 router stub on B.Cu at (108.3, 90.3) was deleted.
+- Project DRC: 0 errors, 0 unconnected, 0 dangling. The 67 warnings are
+  silk and library only.
+  - Schematic parity: no net differences (the same benign 28).
+  - The button sim is unaffected (circuit.py unchanged; 54/54 earlier
+    today).
+- Gotcha: `pcbnew.LoadBoard(lab file).Save(out/...)` rewrote
+  out/earring.kicad_pro without its rules. DRC then showed about 1100
+  rule errors (via diameter, drill). Restore it with
+  `git checkout out/earring.kicad_pro` after installing a board.
+
+## 2026-10-27 (later still) — Pour-aware route (lab pours-1, w3-s1)
+
+- ultraroute a5e5a0e added `--pour-cost W`. Crossing another net's pour
+  on a non-plane layer costs W times the length inside it.
+  - The earring-kicad-locked job now uses `--planes In1.Cu --pour-cost 3`.
+  - Its input is the refreshed pre-route board, without the assist vias.
+- Installed lab `pours-1` run `w3-s1`: the earlier recipe plus `--planes
+  In1.Cu --pour-cost 3 --seed 1`, ultraroute a190e63 working tree.
+  - All 9 pours-1 runs routed; w3-s1 is the cost-3 seed with nothing
+    dangling.
+- Compared with N-s3 (no pour cost):
+  - In2 pours total 426 mm², up from 320.
+  - VLED_C is 2 pieces of 56 mm² (was 6 pieces of 32); VLED_R is 154 mm²
+    (was 78); VLED_L is 116 mm²; 3V3 is 100 mm² in 9 pieces.
+  - The cost: 495 vias (was 411), and the GND plane is 666 mm² (was 693),
+    still one piece.
+  - USB_DM is 23.8 mm and USB_DP 24.2 mm (was 21.3 each).
+  - VSYS's narrowest track is 0.23 mm, for 2.7 mm. No part moved.
+- Project DRC: 0 errors, 0 unconnected, 0 dangling. The 67 warnings are
+  silk and library. Schematic parity: no net differences.
+- The button sim is unaffected (circuit.py unchanged).
+
+## 2026-10-27 (evening) — VLED tracks widened to 0.3 mm; re-routed (lab vled-width-1, s0)
+
+- The VLED_L/C/R nets were on the default 0.15 mm class. The In2 pours are
+  cut into pieces joined by tracks, so ring current runs on tracks too.
+  The largest zone, VLED_R, feeds 19 LEDs.
+- New `vled` net class, 0.3 mm, pattern `VLED_*`.
+  - It is in `out/earring.kicad_pro` and `scripts/gen_board.py`.
+  - `out/earring.kicad_dru` sets a 0.2 mm minimum for the class, so the
+    router narrows these tracks no further than that at the 0.5 mm LED pads.
+- Routed seeds 0-3 with the pour-aware recipe (`--planes In1.Cu
+  --pour-cost 3`) on ultraroute 8c691ec. Seeds 0 and 3 routed completely;
+  seeds 1 and 2 left 3 and 2 nets open. Installed s0.
+- Two locked 3V3 access vias from route.py, (-5.85,-1.60) and
+  (-4.25,-7.55), went unused on F/B: s0 reached the In2 disc without them.
+  They touched copper on one layer only, so they were removed from the
+  installed board. route.py still places them.
+- Compared with w3-s1:
+  - VLED tracks are 196 mm at 0.3 mm, plus 3.5 mm necked to 0.23 mm.
+  - In2 LED supply pours total 335 mm² (was 326): VLED_C 55 in 4 pieces,
+    VLED_L 132, VLED_R 148. 3V3 is 106 mm².
+  - GND plane: one piece, 670 mm². Vias: 479 (was 495).
+  - USB_DM 24.6 mm, USB_DP 24.5 mm. No part moved.
+- Project DRC: 0 errors, 0 unconnected, 0 dangling; 67 silk and library
+  warnings. Schematic parity: the 28 known items only (unused pins, BOM
+  flags on BT1/TP1-3).
