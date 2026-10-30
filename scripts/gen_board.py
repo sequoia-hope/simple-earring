@@ -14,7 +14,7 @@ from circuit import build_circuit, load_design  # noqa: E402
 from gen_schematic import FP_LIB, SHEET_UUID, uid  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-from paths import PCB as OUT, PRJ_TO_ROOT  # noqa: E402
+from paths import PCB as OUT, PRO, PRJ_TO_ROOT  # noqa: E402
 LIB = str(ROOT / "library" / "parts.pretty")
 
 CENTER = (100.0, 100.0)  # board center in sheet coords, mm
@@ -118,6 +118,11 @@ def main():
     OUT.parent.mkdir(parents=True, exist_ok=True)
     if OUT.exists():
         OUT.unlink()
+    # The tracked .kicad_pro is source: it holds the rules DRC and ultraroute
+    # read (setup_rules() below does not reach it). Saving a NewBoard
+    # rewrites it with KiCad's defaults (0.5 via, 0.25 hole clearance, ...),
+    # so put it back after the save.
+    pro = PRO.read_text() if PRO.exists() else None
     board = pcbnew.NewBoard(str(OUT))
     board.SetCopperLayerCount(design["board"]["layers"])
     setup_rules(board, design)
@@ -192,6 +197,8 @@ def main():
     silk_art.add_art(board)
 
     pcbnew.SaveBoard(str(OUT), board)
+    if pro is not None:
+        PRO.write_text(pro)
     write_fp_lib_table()
     print(f"wrote {OUT}: {len(cir.components)} footprints, {len(nets)} nets")
 
