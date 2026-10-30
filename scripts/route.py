@@ -686,10 +686,13 @@ def autoroute():
     if r.returncode != 0 or not routed.exists():
         print(f"ultraroute failed (exit {r.returncode}); board left pre-routed")
         sys.exit(1)
-    board = pcbnew.LoadBoard(str(routed))
+    # Move it over the board first: loaded from its own name, pcbnew finds no
+    # .kicad_pro beside it, and saving would write KiCad's default rules
+    # over earring.kicad_pro.
+    routed.replace(PCB)
+    board = pcbnew.LoadBoard(str(PCB))
     pcbnew.ZONE_FILLER(board).Fill(board.Zones())
     pcbnew.SaveBoard(str(PCB), board)
-    routed.unlink()
     board.BuildConnectivity()
     unconnected = board.GetConnectivity().GetUnconnectedCount(True)
     print(f"routing done; unconnected: {unconnected}")
