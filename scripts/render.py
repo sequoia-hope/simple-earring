@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PCB = ROOT / "out" / "earring.kicad_pcb"
+from paths import PCB  # noqa: E402
 
 def _copper_layers():
     """Copper layer names F->B for the configured stackup (4 or 6)."""
@@ -775,7 +775,7 @@ that decide whether the board works: 3.70&nbsp;V (SK6805-EC10 minimum VDD) and
 <li><code>scripts/gen_rework_svg.py</code> draws the rework into
 <code>out/rework/</code>, reading the <b>ordered</b> revision straight out of git
 rather than the working tree — the boards in hand are that revision, and
-<code>out/earring.kicad_pcb</code> can legitimately be mid-generation with every
+<code>hw/earring/a/earring.kicad_pcb</code> can legitimately be mid-generation with every
 footprint stacked at one point.</li>
 <li><code>tools/reset_usb.sh</code> unbinds and rebinds one xhci PCI function to
 power-cycle the port the earring flashes through. Every port on the controller

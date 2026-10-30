@@ -1,0 +1,4 @@
+{
+ "note": "Script-built by build.py: the circuit is circuit.json (scripts/circuit.py), not a composition. The board is hw/earring/a/earring.kicad_pcb.",
+ "composed": "composed.json"
+}

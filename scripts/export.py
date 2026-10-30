@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from circuit import build_circuit  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-PCB = ROOT / "out" / "earring.kicad_pcb"
+from paths import PCB  # noqa: E402
 OUT = ROOT / "out" / "jlcpcb"
 
 def _copper_layers():

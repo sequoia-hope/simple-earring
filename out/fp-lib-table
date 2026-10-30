@@ -1,4 +1,0 @@
-(fp_lib_table
-  (version 7)
-  (lib (name "earring")(type "KiCad")(uri "${KIPRJMOD}/../library/parts.pretty")(options "")(descr "simple_earring generated footprints"))
-)

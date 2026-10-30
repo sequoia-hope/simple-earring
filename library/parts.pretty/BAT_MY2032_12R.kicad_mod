@@ -20,6 +20,6 @@
   (pad "2" smd circle (at -2.8 0.0) (size 1.2 1.2) (layers "F.Cu" "F.Mask" "F.Paste"))
   (pad "2" smd circle (at -1.4 -2.425) (size 1.2 1.2) (layers "F.Cu" "F.Mask" "F.Paste"))
   (pad "2" smd circle (at 1.4 -2.425) (size 1.2 1.2) (layers "F.Cu" "F.Mask" "F.Paste"))
-  (model "${KIPRJMOD}/../library/3d/ee.3dshapes/BAT-SMD_MY-2032-12_C964834.wrl"
+  (model "${KIPRJMOD}/../../../library/3d/ee.3dshapes/BAT-SMD_MY-2032-12_C964834.wrl"
     (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))
 )

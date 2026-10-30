@@ -20,7 +20,7 @@ import pcbnew, math, sys
 
 SWAP = "--swap" in sys.argv
 ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
-SNAP = ARGS[0] if ARGS else "out/earring.kicad_pcb"
+SNAP = ARGS[0] if ARGS else "hw/earring/a/earring.kicad_pcb"
 TH, CL = 0.075, 0.127
 F, B = "F", "B"
 

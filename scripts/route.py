@@ -31,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from circuit import LED_PIN, load_design  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-PCB = ROOT / "out" / "earring.kicad_pcb"
+from paths import PCB  # noqa: E402
 JAR = ROOT / "tools" / "freerouting.jar"
 CX, CY = 100.0, 100.0
 

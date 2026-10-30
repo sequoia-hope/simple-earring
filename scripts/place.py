@@ -25,7 +25,7 @@ from circuit import LED_PIN, build_circuit, led_zones, load_design  # noqa: E402
 from outline import led_path, geometry  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-PCB = ROOT / "out" / "earring.kicad_pcb"
+from paths import PCB  # noqa: E402
 CX, CY = 100.0, 100.0
 # SW2 (B3U-3000P) rotation on the back: actuator (footprint -y) must point
 # along the left straight's outward normal (-0.833,-0.553). Measured off the

@@ -42,7 +42,7 @@ from shapely.geometry import Point, Polygon, box
 from shapely.ops import unary_union
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-PCB = ROOT / "out" / "earring.kicad_pcb"
+from paths import PCB  # noqa: E402
 OUT = ROOT / "out" / "lipo_fit.svg"
 
 # --- the cell, from the datasheet -----------------------------------------
@@ -295,7 +295,7 @@ def build():
            (CELL_T, f"cell {CELL_T}", GOOD)], GOOD)
     o.append(f'<text x="{W/2}" y="{H-14}" fill="{DIM}" font-size="10.5" '
              f'text-anchor="middle">back of the board, true back view (x '
-             f'mirrored), to scale · read live from out/earring.kicad_pcb · '
+             f'mirrored), to scale · read live from hw/earring/a/earring.kicad_pcb · '
              f'scripts/gen_lipo_fit_svg.py</text>')
     o.append("</svg>")
     OUT.write_text("\n".join(o))

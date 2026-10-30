@@ -21,7 +21,7 @@ the plastic overhang by ~5x (2.50mm vs the true 0.55mm) — the ends that reach
 31.9 are narrow metal tabs, not full-width plastic.
 
 Board outline, back-side placement and BT1's real pads are read out of
-out/earring.kicad_pcb. Panel 3 is the best placement found by sweeping position
+hw/earring/a/earring.kicad_pcb. Panel 3 is the best placement found by sweeping position
 x rotation for one where BOTH lands sit fully on board: they exist (2227 of
 them), but every one puts the holder body on top of J1.
 
@@ -36,7 +36,7 @@ import pathlib
 import pcbnew
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-PCB = ROOT / "out" / "earring.kicad_pcb"
+from paths import PCB  # noqa: E402
 OUT = ROOT / "out" / "bs6_fit.svg"
 
 # --- candidate, from the datasheet ----------------------------------------

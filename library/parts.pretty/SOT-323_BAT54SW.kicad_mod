@@ -23,7 +23,7 @@
 	(fp_line (start -1.35 1.20) (end -1.35 -1.20) (layer F.CrtYd) (width 0.05))
 	(fp_line (start -1.35 -1.20) (end 1.35 -1.20) (layer F.CrtYd) (width 0.05))
 	(fp_line (start 1.35 -1.20) (end 1.35 1.20) (layer F.CrtYd) (width 0.05))
-	(model "${KIPRJMOD}/../library/3d/ee.3dshapes/SOT-323_L2.0-W1.3-H1.0-LS2.1-P1.30.wrl"
+	(model "${KIPRJMOD}/../../../library/3d/ee.3dshapes/SOT-323_L2.0-W1.3-H1.0-LS2.1-P1.30.wrl"
 		(offset (xyz 0.000 0.000 0.000))
 		(scale (xyz 1 1 1))
 		(rotate (xyz 0 0 270))

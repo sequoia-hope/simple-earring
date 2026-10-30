@@ -1,11 +1,6 @@
 out/*
-!out/earring.kicad_pcb
-!out/earring.kicad_pro
-!out/earring.kicad_dru
-!out/earring.kicad_sch
 !out/earring-best.json
 !out/earring-schematic.pdf
-!out/fp-lib-table
 !out/production/
 !out/probe/
 out/production/backups/
@@ -13,3 +8,10 @@ logs/
 tools/freerouting.jar
 __pycache__/
 *.lck
+# KiCad's per-user and cache files beside the project
+hw/**/*.kicad_prl
+hw/**/fp-info-cache
+hw/**/*-backups/
+hw/**/_autosave-*
+viewer/
+.claude/scheduled_tasks.lock

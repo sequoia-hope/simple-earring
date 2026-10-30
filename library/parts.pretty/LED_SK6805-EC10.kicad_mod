@@ -24,7 +24,7 @@
 	(fp_line (start -0.55 -0.55) (end 0.55 -0.55) (layer F.CrtYd) (width 0.05))
 	(fp_line (start 0.55 -0.55) (end 0.55 0.55) (layer F.CrtYd) (width 0.05))
 	(fp_line (start 0.55 0.55) (end -0.55 0.55) (layer F.CrtYd) (width 0.05))
-	(model "${KIPRJMOD}/../library/3d/ee.3dshapes/LED-SMD_4P-L1.1-W1.1-P0.63-TR.wrl"
+	(model "${KIPRJMOD}/../../../library/3d/ee.3dshapes/LED-SMD_4P-L1.1-W1.1-P0.63-TR.wrl"
 		(offset (xyz 0.000 0.000 0.000))
 		(scale (xyz 1 1 1))
 		(rotate (xyz 0 0 0))

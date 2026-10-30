@@ -41,7 +41,7 @@ while it was being written:
     to emit one (SCH_LAYOUT=1 lists every clash);
   - the exported netlist must equal circuit.py's, net for net.
 
-Output: out/earring.kicad_sch (+ .svg/.pdf). Regenerate with
+Output: hw/earring/a/earring.kicad_sch (+ .svg/.pdf in out/). Regenerate with
 `python3 build.py --only schematic`.
 """
 import math
@@ -57,7 +57,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from circuit import GPIO, RP_PINS, build_circuit, load_design  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "out" / "earring.kicad_sch"
+from paths import SCH as OUT, OUT as OUTDIR  # noqa: E402
 
 # Deterministic UUIDs: same circuit -> same file, so git diffs show real
 # changes instead of a fresh set of random ids every build.
@@ -2244,7 +2244,7 @@ def build_sheet(design, cir):
 def verify_netlist(cir):
     """Round-trip the finished sheet through KiCad and diff it against
     circuit.py. This is what makes the hand-authored layout trustworthy."""
-    xml = OUT.parent / "earring-netlist.xml"
+    xml = OUTDIR / "earring-netlist.xml"
     r = subprocess.run(["kicad-cli", "sch", "export", "netlist",
                         "--format", "kicadxml", "-o", str(xml), str(OUT)],
                        capture_output=True, text=True)
@@ -2304,7 +2304,8 @@ def main():
     design = load_design()
     cir = build_circuit(design)
     s = build_sheet(design, cir)
-    OUT.parent.mkdir(exist_ok=True)
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    OUTDIR.mkdir(exist_ok=True)
     OUT.write_text(s.render())
     print(f"wrote {OUT}: {len(s.defs)} symbols, {len(cir.components)} "
           f"components, {len(cir.nets)} nets, {len(s.frames)} blocks")
@@ -2321,8 +2322,8 @@ def main():
 
     verify_netlist(cir)
     for args, label in (
-            (["--exclude-drawing-sheet", "-o", str(OUT.parent)], "svg"),
-            (["-o", str(OUT.parent / "earring-schematic.pdf")], "pdf")):
+            (["--exclude-drawing-sheet", "-o", str(OUTDIR)], "svg"),
+            (["-o", str(OUTDIR / "earring-schematic.pdf")], "pdf")):
         r = subprocess.run(["kicad-cli", "sch", "export", label] + args
                            + [str(OUT)], capture_output=True, text=True)
         if r.returncode:

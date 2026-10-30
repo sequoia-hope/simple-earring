@@ -1,0 +1,16 @@
+# pcbview.toml -- the earring's viewer, for Boardroom's pcbview build:
+#
+#     ~/Software/easy_pcb/scripts/view.sh build pcbview.toml
+
+title = "simple_earring"
+subtitle = "RP2350A LED earring, rev 3 (LiPo, WS2816C zones)"
+out = "viewer"
+back = { href = "../out/index.html", label = "Dashboard" }
+
+[[boards]]
+id = "earring-a"
+name = "earring, variant A"
+pcb = "hw/earring/a/earring.kicad_pcb"
+sch = "hw/earring/a/earring.kicad_sch"
+note = "Ø30.5 mm teardrop, 4-layer, 45 WS2816C-1313 in three switched zones; routed with ultraroute, DRC 0/0."
+embed = "index.html"

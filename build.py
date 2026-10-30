@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent
 STAGES = ["board", "place", "preview", "route", "finish", "drc", "render",
-          "schematic", "export"]
+          "schematic", "compose", "export"]
 SCRIPTS = {
     "board": "gen_board.py",
     "place": "place.py",
@@ -24,6 +24,7 @@ SCRIPTS = {
     "drc": "drc.py",
     "render": "render.py",
     "schematic": "gen_schematic.py",
+    "compose": "export_compose.py",  # compose/earring/ for Circuit Composer
     "export": "export.py",
 }
 

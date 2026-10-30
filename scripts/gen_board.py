@@ -2,7 +2,7 @@
 """Generate a fresh 4-layer .kicad_pcb from circuit.py + design.yaml.
 
 Creates board outline, nets, footprints (at origin — place.py positions them),
-and JLCPCB design rules. Output: out/earring.kicad_pcb (fully regenerated).
+and JLCPCB design rules. Output: hw/earring/a/earring.kicad_pcb (fully regenerated).
 """
 import sys
 from pathlib import Path
@@ -14,7 +14,7 @@ from circuit import build_circuit, load_design  # noqa: E402
 from gen_schematic import FP_LIB, SHEET_UUID, uid  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "out" / "earring.kicad_pcb"
+from paths import PCB as OUT, PRJ_TO_ROOT  # noqa: E402
 LIB = str(ROOT / "library" / "parts.pretty")
 
 CENTER = (100.0, 100.0)  # board center in sheet coords, mm
@@ -27,11 +27,11 @@ def mm(v):
 def write_fp_lib_table():
     """Register library/parts.pretty so the schematic's "earring:<fp>"
     footprint references resolve. KiCad looks for this next to the
-    project file, which lives in out/."""
+    project file, which lives in hw/earring/a/."""
     (OUT.parent / "fp-lib-table").write_text(
         "(fp_lib_table\n  (version 7)\n"
         f'  (lib (name "{FP_LIB}")(type "KiCad")'
-        '(uri "${KIPRJMOD}/../library/parts.pretty")'
+        f'(uri "{PRJ_TO_ROOT}/library/parts.pretty")'
         '(options "")(descr "simple_earring generated footprints"))\n)\n')
 
 
@@ -57,7 +57,7 @@ def setup_rules(board, design):
     # only honors net clearance, so a fresh auto-route can land ~0.18mm
     # hole-to-copper at the USB shell slots — DRC will catch it; nudge by hand.
     # PTH-specific tighter limits (0.28 hole-copper, 0.45 hole-hole) live in
-    # out/earring.kicad_dru.
+    # hw/earring/a/earring.kicad_dru.
     bds.m_HoleClearance = mm(0.2)
     bds.m_HoleToHoleMin = mm(0.2)
     bds.m_ViasMinAnnularWidth = mm(0.05)  # JLC via min; USB shell slots are 0.05
@@ -87,7 +87,7 @@ def setup_rules(board, design):
     # "vled" class: the LED zone supplies (VLED_L/C/R). They feed from In2
     # pours, but the pours are cut into pieces joined by tracks, so the
     # ring's full-white current runs on tracks too. The 0.2mm neck-down
-    # floor at the LED pads is in out/earring.kicad_dru.
+    # floor at the LED pads is in hw/earring/a/earring.kicad_dru.
     vled = pcbnew.NETCLASS("vled")
     vled.SetTrackWidth(mm(0.3))
     vled.SetClearance(mm(j["min_clearance_mm"]))
@@ -115,7 +115,7 @@ def setup_rules(board, design):
 def main():
     design = load_design()
     cir = build_circuit(design)
-    OUT.parent.mkdir(exist_ok=True)
+    OUT.parent.mkdir(parents=True, exist_ok=True)
     if OUT.exists():
         OUT.unlink()
     board = pcbnew.NewBoard(str(OUT))

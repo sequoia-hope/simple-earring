@@ -32,7 +32,7 @@ from pathlib import Path
 import pcbnew
 
 ROOT = Path(__file__).resolve().parent.parent
-PCB = ROOT / "out" / "earring.kicad_pcb"
+PCB = ROOT / "hw" / "earring" / "a" / "earring.kicad_pcb"
 CX, CY = 100.0, 100.0
 IU = 1e6  # nm per mm
 ARC = int(0.005 * IU)

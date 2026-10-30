@@ -28,7 +28,7 @@ from circuit import load_design  # noqa: E402
 from route import Router, vec, mm  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-PCB = ROOT / "out" / "earring.kicad_pcb"
+from paths import PCB  # noqa: E402
 
 # Canonical In3 east-pour polygon (6-layer only). route.py builds the zone
 # from this; the south lobe reaches R15's 3V3 pad at (6.3,-13.86) while
@@ -94,15 +94,15 @@ def drc_counts(pcb_path):
     return len(d["violations"]), len(d["unconnected_items"]), d
 
 
-BEST = PCB.parent / "earring-best.kicad_pcb"
-BEST_JSON = PCB.parent / "earring-best.json"
+BEST = ROOT / "out" / "earring-best.kicad_pcb"
+BEST_JSON = ROOT / "out" / "earring-best.json"
 
 
 def keep_if_best(unc, errs, drc_data):
     """Snapshot this attempt if it beats the best one so far.
 
     build.py re-rolls route+finish on a new freerouting seed when the
-    board doesn't converge, overwriting out/earring.kicad_pcb each time —
+    board doesn't converge, overwriting hw/earring/a/earring.kicad_pcb each time —
     so without this the LAST attempt survives, not the best one. When a
     stackup can't be closed automatically, the best partial plus a punch
     list is exactly what gets handed over for manual finishing.

@@ -27,7 +27,7 @@
 	(fp_line (start -3.00 -1.80) (end 3.00 -1.80) (layer F.CrtYd) (width 0.05))
 	(fp_line (start 3.00 -1.80) (end 3.00 1.80) (layer F.CrtYd) (width 0.05))
 	(fp_line (start 3.00 1.80) (end -3.00 1.80) (layer F.CrtYd) (width 0.05))
-	(model "${KIPRJMOD}/../library/3d/ee.3dshapes/SW-SMD_L6.0-W3.3-LS8.0_TS-1101-C-W.wrl"
+	(model "${KIPRJMOD}/../../../library/3d/ee.3dshapes/SW-SMD_L6.0-W3.3-LS8.0_TS-1101-C-W.wrl"
 		(offset (xyz 0.000 0.000 0.000))
 		(scale (xyz 1 1 1))
 		(rotate (xyz 0 0 0))

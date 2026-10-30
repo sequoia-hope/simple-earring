@@ -121,7 +121,7 @@ def led_tba_c1010():
         " (effects (font (size 0.4 0.4) (thickness 0.08))))",
     ]
     # back-ported hand edit: regenerating used to drop the 3D model outright
-    model = ['  (model "${KIPRJMOD}/../library/3d/ee.3dshapes/LED_TBA-C1010MB.wrl"',
+    model = ['  (model "${KIPRJMOD}/../../../library/3d/ee.3dshapes/LED_TBA-C1010MB.wrl"',
              "    (offset (xyz 0 0 0))",
              "    (scale (xyz 1 1 1))",
              "    (rotate (xyz 0 0 0))",
@@ -180,7 +180,7 @@ def bat_cr2032_w():
     # rotate 180: back-ported hand edit — the vendor wrl faces the wrong way
     # in the render. Regenerating used to silently drop this (see the module
     # docstring's drift note); it lives here now so a rerun is idempotent.
-    model = ['  (model "${KIPRJMOD}/../library/3d/ee.3dshapes/BAT-SMD_CR2032_C70373.wrl"',
+    model = ['  (model "${KIPRJMOD}/../../../library/3d/ee.3dshapes/BAT-SMD_CR2032_C70373.wrl"',
              "    (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 180)))"]
     texts = [
         '  (fp_text reference "REF**" (at 0 -13.2) (layer "F.SilkS")'
@@ -250,7 +250,7 @@ def bat_my2032_12r():
         pad_smd(1, foot_x, 0, 3.0, 4.5),
         '  (pad "2" smd circle (at 0 0) (size 8 8) (layers "F.Cu"))',
     ] + bumps
-    model = ['  (model "${KIPRJMOD}/../library/3d/ee.3dshapes/BAT-SMD_MY-2032-12_C964834.wrl"',
+    model = ['  (model "${KIPRJMOD}/../../../library/3d/ee.3dshapes/BAT-SMD_MY-2032-12_C964834.wrl"',
              "    (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))"]
     texts = [
         '  (fp_text reference "REF**" (at 0 -13.2) (layer "F.SilkS")'
@@ -326,7 +326,7 @@ def bat_lpr302823_pads():
     ]
     # cell + VHB tape on the back (scripts/gen_3d_models.py): not a PCB
     # part, but it makes the 3D view show the real 4.7mm stack
-    model = ['  (model "${KIPRJMOD}/../library/3d/ee.3dshapes/LPR302823.step"',
+    model = ['  (model "${KIPRJMOD}/../../../library/3d/ee.3dshapes/LPR302823.step"',
              '    (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))']
     pads = [pad_smd(n, x, y, pad_w, pad_h, shape="roundrect")
             .replace(f"(at {x} {y})", f"(at {x} {y} {r})")

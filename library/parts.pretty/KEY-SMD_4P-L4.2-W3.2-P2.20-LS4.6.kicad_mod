@@ -27,7 +27,7 @@
 	(fp_line (start 2.10 -1.60) (end 2.10 1.60) (layer F.CrtYd) (width 0.05))
 	(fp_line (start 2.10 1.60) (end -2.10 1.60) (layer F.CrtYd) (width 0.05))
 	(fp_line (start -2.10 1.60) (end -2.10 -1.60) (layer F.CrtYd) (width 0.05))
-	(model "${KIPRJMOD}/../parts/KEY-SMD_4P-L4.2-W3.2-P2.20-LS4.6.wrl"
+	(model "${KIPRJMOD}/../../../parts/KEY-SMD_4P-L4.2-W3.2-P2.20-LS4.6.wrl"
 		(offset (xyz 0.000 0.000 0.000))
 		(scale (xyz 1 1 1))
 		(rotate (xyz 0 0 0))
