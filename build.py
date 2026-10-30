@@ -13,14 +13,14 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).parent
-STAGES = ["board", "place", "preview", "route", "finish", "drc", "render",
+STAGES = ["board", "place", "preview", "route", "drc", "render",
           "schematic", "compose", "export"]
 SCRIPTS = {
     "board": "gen_board.py",
     "place": "place.py",
     "preview": "render.py --placement",   # unrouted render, before routing
-    "route": "route.py",
-    "finish": "finish.py",
+    "route": "route.py",                # pre-routes, pours, then ultraroute
+    "finish": "finish.py",  # freerouting-era repair loop; --only finish
     "drc": "drc.py",
     "render": "render.py",
     "schematic": "gen_schematic.py",
@@ -47,7 +47,7 @@ def run_stage(name: str) -> bool:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--to", choices=STAGES, help="stop after this stage")
-    ap.add_argument("--only", choices=STAGES, help="run a single stage")
+    ap.add_argument("--only", choices=list(SCRIPTS), help="run a single stage")
     args = ap.parse_args()
 
     if args.only:
@@ -57,35 +57,10 @@ def main():
     else:
         stages = STAGES
 
-    i = 0
-    while i < len(stages):
-        s = stages[i]
-        # route+finish are a retry unit: freerouting is seed-dependent, so
-        # a failed finish re-rolls the routing (up to 4 attempts)
-        if s == "route" and i + 1 < len(stages) and stages[i + 1] == "finish":
-            # Drop any best-attempt snapshot from an earlier run: it was
-            # scored against a different netlist, and a stale one would
-            # silently veto this run's real best.
-            for stale in ("earring-best.kicad_pcb", "earring-best.json"):
-                (ROOT / "out" / stale).unlink(missing_ok=True)
-            done = False
-            for attempt in range(6):
-                if not run_stage("route"):
-                    print("\nBuild stopped at stage 'route'.")
-                    sys.exit(1)
-                if run_stage("finish"):
-                    done = True
-                    break
-                print(f"--- route/finish attempt {attempt + 1} incomplete; retrying ---")
-            if not done:
-                print("\nBuild stopped: route/finish did not converge.")
-                sys.exit(1)
-            i += 2
-            continue
+    for s in stages:
         if not run_stage(s):
             print(f"\nBuild stopped at stage '{s}'.")
             sys.exit(1)
-        i += 1
     print("\nBuild complete.")
 
 

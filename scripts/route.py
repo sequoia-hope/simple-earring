@@ -8,10 +8,17 @@
    - bypass cap via drops
    - GND stitching vias
 3. Zones: In1=GND plane, In2=VLED_L/R/C pieces + 3V3 disc, F/B GND pours.
-4. Freerouting (Specctra DSN -> SES) for the remaining point-to-point nets.
-5. Zone fill + save; report unconnected count.
+4. Outer GND pours, the VREG pours transplanted from the official board,
+   zone fill + save: the placed, pre-routed board.
+5. ultraroute for every remaining net, with the recipe in
+   route/earring/recipe.json, from the pinned vendor/ultraroute
+   (scripts/route.sh builds it; $ULTRAROUTE overrides the binary). The
+   RP2350 power pours and U1 become a group (block) the router keeps whole.
+   Then refill zones, save, report unconnected.
 
-Run with --no-freeroute to skip step 4 (faster placement iteration).
+Run with --no-autoroute (or the old --no-freeroute) to stop after step 4.
+Much of the commentary below is from the freerouting era (the pipeline
+used freerouting until 2026-10-29); the positions it explains still stand.
 
 LiPo change (2026-10-22): the coin clip BT1 is gone, and with it the two
 rules it imposed: no vias on the clip feet (|x| 10.2..14.3, |y| < 3.3) and
@@ -32,7 +39,13 @@ from circuit import LED_PIN, load_design  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 from paths import PCB  # noqa: E402
-JAR = ROOT / "tools" / "freerouting.jar"
+RECIPE = ROOT / "route" / "earring" / "recipe.json"
+ROUTE_SH = ROOT / "scripts" / "route.sh"
+ULTRAROUTE = ROOT / "vendor" / "ultraroute"
+# the RP2350 power block (ultraroute job earring-kicad-locked): these pours
+# and U1 are grouped so the router keeps the pours as planes and U1 still
+BLOCK = ("rp2350_power", ["vreg_vdd_core_3", "vreg_vdd_core_6", "vreg_3v3_1",
+                          "vreg_3v3_7"], ["U1"])
 CX, CY = 100.0, 100.0
 
 
@@ -212,85 +225,6 @@ def add_keepouts(board, rt):
         board.Add(z)
 
 
-def beautify_led_chain(board, rt, fps, n_leds):
-    """Replace freerouting's LED-chain segments with clean constant-radius
-    arcs — per hop, only when the arc path is clear of foreign copper
-    (freerouting may have parked e.g. a VLED fanout via in the corridor)."""
-    import finish as fin
-    obs = fin.Obstacles(board)
-    # NPTH holes (e.g. SW2's locating pegs) carry no copper, so the
-    # Obstacles model skips them — but an arc through one is a DRC error
-    npth = []
-    for fp in board.GetFootprints():
-        for p in fp.Pads():
-            if p.GetAttribute() == pcbnew.PAD_ATTRIB_NPTH:
-                px, py = rel(p.GetPosition())
-                npth.append((px, py, to_mm(p.GetDrillSize().x) / 2))
-    kept = 0
-    for i in range(n_leds - 1):
-        net = f"LED_D{i+1}"
-        a = pad_of(fps[f"LED{i+1}"], LED_PIN["DO"]).GetPosition()
-        b = pad_of(fps[f"LED{i+2}"], LED_PIN["DI"]).GetPosition()
-        ar, br = rel(a), rel(b)
-        # sample the TRUE arc corridor (same geometry as true_arc below):
-        # at ring radius a chord sample was close enough, but interior hops
-        # bulge up to a few mm off the chord and sweep the r~9.4 annulus —
-        # a chord sample let an arc short a VBUS trace + R9's pad (seen
-        # live). Treat all LED_D* as friendly.
-        mxp, myp = (ar[0] + br[0]) / 2, (ar[1] + br[1]) / 2
-        dxc, dyc = br[0] - ar[0], br[1] - ar[1]
-        pxc, pyc = -dyc, dxc
-        pnorm = math.hypot(pxc, pyc) or 1e-9
-        pxc, pyc = pxc / pnorm, pyc / pnorm
-        sc = -(mxp * pxc + myp * pyc)
-        cx0, cy0 = mxp + sc * pxc, myp + sc * pyc
-        rr = math.hypot(ar[0] - cx0, ar[1] - cy0)
-        a0 = math.atan2(ar[1] - cy0, ar[0] - cx0)
-        a1 = math.atan2(br[1] - cy0, br[0] - cx0)
-        da = (a1 - a0 + math.pi) % (2 * math.pi) - math.pi
-        n = max(12, int(abs(da) * rr / 0.3))
-        clear = True
-        for k in range(n + 1):
-            am = a0 + da * k / n
-            x = cx0 + rr * math.cos(am)
-            y = cy0 + rr * math.sin(am)
-            for hx, hy, hr in npth:
-                if math.hypot(hx - x, hy - y) < hr + 0.075 + 0.3:
-                    clear = False
-            for it in obs.near_items(x, y):
-                inet = it[2]
-                if inet.startswith("LED_D"):
-                    continue
-                if it[0] == "via":
-                    if math.hypot(it[3] - x, it[4] - y) < 0.13 + 0.075 + it[5]:
-                        clear = False
-                elif it[0] == "seg" and it[1] == pcbnew.F_Cu:
-                    if fin.seg_pt_dist(it[3], it[4], (x, y)) < 0.13 + 0.075 + it[5]:
-                        clear = False
-                elif it[0] == "padc":
-                    th_pad = it[6]
-                    if (th_pad or pcbnew.F_Cu in it[1]) and \
-                            fin.seg_pt_dist(it[3], it[4], (x, y)) < 0.13 + 0.075 + it[5]:
-                        clear = False
-            if not clear:
-                break
-        if not clear:
-            kept += 1
-            continue
-        for t in list(board.GetTracks()):
-            if t.GetNetname() == net:
-                board.Delete(t)
-        rt.true_arc(a, b, net)
-    if kept:
-        print(f"beautify: kept freerouting wiring on {kept} hops")
-
-
-def post_routes(board, rt, fps):
-    """No deterministic wiring: freerouting owns all wires. Topology for the
-    tricky spots is channeled via pre-placed vias in main()."""
-    pass
-
-
 def add_ring_stubs(board, rt):
     """Stub U1's DVDD pins into the transplanted under-chip 1V1 square and
     the IOVDD/QSPI_IOVDD pins into the 3V3 ring. The official board feeds
@@ -331,7 +265,7 @@ def add_ring_stubs(board, rt):
 
 
 def main():
-    no_freeroute = "--no-freeroute" in sys.argv
+    no_autoroute = "--no-autoroute" in sys.argv or "--no-freeroute" in sys.argv
     design = load_design()
     board = pcbnew.LoadBoard(str(PCB))
     wipe(board)
@@ -612,73 +546,7 @@ def main():
     # (U3's scanned 3V3-disc via dropped 2026-10-25: U3 moved to the back.)
     pcbnew.SaveBoard(str(PCB), board)
 
-    # ---------- freerouting ----------
-    if not no_freeroute:
-        dsn = ROOT / "out" / "earring.dsn"
-        ses = ROOT / "out" / "earring.ses"
-        ses.unlink(missing_ok=True)
-        if not pcbnew.ExportSpecctraDSN(board, str(dsn)):
-            print("DSN export failed")
-            sys.exit(1)
-        cmd = ["java", "-jar", str(JAR), "-de", str(dsn), "-do", str(ses),
-               "-mp", "40", "--gui.enabled=false"]
-        # freerouting v2 occasionally live-locks in trace normalization
-        # (seen: millions of PolylineTrace.normalize retries on one net
-        # until the 900s timeout) — it is nondeterministic, so retry
-        r = None
-        for fr_try in range(2):
-            print("running freerouting…")
-            try:
-                r = subprocess.run(cmd, capture_output=True, text=True,
-                                   timeout=900)
-                break
-            except subprocess.TimeoutExpired:
-                print(f"freerouting timed out (try {fr_try + 1}); retrying")
-        if not ses.exists():
-            if r is not None:
-                print(r.stdout[-3000:])
-                print(r.stderr[-2000:])
-            # both tries timing out leaves r None, which used to mean the
-            # run failed with NO diagnostic at all. freerouting's own log
-            # tells the two apart: "Pass #" lines mean it was routing and
-            # ran out of budget, none at all means it hung before pass 1 —
-            # which on this board has meant a fixed POLYLINE it cannot
-            # digest (see the LED_D3 note above). Bisect by deleting wire
-            # blocks from out/earring.dsn and re-probing at -mp 2.
-            frlog = Path("/tmp/freerouting/freerouting.log")
-            if frlog.exists():
-                txt = frlog.read_text(errors="ignore")
-                cut = txt.rfind("Command line arguments")
-                this_run = txt[cut:] if cut >= 0 else txt
-                n = this_run.count("Pass #")
-                print(f"freerouting log: {n} pass lines this run")
-                if not n:
-                    print("  -> HUNG BEFORE PASS 1. Suspect a locked "
-                          "pre-route polyline, not congestion.")
-                print(this_run[-1500:])
-            print("freerouting produced no SES")
-            sys.exit(1)
-        board = pcbnew.LoadBoard(str(PCB))
-        if not pcbnew.ImportSpecctraSES(board, str(ses)):
-            print("SES import failed")
-            sys.exit(1)
-        rt = Router(board, design)
-        fps = {fp.GetReference(): fp for fp in board.GetFootprints()}
-        # freerouting emits zero-length artifact wires at plane boundaries
-        zl = 0
-        for t in list(board.GetTracks()):
-            if not isinstance(t, pcbnew.PCB_VIA) and t.GetLength() == 0:
-                board.Delete(t)
-                zl += 1
-        if zl:
-            print(f"removed {zl} zero-length wires")
-        # NOTE: freerouting places some signal wires on the plane layers;
-        # the zone filler pours around them. Acceptable for this board.
-        if "--no-beautify" not in sys.argv:
-            beautify_led_chain(board, rt, fps, n_leds)
-        post_routes(board, rt, fps)
-
-    # ---------- outer pours (post-route: as DSN planes they stall freerouting) ----------
+    # ---------- outer pours ----------
     from outline import offset_polygon as _offp
     rt2 = Router(board, design)
     add_ring_stubs(board, rt2)
@@ -794,6 +662,34 @@ def main():
     filler = pcbnew.ZONE_FILLER(board)
     filler.Fill(board.Zones())
     pcbnew.SaveBoard(str(PCB), board)
+    board.BuildConnectivity()
+    unconnected = board.GetConnectivity().GetUnconnectedCount(True)
+    if no_autoroute:
+        print(f"pre-route done (no autoroute); unconnected: {unconnected}")
+        return
+    print(f"pre-route done; unconnected: {unconnected}; running ultraroute")
+    autoroute()
+
+
+def autoroute():
+    """Route the saved board in place with ultraroute, refill, report."""
+    import json
+    recipe = json.loads(RECIPE.read_text())
+    name, zones, parts = BLOCK
+    subprocess.run([sys.executable, str(ULTRAROUTE / "tools" / "add_block.py"),
+                    str(PCB), name, ",".join(zones), "--parts", ",".join(parts)],
+                   check=True)
+    routed = PCB.with_name(PCB.stem + "-routed.kicad_pcb")
+    routed.unlink(missing_ok=True)
+    r = subprocess.run([str(ROUTE_SH), "route", str(PCB), "-o", str(routed)]
+                       + recipe["args"])
+    if r.returncode != 0 or not routed.exists():
+        print(f"ultraroute failed (exit {r.returncode}); board left pre-routed")
+        sys.exit(1)
+    board = pcbnew.LoadBoard(str(routed))
+    pcbnew.ZONE_FILLER(board).Fill(board.Zones())
+    pcbnew.SaveBoard(str(PCB), board)
+    routed.unlink()
     board.BuildConnectivity()
     unconnected = board.GetConnectivity().GetUnconnectedCount(True)
     print(f"routing done; unconnected: {unconnected}")

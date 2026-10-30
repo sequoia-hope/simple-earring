@@ -1,15 +1,47 @@
 {
-  "note": "The recipe that produced the installed route (hw/earring/a/earring.kicad_pcb at 7a83b33). Run in ultraroute's lab, not by build.py: build.py's route stage still runs freerouting. Locked parts are the board's (locked yes) footprints; the VLED_* 0.3 mm class and its 0.2 mm pad floor come from earring.kicad_pro / earring.kicad_dru.",
+  "note": "The ultraroute recipe build.py's route stage runs (scripts/route.py -> scripts/route.sh, pinned vendor/ultraroute). It is the one that produced the route installed at 7a83b33, run then in ultraroute's lab. Locked parts are the board's (locked yes) footprints; the VLED_* 0.3 mm class and its 0.2 mm pad floor come from earring.kicad_pro / earring.kicad_dru.",
   "router": "ultraroute",
   "router_commit": "8c691ec (dirty)",
   "lab_experiment": "~/Software/ultraroute-lab/experiments/vled-width-1 (run s0)",
   "job": "~/Software/ultraroute/jobs/earring-kicad-locked",
-  "input": "placed board with locked pre-routes: build.py --to place, then route.py --no-freeroute",
-  "args": ["--negotiate", "--rip-up", "--nudge", "--tighten", "--prefanout", "--diff-pairs",
-           "--shove-plough", "region", "--shove-reach", "0.5", "--shove-repair", "20", "--shove-ties",
-           "--shove-passes", "60", "--shove-patience", "8", "--strip",
-           "--planes", "In1.Cu", "--pour-cost", "3",
-           "--seed", "0", "--threads", "1", "--timeout", "240"],
-  "after": ["refill zones (ultraroute tools/refill_zones.py)", "remove the two unused 3V3 access vias (bcba710)", "kicad-cli pcb drc: 0 / 0 / 0"],
-  "result": {"drc_errors": 0, "unconnected": 0, "date": "2026-10-27"}
+  "input": "route.py's pre-routed board (build.py --to route, or route.py --no-autoroute), plus the rp2350_power block route.py adds",
+  "args": [
+    "--negotiate",
+    "--rip-up",
+    "--nudge",
+    "--tighten",
+    "--prefanout",
+    "--diff-pairs",
+    "--shove-plough",
+    "region",
+    "--shove-reach",
+    "0.5",
+    "--shove-repair",
+    "20",
+    "--shove-ties",
+    "--shove-passes",
+    "60",
+    "--shove-patience",
+    "8",
+    "--strip",
+    "--planes",
+    "In1.Cu",
+    "--pour-cost",
+    "3",
+    "--seed",
+    "0",
+    "--threads",
+    "1",
+    "--timeout",
+    "240"
+  ],
+  "after": [
+    "refill zones (route.py)",
+    "kicad-cli pcb drc (build stage drc)"
+  ],
+  "result": {
+    "drc_errors": 0,
+    "unconnected": 0,
+    "date": "2026-10-27"
+  }
 }
