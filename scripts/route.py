@@ -346,7 +346,10 @@ def main():
         rt.track(a, b, "VDD_CORE", width=0.15)
     # channel the HRO connector's interleaved duplicate-pad joins through
     # the front layer: DM hops inboard of the pad row, DP outboard
-    for pos in ((-0.75, -13.55), (0.25, -13.55)):
+    # (DM's vias sit 0.2 mm past the pad ends, y -13.25, not on the pads at
+    # -13.55: a via hole in an SMD pad wicks solder; earring.kicad_dru now
+    # holds holes 0.1 mm off SMD pads. 2026-11-02, gate 7 MAJOR-1.)
+    for pos in ((-0.75, -13.25), (0.25, -13.25)):
         rt.via(pos, "USB_C_DN")
     for pos in ((-0.25, -15.0), (0.75, -15.0)):
         rt.via(pos, "USB_C_DP")
@@ -386,7 +389,9 @@ def main():
     # burned its full budget; the ordered board never contained it).
     USB_PAIR = {
         "USB_C_DN": [
-            ("F", (-0.75, -13.55), (0.25, -13.55)),  # duplicate-pad join
+            ("B", (-0.75, -13.60), (-0.75, -13.25)),  # pad stubs to vias
+            ("B", (0.25, -13.60), (0.25, -13.25)),
+            ("F", (-0.75, -13.25), (0.25, -13.25)),  # duplicate-pad join
         ],
         "USB_C_DP": [
             ("B", (-0.25, -14.60), (-0.25, -15.00)),  # pad stubs to vias
@@ -401,8 +406,18 @@ def main():
         for layer, a, bpt in segs:
             ly = pcbnew.F_Cu if layer == "F" else pcbnew.B_Cu
             rt.track(a, bpt, net, layer=ly, width=0.15)
-    rt.via((-2.35, -13.45), "VBUS")  # via-in-pad on tie A4B9
-    rt.via((0.92, -11.50), "VBUS")   # via-in-pad on U5.5 (tented)
+    # (these two were via-in-pad until 2026-11-02; now each sits just off
+    # its pad with a B.Cu stub, hole 0.12-0.15 mm clear of the pad)
+    rt.via((-2.35, -13.20), "VBUS")  # below tie A4B9's end
+    rt.track((-2.40, -13.70), (-2.35, -13.20), "VBUS", layer=pcbnew.B_Cu,
+             width=0.4)
+    # U5.5's via: south-east, between U5.6 and C28.1 (VBUS too). East of the
+    # pad is C28.2 (GND), 0.44 mm away. The B.Cu stub runs east past U5.4/5.6,
+    # then south; the trunk reaches it on F.Cu by a spur (post-route section).
+    rt.via((1.45, -10.25), "VBUS")
+    for a, b in (((0.92, -11.50), (1.35, -11.50)),
+                 ((1.35, -11.50), (1.45, -10.25))):
+        rt.track(a, b, "VBUS", layer=pcbnew.B_Cu, width=0.2)
     rt.via((2.20, -12.99), "VBUS")   # SE of tie B4A9 — Sequoia moved it
     # off-pad (Aug 7) to clear the tip; the tie pad still joins the trunk
     # ---------- crystal (locked, F.Cu only) ----------
@@ -581,8 +596,9 @@ def main():
     # seg fails this attempt and the route/finish retry rerolls the seed.
     import finish as fin
     obs2 = fin.Obstacles(board)
-    VBUS_TRUNK = [((-2.35, -13.45), (-0.50, -12.40)),
+    VBUS_TRUNK = [((-2.35, -13.20), (-0.50, -12.40)),
                   ((-0.50, -12.40), (0.92, -11.50)),
+                  ((0.92, -11.50), (1.45, -10.25)),  # spur to U5.5's via
                   ((0.92, -11.50), (1.60, -12.20)),
                   ((1.60, -12.20), (2.20, -12.99))]  # ends on the moved via (was 2.35,-13.45, which left it dangling)
     vb_blocked = 0

@@ -44,3 +44,16 @@ track's width (or the net's minimum). Report any narrower pad joint, as 0b9016f 
 joints. Sent to the ultraroute session 2026-11-01.
 
 **Fixed** in ultraroute 5064384 (2026-11-01). Re-routed here: no pad joint under 0.09 mm.
+
+## 3. Via hole-clearance margin, and touching same-net via pairs (2026-11-02)
+
+**Seen in:** pinned 5064384, build route stage, with the new `.kicad_dru` rule "No via hole in
+SMD pad" (`physical_hole_clearance (min 0.1mm)` between vias and SMD pads). 0 via holes touch
+SMD pads (124 before) and 0 unconnected, but KiCad reports:
+- hole_clearance **0.0995 mm**, 0.5 µm short: the GND via at (94.4,96.28) against Q5.2.
+- connection_width **0.029 mm** (B.Cu and In1.Cu): VLED_C vias at (93.43,108.38) and
+  (93.78,108.58), 0.403 mm apart, whose 0.4 mm lands only just touch.
+
+**Ask:** keep a margin on rule checks (or round toward legal). Same-net vias should either
+clear each other or join at least the net's width, and preferably not be doubled. Sent to the
+ultraroute session 2026-11-02.

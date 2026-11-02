@@ -527,3 +527,17 @@ the back while staying under the foam height."
 - **Left alone:** the unused locked 3V3 via at (6.2,2.6) (one DRC via_dangling warning).
   Removing it changes the router's input. It goes the next time the route changes for another
   reason.
+
+## 2026-11-02 — no via holes in SMD pads
+
+- **New `.kicad_dru` rule:** via holes stay 0.1 mm clear of every SMD pad
+  (`physical_hole_clearance`). A via's land may still touch the pad. Gate 7 re-review MAJOR-1:
+  124 holes sat in SMD pads, open in the pads' mask apertures (vias tented, 0 expansion), so
+  they wick solder. The user chose the rule and a re-route over JLC filled-and-capped vias.
+- **route.py's four locked via-in-pads moved off their pads** with short B.Cu stubs:
+  - the USB_C_DN joins at J1.A7/B7, to 0.2 mm past the pad ends;
+  - the VBUS tie A4B9 via, to (-2.35,-13.20);
+  - U5.5's VBUS via, to (1.45,-10.25), between U5.6 and C28.1, with an F.Cu spur from the trunk.
+    East of the pad, C28.2 (GND) left no room.
+  Pre-route DRC is clean with the rule.
+- Re-route: 0 via holes touch SMD pads, 0 unconnected, 392 vias. The router follows the rule.
