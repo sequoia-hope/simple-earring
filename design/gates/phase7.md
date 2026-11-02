@@ -105,3 +105,30 @@ is gone. For fix 4, ultraroute fixed the track-to-track joints at our request.
 **Still FAILED**, on the three track-to-pad necks: U8.5's is its only feed. They are router
 joints onto pads, not the track-to-track kind 0b9016f fixed. Sent to ultraroute as request #2.
 Not re-reviewed: the independent review runs once DRC is clean.
+
+## Re-route 2026-11-01 (evening): ultraroute 5064384
+
+Pin 0b9016f → **5064384** (ultraroute main, CI passed): their fix for track-to-pad joints,
+request #2. Route log: "mended 14 joints where round ends only overlapped" and "mended 2 pad
+joints where a track's end only reached the pad's edge". Unconnected 0, 372 vias.
+
+That left two `connection_width` errors in KiCad's pour fill, not in router copper: gnd_back
+0.056 mm and vled_r_plane 0.074 mm. Shapely erosion of the saved fill found no neck under
+0.09 mm. Raising every zone's minimum width moves the errors around: 0.2 mm clears both, while
+0.25 mm makes new ones on gnd_back. Routing ultraroute over 0.2 mm fills gave a different
+route with 13 same-net via-pair necks. So route.py now routes over the usual 0.15 mm fills and
+sets 0.2 mm (large planes only; the VREG pours stay at 0.15 for the LX finger) just for the
+final refill. The route is the same as the 0.15 run (identical mend counts, seed 0, 1 thread).
+Fill area change: vled_r 170.4 → 155.0 mm², gnd_back 450.9 → 439.6, the rest ≤ 3 %.
+
+| check | evidence | ok |
+|---|---|---|
+| DRC | `kicad-cli pcb drc --schematic-parity --severity-all` (connection_width 0.09 mm as error): **0 errors, 0 unconnected**, parity 28 (as before). Warnings: 34 silk_overlap, 23 silk_over_copper, 5 text_height, 3 lib_footprint_mismatch, 2 silk_edge_clearance (all as before), and 1 via_dangling: route.py's locked 3V3 access via at (6.2,2.6), unused by this route | yes |
+| connection width | 0 under 0.09 mm (KiCad) | yes |
+| VBATT | BT1.1 → Q2.3: 112 mΩ, 56.2 mm, all 0.4 mm, 15 vias. BT1.1 → U2.5: 115 mΩ, 0.4 mm. It still goes round the edge | yes |
+| VBUS | J1 → D3: 70 mΩ; J1 → U2: 71 mΩ; narrowest 0.2 mm (the floor), 0.5–2.1 mm at the pads | yes |
+| VSYS / VLED | VSYS narrowest 0.23 mm; VLED_L/R narrowest 0.23, VLED_C 0.3 | yes |
+| crystal | XIN 6.5 mm, XOUT 2.3 mm, XTAL_R 2.2 mm: F.Cu only, 0 vias (locked pre-routes) | yes |
+| USB pair | USB_DP 21.0 / USB_DM 21.1 mm, 2 vias each | yes |
+| In1 GND plane | no tracks on In1 | yes |
+| renders | `design/renders/` regenerated 2026-11-01 (skill render.py) | — |

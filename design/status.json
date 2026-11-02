@@ -2,12 +2,12 @@
   "schema": 1,
   "board": "earring",
   "phase": 7,
-  "doing": "Re-routed 2026-11-01 on ultraroute 0b9016f with the gate 7 fixes (VBATT in the power class, connection_width DRC as an error, crystal on F.Cu). 0 unconnected; VBATT is 98 mOhm with no necks. Gate 7 still fails: 4 connection_width errors, three of them router track-to-pad joints on 3V3 (U8.5's only feed at 0.066 mm). Sent to ultraroute as request #2; waiting on their fix.",
+  "doing": "Re-routed 2026-11-01 on ultraroute 5064384 (their joint fixes, requested from here). DRC 0 errors / 0 unconnected, with connection_width >= 0.09 mm enforced; VBATT 0.4 mm, 112 mOhm; crystal on F.Cu. Independent gate 7 review running.",
   "needs_user": [],
   "checks": {
     "DRC": {
-      "result": "4 errors (connection_width), 0 unconnected, 28 benign parity items (kicad-cli, 2026-11-01)",
-      "ok": false,
+      "result": "0 errors, 0 unconnected, 28 benign parity items; connection_width 0.09 mm as error (kicad-cli, 2026-11-01)",
+      "ok": true,
       "gate": 7
     },
     "schematic netlist": {
@@ -21,12 +21,12 @@
       "gate": 8
     },
     "connection width": {
-      "result": "U8.5 0.066, U6.5 0.053, U6.2 0.043 mm (router pad joints, 3V3) + gnd_back sliver 0.074; VBATT/CHRG clean",
-      "ok": false,
+      "result": "0 joints under 0.09 mm",
+      "ok": true,
       "gate": 7
     },
     "current capacity": {
-      "result": "VBATT BT1->Q2 98 mOhm, 0.4 mm power class (was 289 mOhm at 0.15)",
+      "result": "VBATT BT1->Q2 112 mOhm at 0.4 mm; VBUS 70 mOhm, 0.2 mm floor",
       "ok": true,
       "gate": 7
     }
@@ -53,7 +53,7 @@
       "stale_because": null
     },
     "7": {
-      "state": "failed",
+      "state": "open",
       "stale_because": null
     },
     "8": {
@@ -91,14 +91,14 @@
     "studio": {
       "earring": {
         "opens": 0,
-        "drc_ok": false,
-        "last_route": "build.py route stage 2026-11-01, ultraroute 0b9016f (pinned), recipe args unchanged",
-        "router": "ultraroute 0b9016f (vendor/ultraroute)",
+        "drc_ok": true,
+        "last_route": "build.py route stage 2026-11-01, ultraroute 5064384 (pinned)",
+        "router": "ultraroute 5064384 (vendor/ultraroute)",
         "recipe": "route/earring/recipe.json",
-        "updated": "2026-11-01T16:30:00-08:00",
+        "updated": "2026-11-01T21:00:00-08:00",
         "findings": {
-          "error": 4,
-          "warning": 2
+          "error": 0,
+          "warning": 1
         },
         "report": "design/gates/phase7.md"
       }
@@ -111,5 +111,5 @@
       }
     }
   },
-  "updated": "2026-11-01T16:30:00-08:00"
+  "updated": "2026-11-01T21:00:00-08:00"
 }

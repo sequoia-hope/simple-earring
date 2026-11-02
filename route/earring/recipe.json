@@ -1,7 +1,7 @@
 {
   "note": "The ultraroute recipe build.py's route stage runs (scripts/route.py -> scripts/route.sh, pinned vendor/ultraroute). Locked parts are the board's (locked yes) footprints; the power and VLED_* class floors and the connection_width rule come from earring.kicad_pro / earring.kicad_dru.",
   "router": "ultraroute",
-  "router_commit": "0b9016f",
+  "router_commit": "5064384",
   "lab_experiment": "~/Software/ultraroute-lab/experiments/vled-width-1 (run s0)",
   "job": "~/Software/ultraroute/jobs/earring-kicad-locked",
   "input": "route.py's pre-routed board (build.py --to route, or route.py --no-autoroute), plus the rp2350_power block route.py adds",
@@ -36,13 +36,12 @@
     "240"
   ],
   "after": [
-    "refill zones (route.py)",
+    "refill zones at 0.2 mm minimum width on the large planes, VREG pours 0.15 (route.py)",
     "kicad-cli pcb drc (build stage drc)"
   ],
   "result": {
-    "drc_errors": 4,
+    "drc_errors": 0,
     "unconnected": 0,
-    "date": "2026-11-01",
-    "note": "4 connection_width: 3 router track-to-pad joints on 3V3 + a gnd_back sliver (ultraroute-requests.md #2)"
+    "date": "2026-11-01"
   }
 }

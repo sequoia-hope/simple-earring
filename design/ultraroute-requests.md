@@ -42,3 +42,5 @@ and CHRG are clean.
 **Ask:** a track that ends on a pad ends inside the pad's copper, so the joint is at least the
 track's width (or the net's minimum). Report any narrower pad joint, as 0b9016f does for track
 joints. Sent to the ultraroute session 2026-11-01.
+
+**Fixed** in ultraroute 5064384 (2026-11-01). Re-routed here: no pad joint under 0.09 mm.

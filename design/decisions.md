@@ -512,3 +512,18 @@ the back while staying under the foam height."
   joints, made at our request (`design/ultraroute-requests.md` #1). The
   ultraroute session reported 631 → 0 narrow track-to-track joints on the
   vled-width-1 s0 input, and 54 → 3 `connection_width` flags.
+
+## 2026-11-01 (evening) — ultraroute 5064384; pour refill at 0.2 mm minimum width
+
+- **Pin 0b9016f → 5064384**, ultraroute's fix for track-to-pad joints (our request #2: U6.5,
+  U6.2, U8.5 on 3V3). The re-route has no router joint under 0.09 mm.
+- **The final pour fill uses a 0.2 mm minimum width on the large planes** (gnd_front/back,
+  gnd_plane, vled_*, p3v3_disc). At 0.15 mm, KiCad's fill left two `connection_width` errors:
+  gnd_back 0.056 and vled_r 0.074. 0.25 mm made new ones, so this is fill-algorithm behaviour,
+  not real thin copper (shapely erosion of the fill found no neck). Only the post-route
+  refill changes: routed over 0.2 mm fills, ultraroute produced a different route with 13
+  same-net via-pair necks. The VREG pours keep 0.15 mm for their 0.3 mm LX finger. VLED_R's
+  fill drops 170 → 155 mm², with every pad still connected.
+- **Left alone:** the unused locked 3V3 via at (6.2,2.6) (one DRC via_dangling warning).
+  Removing it changes the router's input. It goes the next time the route changes for another
+  reason.

@@ -714,6 +714,15 @@ def autoroute():
     # over earring.kicad_pro.
     routed.replace(PCB)
     board = pcbnew.LoadBoard(str(PCB))
+    # The final fill uses a 0.2 mm minimum width on the large planes. At 0.15,
+    # KiCad's fill left corner slivers that the 0.09 mm connection_width rule
+    # flags (gnd_back 0.056, vled_r 0.074; 2026-11-01). It isn't monotonic
+    # (0.25 made new ones), so re-check DRC if this moves. Only the refill
+    # changes: routing ultraroute over 0.2 mm fills gave a different route,
+    # with 13 same-net via-pair necks. The VREG pours keep 0.15 for the LX finger.
+    for z in board.Zones():
+        if not z.GetIsRuleArea() and not z.GetZoneName().startswith("vreg_"):
+            z.SetMinThickness(mm(0.2))
     pcbnew.ZONE_FILLER(board).Fill(board.Zones())
     pcbnew.SaveBoard(str(PCB), board)
     board.BuildConnectivity()
