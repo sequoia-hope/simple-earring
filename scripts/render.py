@@ -71,6 +71,40 @@ TAGS = {
 
 FEED = [
     dict(
+        date="2026-10-31", sha=None, tags=["layout", "review"],
+        title="Gate 7 routing review: failed on copper necks in the battery path",
+        lede="DRC is clean, but ultraroute left 81 track joints where the ends don't meet "
+             "and copper connects only where the round ends overlap. Two are VBATT's only "
+             "path, 0.05 and 0.077 mm wide, below JLC's 0.09 mm. A re-route is needed.",
+        body="""
+<p><b>Blockers:</b> VBATT on In2 at (98.68,&nbsp;88.08) has a 0.05&nbsp;mm
+neck that is the cell's only path to Q2 and the charger. At
+(107.3,&nbsp;108.35) a 0.077&nbsp;mm neck is its only path to Q2. Either
+one etching open would give a board that never runs from its battery.
+CHRG has a 0.05&nbsp;mm neck too. KiCad's default rules don't check copper
+connection width, so the project DRC passed them.</p>
+
+<p><b>Cause:</b> ultraroute's input for this run has none of these joints;
+its output has 81. Filed in <code>design/ultraroute-requests.md</code>.</p>
+
+<p><b>Also:</b></p>
+<ul>
+<li>VBATT is not in the power class. It runs 54.6&nbsp;mm round the edge at
+0.15&nbsp;mm (~0.29&nbsp;&Omega;) for a 24&nbsp;mm distance.</li>
+<li>XIN/XOUT go through In2 with two vias each, next to USB_DM.</li>
+<li>Smaller items: VDD_CORE decoupling detours, 9 dangling stubs, a stray
+In4.Cu rule area.</li>
+</ul>
+
+<p><b>Fine:</b> 0 errors, 0 unconnected, parity benign. The GND plane is one
+piece. The USB pair is matched (24.5/24.6&nbsp;mm). VLED copper keeps its
+0.2&nbsp;mm floor.</p>
+
+<p>Full gate: <code>design/gates/phase7.md</code>.</p>
+""",
+        media=[],
+    ),
+    dict(
         date="2026-10-27", sha=None, tags=["layout"],
         title="LED supply tracks widened to 0.3 mm and re-routed",
         lede="VLED_L/C/R now have their own net class: 0.3 mm tracks, narrowed to no "
