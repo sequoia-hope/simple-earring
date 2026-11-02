@@ -269,6 +269,11 @@ def main():
     design = load_design()
     board = pcbnew.LoadBoard(str(PCB))
     wipe(board)
+    # Seed KiCad's UUIDs after the load (loading draws from the generator
+    # too): the board file is saved sorted by UUID, so random ones reorder
+    # the pours and tracks on every run and the router sees a different
+    # input each time (2026-11-02).
+    pcbnew.KIID.SeedGenerator(0)
     rt = Router(board, design)
     fps = {fp.GetReference(): fp for fp in board.GetFootprints()}
     n_leds = design["leds"]["count"]

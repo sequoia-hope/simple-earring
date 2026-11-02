@@ -541,3 +541,14 @@ the back while staying under the foam height."
     East of the pad, C28.2 (GND) left no room.
   Pre-route DRC is clean with the rule.
 - Re-route: 0 via holes touch SMD pads, 0 unconnected, 392 vias. The router follows the rule.
+
+## 2026-11-02 — route.py seeds KiCad's UUIDs
+
+route.py's output changed from run to run. Nothing was random in our script: each new pour
+and track gets a random KiCad UUID, and KiCad saves the board sorted by UUID, so the order of
+pours and tracks in the file changed on every run. The router therefore saw a different input
+each time, and "seed 0" did not make the route repeatable. route.py now calls
+`pcbnew.KIID.SeedGenerator(0)` right after it loads and wipes the board. It has to come after
+the load, because loading also draws from the generator. Three `--no-autoroute` runs, starting
+from both the routed and the pre-routed board, now give byte-identical files. Found while
+ultraroute bisected request #4.
