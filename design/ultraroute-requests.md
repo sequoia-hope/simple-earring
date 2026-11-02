@@ -80,3 +80,13 @@ The touching-via and hole-clearance errors are gone on fe903ff.
 `~/Software/ultraroute-lab/repro/earring-fe903ff/`. Also noted: `add_block.py` lists the block's
 zones in a different order from run to run. Sent to the ultraroute session 2026-11-02; they are
 bisecting.
+
+**Bisect (ultraroute, 2026-11-02):**
+- The unconnected nets start at 4ed8d5d, which made hole clearance exact. 5064384 had passed
+  1–2 hole_clearance errors on every seed. Seed 0 is unlucky: seeds 1–3 reach 0 unconnected.
+- The 0.09 mm VBUS neck was a router bug. When the write stage mended a pad joint, it applied our
+  board-wide 0.09 connection_width rule in place of the net's 0.2 floor. Fixed on
+  fix/joint-floor 20062d9, not yet merged.
+- With that fix, seed 1 gave 0 errors apart from our gnd sliver.
+- The zone-order variation was in route.py: KiCad UUIDs weren't seeded. Fixed here in eee01cd.
+  Seeded input sent as `repro/earring-seeded/` for a seed sweep.
