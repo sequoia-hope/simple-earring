@@ -57,3 +57,26 @@ SMD pads (124 before) and 0 unconnected, but KiCad reports:
 **Ask:** keep a margin on rule checks (or round toward legal). Same-net vias should either
 clear each other or join at least the net's width, and preferably not be doubled. Sent to the
 ultraroute session 2026-11-02.
+
+**Fixed** on ultraroute main: hole clearance in 4ed8d5d, touching vias in fe903ff. But see #4:
+the fe903ff route has new failures, so we stay pinned to 5064384.
+
+## 4. fe903ff routes this board worse than 5064384 (2026-11-02)
+
+**Seen in:** fe903ff, with the same recipe and the same route.py input as the 1f12b22 route.
+- At `--timeout 240`, it hit the deadline in shove/nudge. 4 unconnected: BTN_SENSE (U1-33) and
+  LIGHT (U1-40), plus the gnd sliver islands. Shove pass 1 ran from 51 s to 211 s; on 5064384
+  the whole route took ~150 s.
+- At `--timeout 480`, it still hit the deadline, with 3 unconnected.
+- New track_width error: a VBUS B.Cu track 0.09 mm wide, 0.667 mm long, into J1-A4B9, where
+  the floor is 0.2 mm ("narrowed ... no way at its own"). On 5064384 this net routed at the
+  full width.
+- negotiated: 235 of 249 connections, against 239 of 248 on 5064384. The router sees one more
+  connection.
+
+The touching-via and hole-clearance errors are gone on fe903ff.
+
+**Ask:** bisect 5064384..fe903ff on this board. The input is copied to
+`~/Software/ultraroute-lab/repro/earring-fe903ff/`. Also noted: `add_block.py` lists the block's
+zones in a different order from run to run. Sent to the ultraroute session 2026-11-02; they are
+bisecting.
