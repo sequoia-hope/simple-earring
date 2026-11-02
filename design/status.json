@@ -2,23 +2,12 @@
   "schema": 1,
   "board": "earring",
   "phase": 7,
-  "doing": "Gate 7 re-review 2026-11-01 (route 5064384): every earlier finding resolved, DRC 0/0, no joint under 0.095 mm. FAIL on one MAJOR: 124 via holes in SMD pads (rev 1 had 18). Waiting on the user's call.",
-  "needs_user": [
-    {
-      "id": "gate7-via-in-pad",
-      "kind": "question",
-      "gate": 7,
-      "text": "124 via holes sit in SMD pads (LED VDD pads, 0402s, U1 pins). Keep vias out of pads with a DRC hole-clearance rule and re-route, or order JLC filled-and-capped vias?",
-      "options": [
-        "hole-clearance rule + re-route",
-        "filled and capped vias at JLC"
-      ]
-    }
-  ],
+  "doing": "2026-11-02: via-hole-in-SMD-pad rule added and re-routed: vias in pads 124 -> 0, 0 unconnected. DRC 4 errors: router precision (a via 0.5 um short of the hole rule, a touching VLED_C via pair; ultraroute request #3) and a gnd_front fill sliver.",
+  "needs_user": [],
   "checks": {
     "DRC": {
-      "result": "0 errors, 0 unconnected, 28 benign parity items; connection_width 0.09 mm as error (kicad-cli, 2026-11-01)",
-      "ok": true,
+      "result": "4 errors (1 hole_clearance, 3 connection_width), 0 unconnected, parity 28 (2026-11-02)",
+      "ok": false,
       "gate": 7
     },
     "schematic netlist": {
@@ -38,6 +27,11 @@
     },
     "current capacity": {
       "result": "VBATT BT1->Q2 112 mOhm at 0.4 mm; VBUS 70 mOhm, 0.2 mm floor",
+      "ok": true,
+      "gate": 7
+    },
+    "via in pad": {
+      "result": "0 via holes touch SMD pads (was 124)",
       "ok": true,
       "gate": 7
     }
@@ -102,16 +96,14 @@
     "studio": {
       "earring": {
         "opens": 0,
-        "drc_ok": true,
+        "drc_ok": false,
         "last_route": "build.py route stage 2026-11-01, ultraroute 5064384 (pinned)",
         "router": "ultraroute 5064384 (vendor/ultraroute)",
         "recipe": "route/earring/recipe.json",
-        "updated": "2026-11-01T21:00:00-08:00",
+        "updated": "2026-11-02T10:00:00-08:00",
         "findings": {
-          "error": 0,
-          "warning": 1,
-          "review_major": 1,
-          "review_minor": 5
+          "error": 4,
+          "warning": 2
         },
         "report": "design/gates/phase7.md"
       }
@@ -124,5 +116,5 @@
       }
     }
   },
-  "updated": "2026-11-01T21:00:00-08:00"
+  "updated": "2026-11-02T10:00:00-08:00"
 }
