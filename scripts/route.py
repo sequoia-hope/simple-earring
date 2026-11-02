@@ -744,6 +744,25 @@ def autoroute():
     for z in board.Zones():
         if not z.GetIsRuleArea() and not z.GetZoneName().startswith("vreg_"):
             z.SetMinThickness(mm(0.2))
+    # No gnd_front between CC1's R4.1 and the locked VBUS A4B9 via: the two
+    # clearances leave a 0.077 mm strip of pour there (connection_width,
+    # 2026-11-02). Both are fixed, so this holds on every route. It's added
+    # after routing so the router's input, and so the route, don't change.
+    # (KiCad reports the error at the zone's origin, (112.46,91.73); the
+    # pinch itself is at (97.74,86.39).)
+    z = pcbnew.ZONE(board)
+    z.SetIsRuleArea(True)
+    z.SetDoNotAllowCopperPour(True)
+    for allow in (z.SetDoNotAllowVias, z.SetDoNotAllowTracks,
+                  z.SetDoNotAllowPads, z.SetDoNotAllowFootprints):
+        allow(False)
+    z.SetLayer(pcbnew.F_Cu)
+    z.SetZoneName("nopour_cc1_vbus")
+    ol = z.Outline()
+    ol.NewOutline()
+    for x, y in ((-2.45, -13.80), (-2.00, -13.80), (-2.00, -13.40), (-2.45, -13.40)):
+        ol.Append(mm(CX + x), mm(CY + y))
+    board.Add(z)
     pcbnew.ZONE_FILLER(board).Fill(board.Zones())
     pcbnew.SaveBoard(str(PCB), board)
     board.BuildConnectivity()

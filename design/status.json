@@ -2,14 +2,14 @@
   "schema": 1,
   "board": "earring",
   "phase": 7,
-  "doing": "2026-11-02: re-routed on ultraroute 99bb7ca, seed 1: 0 unconnected, 0 via holes in pads, VBATT 63 mOhm. DRC 1 error: a gnd_front fill sliver at (112.46,91.73). Your call: no-pour area or log it.",
+  "doing": "2026-11-02: no-pour area at CC1/VBUS: DRC 0 errors, 0 unconnected. The gate 7 review FAILS on one new finding: VDD_CORE is 5 separate F.Cu pieces (pour to core-pin ring only via 14 mm of router copper). Your call: fix in route.py and re-route, or accept.",
   "needs_user": [
-    "gnd_front fill sliver at (112.46,91.73): add a small no-pour area (recommended) or log it as a known fill artefact"
+    "Gate 7 MAJOR-A: lock F.Cu VDD_CORE spokes (pin 50, C6, C13) into the under-chip ring in route.py and re-route (recommended), or accept in decisions.md"
   ],
   "checks": {
     "DRC": {
-      "result": "1 error (gnd_front fill sliver, connection_width 0.077), 0 unconnected, parity 28 (2026-11-02)",
-      "ok": false,
+      "result": "0 errors, 0 unconnected, parity 28 (2026-11-02)",
+      "ok": true,
       "gate": 7
     },
     "schematic netlist": {
@@ -35,6 +35,11 @@
     "via in pad": {
       "result": "0 via holes within 0.1 mm of SMD pads (DRC rule; was 124)",
       "ok": true,
+      "gate": 7
+    },
+    "VDD_CORE topology": {
+      "result": "5 separate F.Cu pieces; L1 pour to ring via 14 mm/3 vias (~75 mOhm); pin-50 joint 0.118 mm",
+      "ok": false,
       "gate": 7
     }
   },
@@ -98,13 +103,13 @@
     "studio": {
       "earring": {
         "opens": 0,
-        "drc_ok": false,
+        "drc_ok": true,
         "last_route": "build.py route stage 2026-11-02, ultraroute 99bb7ca seed 1 (pinned)",
         "router": "ultraroute 99bb7ca (vendor/ultraroute)",
         "recipe": "route/earring/recipe.json",
-        "updated": "2026-11-02T14:00:00-08:00",
+        "updated": "2026-11-02T18:30:00-08:00",
         "findings": {
-          "error": 1,
+          "error": 0,
           "warning": 2
         },
         "report": "design/gates/phase7.md"
@@ -118,5 +123,5 @@
       }
     }
   },
-  "updated": "2026-11-02T14:00:00-08:00"
+  "updated": "2026-11-02T18:30:00-08:00"
 }

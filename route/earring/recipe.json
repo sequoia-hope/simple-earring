@@ -36,13 +36,13 @@
     "480"
   ],
   "after": [
+    "F.Cu no-pour area nopour_cc1_vbus between R4.1 and the VBUS A4B9 via (route.py, before the refill)",
     "refill zones at 0.2 mm minimum width on the large planes, VREG pours 0.15 (route.py)",
     "kicad-cli pcb drc (build stage drc)"
   ],
   "result": {
-    "drc_errors": 1,
+    "drc_errors": 0,
     "unconnected": 0,
-    "date": "2026-11-02",
-    "note": "1 error: gnd_front fill sliver at (112.46,91.73), ours"
+    "date": "2026-11-02"
   }
 }

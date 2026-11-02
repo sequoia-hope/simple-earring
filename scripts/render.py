@@ -72,6 +72,24 @@ TAGS = {
 FEED = [
     dict(
         date="2026-11-02", sha=None, tags=["layout"],
+        title="DRC clean; the routing review finds the core supply in pieces",
+        lede="A small no-pour area removed the last DRC error, a 0.077 mm strip of ground "
+             "pour between a USB-C resistor and a VBUS via. KiCad had reported it at the "
+             "wrong place. DRC is now 0 errors and 0 unconnected. The independent review "
+             "still fails gate 7: the RP2350's 1.1 V core supply is five separate copper "
+             "pieces on the top layer.",
+        body="""
+<p><b>Review:</b> the switcher's output pour reaches the chip's core-supply ring only
+through 14&nbsp;mm of thin inner-layer track and 3 vias (~75&nbsp;m&Omega;), for a 2&nbsp;mm
+distance; the shipped rev&nbsp;1 had it as one piece. Fix: locked top-layer spokes from pin 50
+and from C6/C13 into the ring, then re-route. Also open, all minor: pad joints between 0.11 and
+0.127&nbsp;mm, router leftovers, ADC lines over the VREG plane slots, seven decouplers
+without a nearby ground via.</p>
+""",
+        media=[],
+    ),
+    dict(
+        date="2026-11-02", sha=None, tags=["layout"],
         title="Re-routed with no vias in pads: one pour sliver left",
         lede="A new design rule keeps via holes 0.1 mm off every SMD pad (there were "
              "124 in pads). On ultraroute 99bb7ca, seed 1, everything routes, and the "

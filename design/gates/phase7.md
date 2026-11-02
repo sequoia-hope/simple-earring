@@ -187,3 +187,47 @@ The route stage took 219 s and left 0 unconnected.
 **Gate 7 still FAILS**, on the gnd_front fill sliver alone. That needs the user's call: a small
 no-pour area there, or log the sliver as a known fill artefact. No independent re-review yet: it
 runs once DRC is clean.
+
+## No-pour area at CC1 / VBUS, 2026-11-02
+
+The one DRC error was not where KiCad reported it. KiCad 9 reports a zone's connection_width
+error at the zone's origin (112.46,91.73). The pinch was at (97.74,86.39): a 0.077 mm strip of
+gnd_front between CC1's R4.1 and route.py's locked VBUS A4B9 via. `tools/route_audit/pinch.py`
+found it. Both items are fixed, so route.py now adds an F.Cu no-pour rule area
+(`nopour_cc1_vbus`, (97.55–98.00, 86.20–86.60)) after routing, before the refill. The route
+stage re-ran on 99bb7ca, seed 1: the copper is identical to 98f7884 (2159 tracks and vias).
+
+| check | evidence | ok |
+|---|---|---|
+| DRC | `kicad-cli pcb drc --schematic-parity --severity-all`: **0 errors, 0 unconnected**, parity 28 (as before). Warnings: 34 silk_overlap, 23 silk_over_copper, 5 text_height, 3 lib_footprint_mismatch, 2 silk_edge_clearance, 1 via_dangling (locked 3V3 via), 1 track_dangling (VLED_L 0.21 mm stub) | yes |
+
+## Review: independent (stronger model, fresh context), 2026-11-02, route 99bb7ca seed 1
+
+DRC 0/0. 0 via holes within 0.1 mm of an SMD pad. No copper neck under 0.111 mm. VBATT 63 mΩ at
+0.4 mm. Crystal on F.Cu with 0 vias. USB pairs matched to 0.01 mm. In1 is one piece, 703 mm².
+
+Earlier findings:
+- MAJOR-1 (vias in pads), MINOR-2 (sliver), B1/B2/M1/M2/M3/m1/N1: **resolved**.
+- MINOR-1, MINOR-3 and MINOR-5: **open**, now as MINOR-A, MINOR-C and MINOR-B.
+- m2 has **regressed** and is now part of MAJOR-A.
+- m3 is accepted.
+- m5 and MINOR-4 have improved.
+
+| # | sev | finding | resolution |
+|---|---|---|---|
+| MAJOR-A | MAJOR | **VDD_CORE is 5 separate F.Cu pieces**, joined only by router copper. The L1/C12 pour (`vreg_vdd_core_6`, 3.4 mm²) reaches the under-chip ring (`vreg_vdd_core_3`, 7.1 mm²) through 14 mm of 0.15 mm In2/B.Cu with 3 vias, ~75 mΩ, for a 2 mm distance. Pin 50's locked track only touches the pour's corner: a 0.118 mm joint. C6 reaches the ring through 7.6 mm of In2 and 2 vias (m2, regressed). The shipped rev 1 had VDD_CORE as one 11.2 mm² F.Cu piece. Author's check: 5 pieces with no erosion, 6 at 0.0635 mm | **open: user's call** |
+| MINOR-A | MINOR | Joints under the 0.127 mm board minimum (all above 0.09): USB_DM into U1.51 0.111; pin 50 0.118; IMU_INT1 0.125; 3V3 into U1.1 0.125 | raise connection_width to 0.127, or accept |
+| MINOR-B | MINOR | Router leftovers: a fan of 79 GND B.Cu micro-segments at (94.62,107.27); a staircase at (108.9,90.1); 91 tracks under 0.05 mm; 11 collinear overlaps; 4 back-tracks; the VLED_L stub; the unused locked 3V3 via | strip in the route stage; send the fan to ultraroute; drop the via from route.py |
+| MINOR-C | MINOR | In2 signals over the In1 VREG slots: CHRG_DONE 3.4, VBSENSE 2.1, VDD_CORE 1.7, CHRG 1.1, LIGHT 0.6 mm | tracks-only rule area on In2, or log acceptance |
+| MINOR-D | MINOR | 7 decouplers with no GND via within 1 mm (C75, C26, C8, C5, C15, C74, C25); 48 of 55 have one | add pad vias before the next route |
+| MINOR-E | MINOR | No design/nets.csv or stackup.md, and no phase 3 or phase 5 gate files | write nets.csv and run nets_check before gate 10 |
+| NOTE-A | NOTE | U2's exposed pad lost its GND via to the via-hole rule (3 thermal spokes, nearest via 0.37 mm), which contradicts the 10-25 decision. Fine at ≤130 mW. U1's EP keeps its 9 PTH pads | log, or exempt EPs from the rule |
+| NOTE-B | NOTE | Bookkeeping for this round | done in this commit |
+| NOTE-C..E | NOTE | USB geometry is cosmetic. Full-white current is accepted (11-01). In2 pours are all joined | — |
+
+The reviewer also flagged that `pinch.py`'s same-ring exclusion (3 × the minimum along the
+outline) can miss small-track joints; use erosion for those.
+
+**Verdict: FAIL** on MAJOR-A. The gate passes if MAJOR-A is fixed in route.py's VREG block
+(locked F.Cu spokes from pin 50 and from C6/C13 into the ring, and a ≥ 0.15 mm pin-50 joint)
+and re-routed, or if it is accepted in decisions.md with the physics.

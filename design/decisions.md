@@ -564,3 +564,12 @@ ultraroute bisected request #4.
   than accept unconnected.
 - Timeout raised to 480 s, because seed 1 needs ~205–240 s and 240 s left no headroom.
 - Result: DRC 1 error (the gnd_front fill sliver, gate 7 MINOR-2), 0 unconnected.
+
+## 2026-11-02 — no-pour area between CC1's R4.1 and the VBUS A4B9 via
+
+The DRC's last error was a 0.077 mm strip of gnd_front at (97.74,86.39). The two clearances
+left that much pour between R4.1 (CC1) and route.py's locked VBUS via. KiCad reported it at the
+zone's origin (112.46,91.73), which sent two days of notes to the wrong place.
+`tools/route_audit/pinch.py` finds the real spot. Fix: an F.Cu no-pour rule area
+(`nopour_cc1_vbus`), added after routing, so the route itself doesn't change. The alternative
+was logging the strip as an acceptable fill artefact; but a 0.077 mm strip of copper can lift.
