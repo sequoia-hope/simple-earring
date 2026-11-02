@@ -28,3 +28,17 @@ no joint narrower than the net's width rule.
 ultraroute origin/main as of cc6be09 (b5f9f2d's 0.5 µm reach-in rule still accepts these
 joints). Sent to the ultraroute session (ultraroute-e8), along with a second ask: fail the run when
 any joint is narrower than the net's width rule, so this can't be reported as success again.
+
+**Fixed** in ultraroute 0b9016f (2026-11-01) for track-to-track joints. Re-routed here: VBATT
+and CHRG are clean.
+
+## 2. Track-to-pad joints narrower than the fab minimum (2026-11-01, gate 7 re-route)
+
+**Seen in:** pinned 0b9016f, build route stage. KiCad `connection_width (min 0.09mm)`:
+- U8.5 3V3 B.Cu: 0.066 mm. The pad's only track ends just outside it at (103.675,93.162).
+- U6.5 3V3 B.Cu: 0.053 mm. A track end at (109.65,88.55), ~0.08 mm off the pad's edge.
+- U6.2 3V3 B.Cu: 0.043 mm, from a 0.02 mm track at (107.84,89.13–89.15).
+
+**Ask:** a track that ends on a pad ends inside the pad's copper, so the joint is at least the
+track's width (or the net's minimum). Report any narrower pad joint, as 0b9016f does for track
+joints. Sent to the ultraroute session 2026-11-01.

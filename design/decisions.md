@@ -484,3 +484,31 @@ the back while staying under the foam height."
 - Project DRC: 0 errors, 0 unconnected, 0 dangling; 67 silk and library
   warnings. Schematic parity: the 28 known items only (unused pins, BOM
   flags on BT1/TP1-3).
+
+## 2026-11-01 — gate 7 fixes: VBATT power class, joint-width DRC, crystal on F.Cu, ultraroute 0b9016f
+
+- **VBATT joins the `power` class** (0.4 mm), alongside VBUS and VSYS, in
+  `hw/earring/a/earring.kicad_pro` and `scripts/gen_board.py`. At the 0.15 mm
+  default it ran 54.6 mm round the edge for about 0.29 Ω, and carries all the
+  cell current (gate 7, M3).
+- **Power class floor 0.2 mm** (`earring.kicad_dru`, LESSONS: a class width is
+  only the router's target). IPC-2221, 0.5 oz inner, ΔT 10 °C: 0.2 mm carries
+  0.23 A, above the cell's 140 mA continuous limit. There's no `nets.csv` yet
+  (phase 3), so the current comes from `intent.md`. VBUS/VSYS at full white
+  on USB (~0.62 A, gate 7 m3) needs the 0.4 mm class width, not the floor; a
+  short 0.2 mm neck is acceptable there. route.py's VBUS-trunk thin fallback
+  went from 0.15 to 0.2 mm to meet the floor.
+- **`connection_width (min 0.09mm)`** on every net (JLC minimum trace). Default
+  DRC passed the 0.05 mm overlap-only joints ultraroute left on VBATT and CHRG
+  (gate 7, B1/B2/M1). DRC now fails them.
+- **XIN, XOUT and XTAL_R pre-routed and locked on F.Cu** in route.py (skill
+  routing.md 4a; gate 7 M2). XIN runs down the gap between Y1's pad columns
+  rather than round pad 4's east edge as the reviewer suggested: C14.2 (GND)
+  sits 0.33 mm below pad 4, too tight for a 0.15 mm track at 0.127 mm
+  clearance. Pre-route DRC: no violations.
+- **In4.Cu rule area dropped** from route.py (gate 7 N1; this board has no In4).
+  The two In1 slots under L1 and VREG_LX stay: RP2350 datasheet §6.3.8.
+- **ultraroute pin 0330831 → 0b9016f**, ultraroute's fix for the overlap-only
+  joints, made at our request (`design/ultraroute-requests.md` #1). The
+  ultraroute session reported 631 → 0 narrow track-to-track joints on the
+  vled-width-1 s0 input, and 54 → 3 `connection_width` flags.

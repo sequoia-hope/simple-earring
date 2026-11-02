@@ -69,9 +69,12 @@ def setup_rules(board, design):
     default.SetClearance(mm(j["min_clearance_mm"]))
     default.SetViaDiameter(mm(j["via_diameter_mm"]))
     default.SetViaDrill(mm(j["via_drill_mm"]))
-    # "power" class: fat VBUS (Sequoia hand-routed it 0.4mm on In3; the
-    # netclass width flows into the freerouting DSN so generated builds
-    # keep it). VBATT/3V3 stay default — they feed from planes.
+    # "power" class: fat VBUS (Sequoia hand-routed it 0.4mm on In3), VSYS
+    # and VBATT. The tracked .kicad_pro holds the live assignments (this
+    # function does not reach it); keep the two in step. VBATT joined
+    # 2026-11-01 (gate 7: at the 0.15mm default it ran 54.6mm round the
+    # edge, ~0.29 ohm, and carries all the cell current). The 0.2mm
+    # neck-down floor is in hw/earring/a/earring.kicad_dru.
     power = pcbnew.NETCLASS("power")
     power.SetTrackWidth(mm(j["power_track_mm"]))
     power.SetClearance(mm(j["min_clearance_mm"]))
@@ -79,11 +82,8 @@ def setup_rules(board, design):
     power.SetViaDrill(mm(j["via_drill_mm"]))
     ns.SetNetclass("power", power)
     ns.SetNetclassPatternAssignment("VBUS", "power")
-    # VSYS is deliberately NOT in this class. It inherits exactly the job
-    # VBATT used to do (feed the LDO and the LED switch), VBATT was never
-    # fat either, and 60mA needs ~0.05mm of the default 0.15mm. Widening it
-    # would push a second 0.4mm trunk across a board that still has nets
-    # stranding at 9-unconnected.
+    ns.SetNetclassPatternAssignment("VSYS", "power")
+    ns.SetNetclassPatternAssignment("VBATT", "power")
     # "vled" class: the LED zone supplies (VLED_L/C/R). They feed from In2
     # pours, but the pours are cut into pieces joined by tracks, so the
     # ring's full-white current runs on tracks too. The 0.2mm neck-down

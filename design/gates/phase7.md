@@ -83,3 +83,25 @@ evidence scripts.
    ultraroute, so that needs the user's call.
 5. Re-route (build stage `route`, booked through `reserve`), then re-run this gate and
    re-review.
+
+## Re-route 2026-11-01 (ultraroute 0b9016f, build route stage)
+
+Fixes 1–3 and 5 from "To pass" are applied (`design/decisions.md`, 2026-11-01): VBATT is in
+`power`, with a 0.2 mm `track_width` floor for the class. There's a `connection_width (min
+0.09mm)` rule, with its severity raised to error in `.kicad_pro` (KiCad's default is warning,
+so the first run still passed). XIN/XOUT/XTAL_R are locked F.Cu pre-routes, and the In4 area
+is gone. For fix 4, ultraroute fixed the track-to-track joints at our request.
+`python3 build.py --only route` (booked through reserve) gave unconnected 0, 329 vias, and
+"mended 1 joints where round ends only overlapped".
+
+| check | evidence | ok |
+|---|---|---|
+| DRC | `kicad-cli pcb drc --schematic-parity --severity-all`: **4 errors (connection_width), 0 unconnected**, parity 28 (unchanged). Warnings: 34 silk_overlap, 23 silk_over_copper, 5 text_height, 3 lib_footprint_mismatch, 2 silk_edge_clearance, 1 via_dangling (route.py's locked 3V3 via (6.2,2.6), now unused), 1 track_dangling (VLED_C In2 0.07 mm stub at (92.33,102.68)) | **no** |
+| connection width | U8.5 3V3 B.Cu **0.066 mm**: the pad's only track ends 0.03 mm outside it. U6.5 3V3 B.Cu **0.053 mm**: an end ~0.08 mm off the pad edge (the pad also has a west track). U6.2 3V3 B.Cu **0.043 mm**: a 0.02 mm track. gnd_back pour sliver at (112.46,91.73), 0.074 mm. VBATT and CHRG are clean | **no** |
+| router joints | `necks.py`: 996 hits, but it now overcounts. Its narrowest hits are false: the 3V3 F.Cu one at (97.33,99.28) is inside `vreg_3v3_1`, and LEDC_D2 ends exactly on LED39 pad 2's edge (`HitTest(…, 0)` misses it). ultraroute says ~1,100 ends sit inside a neighbouring track, which is full-width copper. KiCad's `connection_width` is the authority now | see DRC |
+| VBATT | BT1.1 → Q2.3: **98 mΩ** (was 289), 55.3 mm, all 0.4 mm, 6 vias. BT1.1 → U2.5: 97 mΩ, narrowest 0.25 mm for 0.5 mm. It still goes round the edge | yes |
+| crystal | XIN 6.5 mm, XOUT 2.3 mm, XTAL_R 2.2 mm, all F.Cu, **0 vias** | yes |
+
+**Still FAILED**, on the three track-to-pad necks: U8.5's is its only feed. They are router
+joints onto pads, not the track-to-track kind 0b9016f fixed. Sent to ultraroute as request #2.
+Not re-reviewed: the independent review runs once DRC is clean.

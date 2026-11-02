@@ -65,7 +65,7 @@
       "rule_severities": {
         "annular_width": "error",
         "clearance": "error",
-        "connection_width": "warning",
+        "connection_width": "error",
         "copper_edge_clearance": "error",
         "copper_sliver": "warning",
         "courtyards_overlap": "error",
@@ -558,6 +558,10 @@
       {
         "netclass": "usb",
         "pattern": "USB_C_D*"
+      },
+      {
+        "netclass": "power",
+        "pattern": "VBATT"
       },
       {
         "netclass": "power",

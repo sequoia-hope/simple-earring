@@ -405,6 +405,28 @@ def main():
     rt.via((0.92, -11.50), "VBUS")   # via-in-pad on U5.5 (tented)
     rt.via((2.20, -12.99), "VBUS")   # SE of tie B4A9 — Sequoia moved it
     # off-pad (Aug 7) to clear the tip; the tie pad still joins the trunk
+    # ---------- crystal (locked, F.Cu only) ----------
+    # Skill routing.md 4a: crystal nets short and on the top layer. Left to
+    # the router, XIN and XOUT each dropped through two vias to In2 under Y1,
+    # 0.26mm from USB_DM (gate 7, M2). Everything is on F.Cu within 3mm, so
+    # every pad-to-pad link is pre-routed and the router has nothing to do.
+    # XIN leaves Y1.1 westward and runs down the 0.8mm gap between Y1's pad
+    # columns (0.325 each side), then to C14.1 and straight into U1.21. The
+    # east way round Y1 pad 4 doesn't fit: C14.2 (GND) sits 0.33mm under
+    # pad 4, too narrow for a 0.15 track at 0.127 clearance. XOUT runs R1.2
+    # -> 45 deg -> straight up into U1.22; XTAL_R is Y1.3 -> R1.1 -> C15.1.
+    # All links are derived from the pads, so a moved part moves its route.
+    pin = lambda ref, n: rel(pad_of(fps[ref], n).GetPosition())
+    y1, y2, y3 = pin("Y1", "1"), pin("Y1", "2"), pin("Y1", "3")
+    c14, r11, r12 = pin("C14", "1"), pin("R1", "1"), pin("R1", "2")
+    u21, u22, c15 = pin("U1", "21"), pin("U1", "22"), pin("C15", "1")
+    gx = (y1[0] + y2[0]) / 2
+    xin = [y1, (gx, y1[1]), (gx, c14[1] - 0.467), c14, u21]
+    xout = [r12, (u22[0], r12[1] + (u22[0] - r12[0])), u22]
+    for net, path in (("XIN", xin), ("XOUT", xout),
+                      ("XTAL_R", [y3, r11, c15])):
+        for a, b in zip(path, path[1:]):
+            rt.track(a, b, net, width=0.15)
     from outline import outline_points, offset_polygon
     margin = design["leds"]["ring_margin_mm"]
     outer = outline_points(design, 100)
@@ -568,11 +590,12 @@ def main():
     for a, b2 in VBUS_TRUNK:
         # fat first (power netclass width), thin fallback: the corridor
         # over U5's body was verified for 0.15 — the fat variant only goes
-        # in when it clears everything too.
+        # in when it clears everything too. The thin one is the power
+        # class's 0.2mm floor (earring.kicad_dru), not the 0.15 default.
         if obs2.clear_seg(a, b2, pcbnew.F_Cu, "VBUS", 0.127 + pw / 2):
             rt2.track(a, b2, "VBUS", width=pw)
-        elif obs2.clear_seg(a, b2, pcbnew.F_Cu, "VBUS", 0.127 + 0.075):
-            rt2.track(a, b2, "VBUS", width=0.15)
+        elif obs2.clear_seg(a, b2, pcbnew.F_Cu, "VBUS", 0.127 + 0.1):
+            rt2.track(a, b2, "VBUS", width=0.2)
         else:
             vb_blocked += 1
     if vb_blocked:
@@ -598,8 +621,8 @@ def main():
 
     pour_keepout(pcbnew.In1_Cu, -3.35, 5.65, -0.65, 8.00)  # In1 under L1
     pour_keepout(pcbnew.In1_Cu, -2.60, 2.60, -1.80, 5.65)  # In1 under LX
-    # In4 VLED plane: same cut under the inductor (far plane, belt+braces)
-    pour_keepout(pcbnew.In4_Cu, -3.35, 5.65, -0.65, 8.00)
+    # (the In4 copy of this cut went 2026-11-01: a 4-layer board has no In4,
+    # and the rule area was a leftover from the 6-layer build, gate 7 N1)
     # (no F.Cu rule-area under L1 any more: the transplanted 1V1/LX pours
     # own that area, and gnd_front is kept out by the cluster hole below)
     _pour = _offp(design, 0.3, 80)

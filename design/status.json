@@ -2,23 +2,12 @@
   "schema": 1,
   "board": "earring",
   "phase": 7,
-  "doing": "Gate 7 (routing review) FAILED 2026-10-31: DRC is clean, but ultraroute left 81 overlap-only track joints; two are VBATT's only path at 0.05/0.077 mm (below JLC's 0.09 mm), one is CHRG's. VBATT is also off the power class (54.6 mm detour at 0.15 mm) and XIN/XOUT go through In2. Fixes listed in design/gates/phase7.md; re-route not yet run.",
-  "needs_user": [
-    {
-      "id": "gate7-reroute",
-      "kind": "question",
-      "gate": 7,
-      "text": "Gate 7 failed (VBATT/CHRG copper necks from ultraroute, VBATT off the power class, crystal on In2). Apply the fixes in design/gates/phase7.md and re-route?",
-      "options": [
-        "yes, re-route",
-        "wait for an ultraroute fix first"
-      ]
-    }
-  ],
+  "doing": "Re-routed 2026-11-01 on ultraroute 0b9016f with the gate 7 fixes (VBATT in the power class, connection_width DRC as an error, crystal on F.Cu). 0 unconnected; VBATT is 98 mOhm with no necks. Gate 7 still fails: 4 connection_width errors, three of them router track-to-pad joints on 3V3 (U8.5's only feed at 0.066 mm). Sent to ultraroute as request #2; waiting on their fix.",
+  "needs_user": [],
   "checks": {
     "DRC": {
-      "result": "0 errors, 0 unconnected, 28 benign parity items (kicad-cli, 2026-10-31)",
-      "ok": true,
+      "result": "4 errors (connection_width), 0 unconnected, 28 benign parity items (kicad-cli, 2026-11-01)",
+      "ok": false,
       "gate": 7
     },
     "schematic netlist": {
@@ -32,13 +21,13 @@
       "gate": 8
     },
     "connection width": {
-      "result": "21 necks < 0.09 mm (probe rule), 5 real: VBATT x2 (0.051, 0.077), CHRG 0.051, 3V3 stub, VLED_C sliver",
+      "result": "U8.5 0.066, U6.5 0.053, U6.2 0.043 mm (router pad joints, 3V3) + gnd_back sliver 0.074; VBATT/CHRG clean",
       "ok": false,
       "gate": 7
     },
     "current capacity": {
-      "result": "VBATT BT1->Q2 289 mOhm over 54.6 mm at 0.15 mm, Default class; VBUS/VSYS OK",
-      "ok": false,
+      "result": "VBATT BT1->Q2 98 mOhm, 0.4 mm power class (was 289 mOhm at 0.15)",
+      "ok": true,
       "gate": 7
     }
   },
@@ -102,15 +91,14 @@
     "studio": {
       "earring": {
         "opens": 0,
-        "drc_ok": true,
-        "last_route": "ultraroute-lab vled-width-1 seed 0 (2026-10-27), installed at 7a83b33; 2 unused 3V3 vias removed at bcba710",
-        "router": "installed route: ultraroute 8c691ec (lab); build.py now routes with pinned vendor/ultraroute 0330831",
+        "drc_ok": false,
+        "last_route": "build.py route stage 2026-11-01, ultraroute 0b9016f (pinned), recipe args unchanged",
+        "router": "ultraroute 0b9016f (vendor/ultraroute)",
         "recipe": "route/earring/recipe.json",
-        "updated": "2026-10-31T12:00:00-07:00",
-        "build_route": "build.py --to drc from scratch (2026-10-29): 0 errors, 0 unconnected, 68 silk/library warnings; not installed",
+        "updated": "2026-11-01T16:30:00-08:00",
         "findings": {
-          "error": 2,
-          "warning": 3
+          "error": 4,
+          "warning": 2
         },
         "report": "design/gates/phase7.md"
       }
@@ -123,5 +111,5 @@
       }
     }
   },
-  "updated": "2026-10-31T12:00:00-07:00"
+  "updated": "2026-11-01T16:30:00-08:00"
 }

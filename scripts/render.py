@@ -71,6 +71,34 @@ TAGS = {
 
 FEED = [
     dict(
+        date="2026-11-01", sha=None, tags=["layout"],
+        title="Re-routed with ultraroute's joint fix: battery path fixed, 3 pad joints left",
+        lede="ultraroute 0b9016f no longer leaves track ends joined only by their round "
+             "caps, and VBATT is in the power class now. The battery path is 0.4 mm and "
+             "98 mOhm (was 0.15 mm, 289 mOhm), and the crystal stays on the top layer. "
+             "DRC now checks copper joint width, and it fails on three router joints "
+             "onto 3V3 pads.",
+        body="""
+<p><b>Changes:</b> VBATT joined VBUS and VSYS in the 0.4&nbsp;mm power
+class, with a 0.2&nbsp;mm floor. DRC enforces a 0.09&nbsp;mm minimum on
+every copper joint, as an error. XIN, XOUT and XTAL_R are locked
+top-layer pre-routes with no vias. The leftover In4 rule area is gone.
+ultraroute is pinned at 0b9016f.</p>
+
+<p><b>Result:</b> 0 unconnected. VBATT and CHRG have no necks.
+<code>connection_width</code> reports 4 errors, all on 3V3 or GND:</p>
+<ul>
+<li>U8 pad 5, 0.066&nbsp;mm: the only feed to the Schmitt inverter.</li>
+<li>U6 pad 5, 0.053&nbsp;mm (the IMU, which has a second track).</li>
+<li>U6 pad 2, from a 0.02&nbsp;mm track.</li>
+<li>A 0.074&nbsp;mm sliver in the back GND pour.</li>
+</ul>
+<p>These are ultraroute's track-to-pad joints, sent to the ultraroute
+project. Gate 7 stays open.</p>
+""",
+        media=[],
+    ),
+    dict(
         date="2026-10-31", sha=None, tags=["layout", "review"],
         title="Gate 7 routing review: failed on copper necks in the battery path",
         lede="DRC is clean, but ultraroute left 81 track joints where the ends don't meet "
