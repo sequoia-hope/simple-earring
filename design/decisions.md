@@ -552,3 +552,15 @@ each time, and "seed 0" did not make the route repeatable. route.py now calls
 the load, because loading also draws from the generator. Three `--no-autoroute` runs, starting
 from both the routed and the pre-routed board, now give byte-identical files. Found while
 ultraroute bisected request #4.
+
+## 2026-11-02 — ultraroute 99bb7ca, seed 1, 480 s timeout
+
+- Pinned 99bb7ca. With 4ed8d5d, hole clearance is checked exactly (5064384 passed 1–2 vias
+  0.5 µm short on every seed). That changes how negotiation plays out, and seed 0 now leaves 3
+  connections open.
+- Ultraroute swept seeds 0–3 on our seeded input. Seed 1: 0 unconnected, 0 errors.
+  Seed 2: our sliver. Seed 3: the sliver and a GND via pair. The recipe takes seed 1.
+- The seed is a tuning knob, not a fix. If an input change breaks seed 1, sweep again rather
+  than accept unconnected.
+- Timeout raised to 480 s, because seed 1 needs ~205–240 s and 240 s left no headroom.
+- Result: DRC 1 error (the gnd_front fill sliver, gate 7 MINOR-2), 0 unconnected.

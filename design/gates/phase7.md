@@ -157,3 +157,33 @@ m3 is accepted (NOTE-1). m5 is open (MINOR-4).
 **Verdict: FAIL** on MAJOR-1 alone. If MAJOR-1 is settled by a decision (filled and capped
 vias), this gate passes without a re-route. If it's settled by a hole-clearance rule, the
 board needs a re-route and this gate re-runs.
+
+## Re-route 2026-11-02: ultraroute 99bb7ca, seed 1, via-hole rule
+
+The board has new inputs since the review above:
+- the `.kicad_dru` rule "No via hole in SMD pad" (`physical_hole_clearance` 0.1 mm, via to SMD
+  pad), with route.py's own vias moved off pads (1f12b22);
+- KiCad UUIDs seeded in route.py, so the router's input is byte-identical from run to run
+  (eee01cd);
+- ultraroute pin 5064384 → 99bb7ca, which fixes request #3 (exact hole clearance; touching
+  same-net vias) and the joint-floor bug behind request #4;
+- recipe `--seed 0` → `--seed 1` and `--timeout 240` → `480`. On this input seed 0 leaves 3
+  unconnected; seeds 1–3 route everything. Ultraroute swept the seeds on
+  `ultraroute-lab/repro/earring-seeded`.
+
+The route stage took 219 s and left 0 unconnected.
+
+| check | evidence | ok |
+|---|---|---|
+| DRC | `kicad-cli pcb drc --schematic-parity --severity-all`: **1 error, 0 unconnected**, parity 28 (as before). The error: connection_width 0.077 mm in the gnd_front fill at (112.46,91.73), MINOR-2's sliver (now on F.Cu). Warnings: 34 silk_overlap, 23 silk_over_copper, 5 text_height, 3 lib_footprint_mismatch, 2 silk_edge_clearance (all as before); via_dangling, the unused locked 3V3 via at (106.2,102.6); track_dangling, a 0.21 mm VLED_L F.Cu stub at (93.38,88.58) | **no** |
+| via in pad | 0 hole_clearance errors under the 0.1 mm via-to-SMD-pad rule | yes |
+| VBATT | BT1.1 → Q2.3: **63 mΩ**, 29.5 mm, all 0.4 mm, 4 vias (was 112 mΩ, 56 mm round the edge) | yes |
+| VBUS | J1 → D3: 50 mΩ, 0.4 mm. J1 → U2.4: 63 mΩ, narrowest 0.25 mm. Net minimum 0.20 mm (the floor) | yes |
+| VSYS / VLED | VSYS narrowest 0.23 mm; VLED_L 0.30, VLED_R 0.23, VLED_C 0.23 | yes |
+| crystal | XIN 6.5, XOUT 2.3, XTAL_R 2.2 mm: F.Cu only, 0 vias | yes |
+| USB pair | USB_DP / USB_DM 20.7 / 20.7 mm, 2 vias each. USB_C_DP / USB_C_DN 11.9 / 11.0 mm, 4 vias each (was 6 on DP: MINOR-4) | yes |
+| In1 GND plane | no tracks on In1 | yes |
+
+**Gate 7 still FAILS**, on the gnd_front fill sliver alone. That needs the user's call: a small
+no-pour area there, or log the sliver as a known fill artefact. No independent re-review yet: it
+runs once DRC is clean.

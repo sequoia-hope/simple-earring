@@ -1,7 +1,7 @@
 {
   "note": "The ultraroute recipe build.py's route stage runs (scripts/route.py -> scripts/route.sh, pinned vendor/ultraroute). Locked parts are the board's (locked yes) footprints; the power and VLED_* class floors and the connection_width rule come from earring.kicad_pro / earring.kicad_dru.",
   "router": "ultraroute",
-  "router_commit": "5064384",
+  "router_commit": "99bb7ca",
   "lab_experiment": "~/Software/ultraroute-lab/experiments/vled-width-1 (run s0)",
   "job": "~/Software/ultraroute/jobs/earring-kicad-locked",
   "input": "route.py's pre-routed board (build.py --to route, or route.py --no-autoroute), plus the rp2350_power block route.py adds",
@@ -29,19 +29,20 @@
     "--pour-cost",
     "3",
     "--seed",
-    "0",
+    "1",
     "--threads",
     "1",
     "--timeout",
-    "240"
+    "480"
   ],
   "after": [
     "refill zones at 0.2 mm minimum width on the large planes, VREG pours 0.15 (route.py)",
     "kicad-cli pcb drc (build stage drc)"
   ],
   "result": {
-    "drc_errors": 0,
+    "drc_errors": 1,
     "unconnected": 0,
-    "date": "2026-11-01"
+    "date": "2026-11-02",
+    "note": "1 error: gnd_front fill sliver at (112.46,91.73), ours"
   }
 }

@@ -71,6 +71,24 @@ TAGS = {
 
 FEED = [
     dict(
+        date="2026-11-02", sha=None, tags=["layout"],
+        title="Re-routed with no vias in pads: one pour sliver left",
+        lede="A new design rule keeps via holes 0.1 mm off every SMD pad (there were "
+             "124 in pads). On ultraroute 99bb7ca, seed 1, everything routes, and the "
+             "battery path is 63 mOhm, down from 112. DRC has one error left: a "
+             "0.077 mm sliver in the front ground pour.",
+        body="""
+<p><b>Changes:</b> a <code>physical_hole_clearance</code> rule from vias to SMD pads, and
+route.py's own vias moved off their pads. route.py now seeds KiCad's UUIDs, so the router's
+input is identical from run to run. Ultraroute is pinned to 99bb7ca (exact hole clearance,
+touching vias mended, joint floors), and the recipe uses seed 1.</p>
+<p><b>Result:</b> 0 unconnected, 0 via holes in pads. VBATT 63&nbsp;m&Omega; at 0.4&nbsp;mm;
+VBUS 50&nbsp;m&Omega;. The crystal is on the top layer with no vias. DRC: 1 error, a fill
+sliver at (112.46,&nbsp;91.73), waiting on a call: a small no-pour area, or log it.</p>
+""",
+        media=[],
+    ),
+    dict(
         date="2026-11-01", sha=None, tags=["layout"],
         title="Re-routed with ultraroute's joint fix: battery path fixed, 3 pad joints left",
         lede="ultraroute 0b9016f no longer leaves track ends joined only by their round "

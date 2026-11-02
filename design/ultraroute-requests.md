@@ -90,3 +90,7 @@ bisecting.
 - With that fix, seed 1 gave 0 errors apart from our gnd sliver.
 - The zone-order variation was in route.py: KiCad UUIDs weren't seeded. Fixed here in eee01cd.
   Seeded input sent as `repro/earring-seeded/` for a seed sweep.
+
+**Fixed** in ultraroute 99bb7ca (joint floor) on 2026-11-02. On the seeded input, ultraroute
+swept seeds 0–3; seed 1 was the cleanest. Re-routed here on 99bb7ca with seed 1: 0 unconnected,
+no VBUS neck, 1 DRC error, which is our gnd_front fill sliver.

@@ -2,11 +2,13 @@
   "schema": 1,
   "board": "earring",
   "phase": 7,
-  "doing": "2026-11-02: via-hole-in-SMD-pad rule added and re-routed: vias in pads 124 -> 0, 0 unconnected. DRC 4 errors: router precision (a via 0.5 um short of the hole rule, a touching VLED_C via pair; ultraroute request #3) and a gnd_front fill sliver.",
-  "needs_user": [],
+  "doing": "2026-11-02: re-routed on ultraroute 99bb7ca, seed 1: 0 unconnected, 0 via holes in pads, VBATT 63 mOhm. DRC 1 error: a gnd_front fill sliver at (112.46,91.73). Your call: no-pour area or log it.",
+  "needs_user": [
+    "gnd_front fill sliver at (112.46,91.73): add a small no-pour area (recommended) or log it as a known fill artefact"
+  ],
   "checks": {
     "DRC": {
-      "result": "4 errors (1 hole_clearance, 3 connection_width), 0 unconnected, parity 28 (2026-11-02)",
+      "result": "1 error (gnd_front fill sliver, connection_width 0.077), 0 unconnected, parity 28 (2026-11-02)",
       "ok": false,
       "gate": 7
     },
@@ -26,12 +28,12 @@
       "gate": 7
     },
     "current capacity": {
-      "result": "VBATT BT1->Q2 112 mOhm at 0.4 mm; VBUS 70 mOhm, 0.2 mm floor",
+      "result": "VBATT BT1->Q2 63 mOhm at 0.4 mm; VBUS J1->D3 50 mOhm, 0.2 mm floor",
       "ok": true,
       "gate": 7
     },
     "via in pad": {
-      "result": "0 via holes touch SMD pads (was 124)",
+      "result": "0 via holes within 0.1 mm of SMD pads (DRC rule; was 124)",
       "ok": true,
       "gate": 7
     }
@@ -97,12 +99,12 @@
       "earring": {
         "opens": 0,
         "drc_ok": false,
-        "last_route": "build.py route stage 2026-11-01, ultraroute 5064384 (pinned)",
-        "router": "ultraroute 5064384 (vendor/ultraroute)",
+        "last_route": "build.py route stage 2026-11-02, ultraroute 99bb7ca seed 1 (pinned)",
+        "router": "ultraroute 99bb7ca (vendor/ultraroute)",
         "recipe": "route/earring/recipe.json",
-        "updated": "2026-11-02T10:00:00-08:00",
+        "updated": "2026-11-02T14:00:00-08:00",
         "findings": {
-          "error": 4,
+          "error": 1,
           "warning": 2
         },
         "report": "design/gates/phase7.md"
@@ -116,5 +118,5 @@
       }
     }
   },
-  "updated": "2026-11-02T10:00:00-08:00"
+  "updated": "2026-11-02T14:00:00-08:00"
 }
