@@ -2,8 +2,19 @@
   "schema": 1,
   "board": "earring",
   "phase": 7,
-  "doing": "Re-routed 2026-11-01 on ultraroute 5064384 (their joint fixes, requested from here). DRC 0 errors / 0 unconnected, with connection_width >= 0.09 mm enforced; VBATT 0.4 mm, 112 mOhm; crystal on F.Cu. Independent gate 7 review running.",
-  "needs_user": [],
+  "doing": "Gate 7 re-review 2026-11-01 (route 5064384): every earlier finding resolved, DRC 0/0, no joint under 0.095 mm. FAIL on one MAJOR: 124 via holes in SMD pads (rev 1 had 18). Waiting on the user's call.",
+  "needs_user": [
+    {
+      "id": "gate7-via-in-pad",
+      "kind": "question",
+      "gate": 7,
+      "text": "124 via holes sit in SMD pads (LED VDD pads, 0402s, U1 pins). Keep vias out of pads with a DRC hole-clearance rule and re-route, or order JLC filled-and-capped vias?",
+      "options": [
+        "hole-clearance rule + re-route",
+        "filled and capped vias at JLC"
+      ]
+    }
+  ],
   "checks": {
     "DRC": {
       "result": "0 errors, 0 unconnected, 28 benign parity items; connection_width 0.09 mm as error (kicad-cli, 2026-11-01)",
@@ -53,7 +64,7 @@
       "stale_because": null
     },
     "7": {
-      "state": "open",
+      "state": "failed",
       "stale_because": null
     },
     "8": {
@@ -98,7 +109,9 @@
         "updated": "2026-11-01T21:00:00-08:00",
         "findings": {
           "error": 0,
-          "warning": 1
+          "warning": 1,
+          "review_major": 1,
+          "review_minor": 5
         },
         "report": "design/gates/phase7.md"
       }

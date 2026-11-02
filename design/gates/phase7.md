@@ -132,3 +132,28 @@ Fill area change: vled_r 170.4 → 155.0 mm², gnd_back 450.9 → 439.6, the res
 | USB pair | USB_DP 21.0 / USB_DM 21.1 mm, 2 vias each | yes |
 | In1 GND plane | no tracks on In1 | yes |
 | renders | `design/renders/` regenerated 2026-11-01 (skill render.py) | — |
+
+## Review: independent (stronger model, fresh context), 2026-11-01, route 5064384
+
+The reviewer re-derived everything with its own kicad-cli/pcbnew/shapely scripts (scratch
+plots in the session scratchpad). DRC 0 errors / 0 unconnected, 28 benign parity items, every
+warning explained. No joint below 0.095 mm anywhere. VBATT 112 mΩ at 0.4 mm. Crystal F.Cu
+with 0 vias over solid In1. USB 21.0/21.1 mm. In1 one piece (702 mm²). Every pour piece has
+copper of its net.
+
+Previous findings: B1, B2, M1, M2, M3, m2, m4 (except the locked via) and N1 are **resolved**.
+m3 is accepted (NOTE-1). m5 is open (MINOR-4).
+
+| # | sev | finding | resolution |
+|---|---|---|---|
+| MAJOR-1 | MAJOR | **Via holes in SMD pads: 124** (17 wholly inside a pad, 107 cutting a pad edge): 42 WS2816C VDD pads, 26 0402 pads, five U1 QFN pins (9/11/31/33/55), the USB-C vias on J1.A7/B7. Mask expansion 0 and the vias are tented, so each hole is open in the pad's aperture: solder wicks, starving LED VDD joints and tombstoning 0402s. 120 are the router's; 4 are route.py's deliberate ones. For comparison, the shipped rev 1 (43eadc1) had 18 (4 inside, 14 edge; author's count) | **open: user's call** (see status.json) |
+| MINOR-1 | MINOR | Track-to-pad joints 0.110–0.123 mm, below the board's 0.127 mm minimum: U6 3V3 pads 2/3/5/8, LED8.4 LEDL_D7, LED9.4 LEDL_D8, LED29.2 LEDR_D9, LEDC_D1 at a via. Above JLC's 0.09, mA-level nets | raise connection_width to 0.127 and send to ultraroute as request #3 |
+| MINOR-2 | MINOR | gnd_back sliver 0.095 mm at (112.46,91.73) between the IMU_INT1 edge track and the via at (112.25,92.41). No island if it etches away | small no-pour area or accept |
+| MINOR-3 | MINOR | CHRG 3.1 mm, CHRG_DONE 3.1 mm, VBSENSE 1.3 mm, LIGHT 0.44 mm on In2 over the In1 VREG slots, under VREG_LX with no plane between. VBSENSE and LIGHT are ADC inputs | tracks-only rule area on In2 over the slots, or log acceptance (slow, RC-filtered) |
+| MINOR-4 | MINOR | USB_C_DP: 6 vias on 10.6 mm including a 0.52 mm In2 hop, a collinear back-track at (100.42,87.14); USB_C_DN 15° joint at (100.12,87.46). Fine at 12 Mb/s | cosmetic |
+| MINOR-5 | MINOR | Overlapping VLED_L In2 tracks from the via at (94.98,82.33), 1.8° apart; the unused locked 3V3 via (106.2,102.6) with its 1.4 mm In2 stub | strip in the route stage |
+| NOTE-1..3 | NOTE | USB full white: 32 °C rise on the 0.4 mm In2 VBUS/VSYS at 0.62 A; D3's ~0.5 W is the real limit (decisions.md accepts on the 140 mA cap). VREG_LX 1.65 mm at 0.127 mm before the pour is fine. Renders looked at | — |
+
+**Verdict: FAIL** on MAJOR-1 alone. If MAJOR-1 is settled by a decision (filled and capped
+vias), this gate passes without a re-route. If it's settled by a hole-clearance rule, the
+board needs a re-route and this gate re-runs.
