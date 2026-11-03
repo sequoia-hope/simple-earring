@@ -6,9 +6,9 @@ leds:
   matrix:
     sw: 9                # SW lines scanned (SWS register); 9 -> 1/9 duty
     per_sw: 5            # adjacent LEDs per SW arc -> 15 CS lines used
-    riset: 22k           # PLACEHOLDER until the phase 1 audit sets it
-    riset_part: r_22k
-    bulk: 10u            # PVCC bulk; PLACEHOLDER until the audit
+    riset: 47k           # design/parts/is31fl3741a.md: sized for the dim range
+    riset_part: r_47k
+    bulk: 10u            # PVCC bulk (audit: 22u not needed)
     bulk_part: c_10u_0603
-    i2c_pullup: 4.7k     # I2C0 to the driver, 400 kHz; PLACEHOLDER
+    i2c_pullup: 4.7k     # I2C0 to the driver, 400 kHz
     i2c_pullup_part: r_4k7

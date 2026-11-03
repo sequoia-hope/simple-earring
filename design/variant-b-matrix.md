@@ -128,3 +128,71 @@ Assumptions:
 4. Phase 6: back re-pack around the driver.
 5. Phase 7: routing.
 6. Gates from phase 1 on, for variant B only. Variant A is untouched.
+
+## Phase 1 audit results (variant B)
+
+Audited 2026-11-03: `design/parts/is31fl3741a.md` and `design/parts/xl-1010rgb.md`. The datasheets are in
+`design/datasheets/`, listed in `sources.csv`. Both parts pass sourcing: extended, normal lifecycle, JLC stock 463 and
+12,478. The independent review is still to do.
+
+**Matrix: keep 9 SW × 15 CS at 1/9 duty.**
+- **Supply peak is the same either way.** It is 135 × 1.125 × ILED (~121 mA at the hardware maximum) for any shape:
+  5 × 27 halves only the per-die peak, which is already far under the LED's 20 mA continuous rating.
+- **9 × 15 routes better:** a 15-line bus instead of 27, all matrix pins on two sides of the QFN (SW1–9, CS1–15), and
+  room to grow to 117 LEDs.
+- **Ghosting is a wash** between the two shapes.
+- **What 5 × 27 would buy:** only ~0.1 V of headroom, and only at full scale.
+
+**RISET = 47 kΩ 1 %** (C25792, basic).
+- **Current:** IOUT 8.09 mA, average 0.80 mA per die at full scale.
+- **Hard cap:** full white is 108 mA (116 at +8 %), or 123–131 mA with the rest of the system, so even a firmware bug
+  stays inside the cell's 140 mA rating.
+- **PWM use:** the brightest level the firmware needs (charge-indicator red, lowest bin) lands at PWM ≈ 227 with
+  GCC = 255. The drip show runs at GCC ≈ 100.
+- **Thermal:** the driver dissipates ~75 mW at the firmware's realistic maximum and 0.31 W at the hardware maximum on
+  USB, about +31 °C worst case.
+
+**Support parts:**
+
+| Function | Value | Change from this note |
+|---|---|---|
+| PVCC (pins 15, 25), AVCC (pin 14) | 3 × (1 µF C52923 + 100 nF C1525) | — |
+| Bulk on PVCC | 10 µF 0603 C19702 | was 22 µF: no practical cap holds a 36 µs slot; the bulk only keeps edges local |
+| SDB | 100 kΩ to GND + 100 nF; GPIO18 drives it | — (the pull-down is mandatory here, see below) |
+| INTB | RP2350 internal pull-up on GPIO1, or 100 kΩ to 3V3 | external part optional |
+| I²C0 (GPIO16/17) | 4.7 kΩ to 3V3 (C105871, already on the BOM), 400 kHz, LGC = 0, 8–12 mA pad drive | was 1 kΩ at 1 MHz |
+| ADDR | GND → 0x30 | — |
+| CS series resistors | none | — |
+| Thermal pad | GND, 5–16 through vias in the paste lanes | via-in-pad: user call (gate 7 item) |
+
+**Footprints.** The QFN-60's exposed pad was round-pendant's 16-tile split, cut round its own vias with 14 % paste. It is
+now a solid 5.40 mm pad with a 3 × 3 paste grid, edited in place in `library/parts.pretty`. The LED footprint was
+correct as copied.
+
+**Corrections to this note:**
+- **LED drive is not the same either way.** XL-1010 red gives 5–10 mcd/mA against the WS2816C's 26, so the firmware's
+  purple costs 1.8–2.9× the LED current (the green-only comparison above hid this). Taking variant A's 2 mA LED term as
+  3.6–5.8 mA, plus 3.65 mA for the driver (ICC + SDB pull-down):
+
+  | mode | variant B, same naps | variant B, no naps |
+  |---|---|---|
+  | standing | 12.3–12.9 mA → **10.1–10.6 h** | 17.8–19.9 mA → **6.5–7.3 h** |
+  | walking | 14.1–15.1 mA → **8.6–9.3 h** | (same) |
+  | dancing | 16.4–18.2 mA → **7.1–7.9 h** | (same) |
+
+  Variant B is still 1.5–2.3× the current board at the same duty, and 2.2–2.4× with no naps against 3.0 h.
+- **Off is not zero load.** The driver sits on VSYS, which the soft latch does not cut. With SDB held low it draws 0.5 µA
+  typ and 1 µA max, more than 15 years from 140 mAh. Negligible, but it makes the SDB pull-down mandatory: a floating SDB
+  would cost 3.6 mA with the earring off.
+- **Naps:** SSD = 0 or SDB low gives 0.5 µA with registers kept, so naps cost the driver nothing.
+- **Cost:** about 12 passives come in (13 with an INTB resistor), not ~10. That is still ≈ +$0.03, so the net stays at
+  ≈ +$0.1 per board.
+- **Reverse voltage:** off LEDs see up to VSYS during the 2 µs de-ghost blanking, 4.95 V on USB against the LED's 5 V
+  VR. That is inside the rating but thin, and current-limited to ≤ 77 µA.
+
+**Open questions:**
+- IOUT accuracy at 47 kΩ: only 10 kΩ is characterised.
+- Red efficiency below 10 mA: the datasheet curve is unusable there.
+- The driver's SDA VOL is unspecified.
+- How many EP vias to fit.
+- The reel Vf/Iv bins.

@@ -488,34 +488,39 @@ def main():
     # 0.3mm gaps between the pieces, so no two nets' outlines overlap. The
     # VLED consumers inside r 9.3 (U4/U9/U10, their caps, C68-C74) reach
     # their rail with routed traces, as before.
-    assert n_layers < 6, "6-layer VLED zone planes not updated for zones"
-    from shapely.geometry import LineString, Point, Polygon
-    from circuit import led_zone_of
-    zone_of = led_zone_of(design)
-    pos = {i: rel(fps[f"LED{i}"].GetPosition()) for i in zone_of}
-    board_poly = Polygon(outer)
-    inner = Point(0, 0).buffer(10.85, 128).difference(Point(0, 0).buffer(9.15, 128))
-    band = board_poly.difference(Point(0, 0).buffer(11.15, 128))
-    ring = design["leds"]["ring_count"]
-    tip = design["leds"]["count"] - ring - design["leds"].get("inner_count", 0)
-    split = max(i for i, z in zone_of.items() if z == "L")
-    pb = [(a + b) / 2 for a, b in zip(pos[split], pos[split + 1])]
-    pt = [(a + b) / 2 for a, b in zip(pos[1], pos[ring + tip])]
-    cut = LineString([pb, pt])
-    cut = LineString([(pb[0] + (pb[0] - pt[0]) * 2, pb[1] + (pb[1] - pt[1]) * 2),
-                      (pt[0] + (pt[0] - pb[0]) * 2, pt[1] + (pt[1] - pb[1]) * 2)])
-    pieces = band.difference(cut.buffer(0.15))
-    pieces = sorted(getattr(pieces, "geoms", [pieces]), key=lambda g: -g.area)[:2]
-    left = [g for g in pieces if g.contains(Point(pos[2]))]
-    assert len(left) == 1, "VLED band split failed"
-    right = [g for g in pieces if g is not left[0]][0]
-    for net, shp in (("VLED_L", left[0]), ("VLED_R", right), ("VLED_C", inner)):
-        z = rt.zone(pcbnew.In2_Cu, net, list(shp.exterior.coords)[:-1],
-                    priority=1, name=f"{net.lower()}_plane")
-        for hole in shp.interiors:
-            z.Outline().NewHole()
-            for x, y in list(hole.coords)[:-1]:
-                z.Outline().Append(mm(CX + x), mm(CY + y), 0, 0)
+    matrix = design["leds"].get("drive") == "matrix"   # variant B
+    # Variant B has no VLED rails: the LED anodes are the driver's SW lines,
+    # so In2 keeps only the 3V3 disc and its outer band is left to the
+    # router for the CS bus round the ring.
+    if not matrix:
+        assert n_layers < 6, "6-layer VLED zone planes not updated for zones"
+        from shapely.geometry import LineString, Point, Polygon
+        from circuit import led_zone_of
+        zone_of = led_zone_of(design)
+        pos = {i: rel(fps[f"LED{i}"].GetPosition()) for i in zone_of}
+        board_poly = Polygon(outer)
+        inner = Point(0, 0).buffer(10.85, 128).difference(Point(0, 0).buffer(9.15, 128))
+        band = board_poly.difference(Point(0, 0).buffer(11.15, 128))
+        ring = design["leds"]["ring_count"]
+        tip = design["leds"]["count"] - ring - design["leds"].get("inner_count", 0)
+        split = max(i for i, z in zone_of.items() if z == "L")
+        pb = [(a + b) / 2 for a, b in zip(pos[split], pos[split + 1])]
+        pt = [(a + b) / 2 for a, b in zip(pos[1], pos[ring + tip])]
+        cut = LineString([pb, pt])
+        cut = LineString([(pb[0] + (pb[0] - pt[0]) * 2, pb[1] + (pb[1] - pt[1]) * 2),
+                          (pt[0] + (pt[0] - pb[0]) * 2, pt[1] + (pt[1] - pb[1]) * 2)])
+        pieces = band.difference(cut.buffer(0.15))
+        pieces = sorted(getattr(pieces, "geoms", [pieces]), key=lambda g: -g.area)[:2]
+        left = [g for g in pieces if g.contains(Point(pos[2]))]
+        assert len(left) == 1, "VLED band split failed"
+        right = [g for g in pieces if g is not left[0]][0]
+        for net, shp in (("VLED_L", left[0]), ("VLED_R", right), ("VLED_C", inner)):
+            z = rt.zone(pcbnew.In2_Cu, net, list(shp.exterior.coords)[:-1],
+                        priority=1, name=f"{net.lower()}_plane")
+            for hole in shp.interiors:
+                z.Outline().NewHole()
+                for x, y in list(hole.coords)[:-1]:
+                    z.Outline().Append(mm(CX + x), mm(CY + y), 0, 0)
     disc_r = 8.95
     # circle disc; overlaps the narrow tip part of the VLED hole, where its
     # higher priority carves VLED back automatically

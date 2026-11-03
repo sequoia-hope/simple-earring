@@ -467,6 +467,7 @@ r_100k:  {lcsc: C25741,  footprint: R_0402_1005Metric, verified: yes}     # PWR_
 # ^ 100k, not 1M: NCP730 EN has an INTERNAL PULL-UP to VIN (I_EN-PU up to
 #   1uA, ds p5) and its falling threshold can be as low as 0.5V — a 1M
 #   pulldown could float EN at 1V and never turn the LDO off.
+r_47k:   {lcsc: C25792,  footprint: R_0402_1005Metric, verified: yes}     # variant B RISET (IS31FL3741A), design/parts/is31fl3741a.md
 r_680k:  {lcsc: C4131,   footprint: R_0402_1005Metric, verified: yes}     # R28 hold timer (0402WGF6803TCE, 680k 1% 0402; JLC 128k stock 2026-10-24)
 r_1m:    {lcsc: C26083,  footprint: R_0402_1005Metric, verified: yes}     # SW_ON sense divider, R29 RUN-kick (0402WGF1004TCE, 1M 0402; JLC basic, 2.4M stock 2026-10-24)
 c_100n:  {lcsc: C1525,   footprint: C_0402_1005Metric, verified: yes}     # CL05B104KO5NNNC 100nF 16V X7R 0402

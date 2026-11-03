@@ -125,6 +125,34 @@ ONEBTN = {
 }
 
 
+# Variant B: parts the driver displaced, (x, y, rot, back) from
+# tools/scan_spot.py in signal order; None = parked off-board until scanned.
+MATRIX_MOVED = {
+    "Q5": (10.75, -1.75, 90, True),
+    "Q4": (12.75, 2.25, 0, True),
+    "R24": (13.50, 4.50, 90, True),
+    "R25": (8.75, -2.50, 90, True),
+    "D4": (13.50, -0.25, 0, True),
+    "D2": (-2.50, 8.75, 0, True),
+    "R17": (-5.00, 8.75, 0, True),
+}
+# Variant B (design/variant-b-matrix.md): the IS31FL3741A and its support
+# parts, (x, y, rot, back) from tools/scan_spot.py; None = parked off-board
+# until scanned.
+MATRIX = {
+    # Back-west, the best clear spot. At rot 270 the control side (pins
+    # 7-15) faces north, outside the U1 back keepout its escape vias need,
+    # and SW/CS face east/south toward the ring. It displaced the soft latch
+    # (now east, near R11) and D2/R17 (south); see MATRIX_MOVED. PVCC pin
+    # 25 faces the keepout, so C82/C83 sit 5-6 mm away at the south-west
+    # corner rather than in U1's escape corridor.
+    "U11": (-9.25, 0.50, 270, True),
+    "C80": (-8.75, -6.25, 0, True), "C81": (-6.50, -4.25, 0, True), "C82": (-9.25, 6.25, 0, True), "C83": (-9.25, 5.25, 0, True), "C84": (-8.75, -7.25, 0, True),
+    "C85": (-8.50, -4.25, 0, True), "C86": (-9.25, -8.50, 0, True), "C87": (-10.75, -6.75, 0, True),
+    "R35": (-8.75, -5.25, 0, True), "R36": (-1.00, -7.25, 0, True), "R37": (6.50, 0.50, 0, True), "R38": (-3.50, -9.50, 0, True), "R39": (-7.50, -9.75, 0, True),
+}
+
+
 def mm(v):
     return pcbnew.FromMM(v)
 
@@ -228,7 +256,15 @@ def main():
     # right zone runs against the path direction (LED37 -> LED19), so each
     # picks the quarter-turn k that puts every DO nearest the next DI.
     ks, gap_total = {}, 0.0
-    for z, chain in led_zones(design).items():
+    matrix = design["leds"].get("drive") == "matrix"   # variant B
+    if matrix:
+        # Variant B: no data chain to follow, so one quarter-turn for the
+        # whole ring (design.b.yaml leds.matrix.led_k), chosen for routing.
+        k = design["leds"]["matrix"].get("led_k", 0)
+        for i in range(1, n + 1):
+            place(fps[f"LED{i}"], *pts[i - 1], rot=(45.0 + 90.0 * k - pthetas[i - 1]))
+        ks = {"all": k}
+    for z, chain in ({} if matrix else led_zones(design)).items():
         best = None
         for k in range(4):
             for i in chain:
@@ -604,16 +640,20 @@ def main():
     # the name left U1's west/north signals unrouted on all seeds, the
     # west flank and the back under U1 alike, so Q3/R23 stay here and the
     # name moved instead (silk_art.py HAND_TEXTS), with the user's OK.)
-    place(fps["Q3"], -4.25, -10.50, rot=0)
+    if "Q3" in fps:
+        place(fps["Q3"], -4.25, -10.50, rot=0)
 
     # R23 pulls LEDL_D0 up to VLED_L, 1.8mm off Q3's drain. (Since the zone
     # split it sits over the VLED_C band, so its VLED_L feed is a trace out
     # to the outer band, r > 11.15.)
-    place(fps["R23"], -5.25, -8.75, rot=0)
+    if "R23" in fps:
+        place(fps["R23"], -5.25, -8.75, rot=0)
 
 
     # ---- LED zone drivers (2026-10-24), see ZONES ----
     for i, (ref, spot) in enumerate(ZONES.items()):
+        if ref not in fps:
+            continue  # variant B has no zones
         if spot is None:
             place(fps[ref], 30 + 5 * (i % 5), -10 + 5 * (i // 5), back=True)
         else:
@@ -624,10 +664,27 @@ def main():
 
     # ---- front -> back move (2026-10-25), see BACK ----
     for i, (ref, spot) in enumerate(BACK.items()):
+        if ref not in fps:
+            continue  # U4/C20/R10 are variant A only
         if spot is None:
             place(fps[ref], 30 + 4 * (i % 6), 15 + 4 * (i // 6), back=True)
         else:
             place(fps[ref], *spot, back=True)
+
+    # ---- variant B: the matrix driver and its parts, see MATRIX ----
+    if "U11" in fps:
+        for i, (ref, spot) in enumerate(MATRIX_MOVED.items()):
+            if spot is None:
+                place(fps[ref], -30 - 4 * (i % 6), -20 + 4 * (i // 6), back=True)
+            else:
+                place(fps[ref], *spot[:3], back=spot[3])
+    for i, (ref, spot) in enumerate(MATRIX.items()):
+        if ref not in fps:
+            continue
+        if spot is None:
+            place(fps[ref], 30 + 4 * (i % 6), -20 + 4 * (i // 6), back=True)
+        else:
+            place(fps[ref], *spot[:3], back=spot[3])
 
     resolve_overlaps(board, fps)
     # see LOCKED at the top for why each part is locked
@@ -648,7 +705,7 @@ def resolve_overlaps(board, fps, max_iter=300):
     # board, and a relaxer nudge silently invalidates that (R20's scanned
     # spot was legal until relaxation slid it 0.8mm into R16).
     EXEMPT = {"R4", "R5", "R8", "C11", "C12", "R13", "C22",
-              "R19", "R20", "R21", "R22", "R23", "C29"} | set(ONEBTN) | set(ZONES) | set(BACK)
+              "R19", "R20", "R21", "R22", "R23", "C29"} | set(ONEBTN) | set(ZONES) | set(BACK) | set(MATRIX) | set(MATRIX_MOVED)
 
     def movable(ref):
         if ref in EXEMPT:
