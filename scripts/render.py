@@ -1311,8 +1311,8 @@ INDEX_HTML = """<!DOCTYPE html>
 
 <h1>simple_earring <span id="ts"></span></h1>
 <div class="nav">
+  <a href="#status">status ↓</a>
   <a href="#feed">updates ↓</a>
-  <a href="#board">board viewer ↓</a>
   <a href="viewer/">viewer full page</a>
   <a href="case/preview/" style="color:#c9f">TPU case</a>
   <a href="rework/" style="color:#a88">R8 rework (retired)</a>
@@ -1323,6 +1323,17 @@ INDEX_HTML = """<!DOCTYPE html>
   <a href="earring.svg">schematic SVG</a>
   <a href="earring-schematic.pdf">PDF</a>
 </div>
+
+<!-- the board viewer first: the page is mostly looked at for the board -->
+<div id="board"></div>
+{{VIEWER}}
+<div class="hint" style="margin:-.4rem 0 1.2rem">
+  board viewer by pcbview from the board on disk
+  (<code>scripts/view.sh build pcbview.toml</code>, pinned at
+  <code>vendor/pcbview</code>) &middot; {{VIEWER_BUILT}} &middot;
+  <a href="viewer/">open full page</a></div>
+
+<h2 id="status">Status</h2>
 <div class="status">{{STATUS}}</div>
 
 <h2 id="feed">Updates</h2>
@@ -1330,13 +1341,6 @@ INDEX_HTML = """<!DOCTYPE html>
 {{FEED}}
 </ol>
 
-<h2 id="board">Board viewer</h2>
-<div class="hint" style="margin:0 0 .7rem">
-  schematic, PCB layers and 3D of the board on disk, made by pcbview
-  (<code>scripts/view.sh build pcbview.toml</code>, pinned at
-  <code>vendor/pcbview</code>) &middot; {{VIEWER_BUILT}} &middot;
-  <a href="viewer/">open full page</a></div>
-{{VIEWER}}
 <script>
 // only feed images marked live (class="rf") reload; historical shots in
 // collapsed feed entries stay static so expanding one is not a reload storm.
