@@ -345,10 +345,36 @@ def main():
     # re-audit pads AND pre-placed vias before moving any coordinate.
     # (C leg at -1.02, not -1.00: buys the USB_DM escape diagonal its
     # 0.277 corner clearance; C11 pad1 gap is still 0.155)
+    # (The last leg runs on to y 4.70, into the pour's body: ending at 4.44
+    # it only grazed the lobe's corner, a 0.118 mm joint. Gate 7 MAJOR-A.)
     for a, b in (((-1.20, 3.30), (-1.20, 3.66)),
                  ((-1.20, 3.66), (-1.02, 3.66)),
-                 ((-1.02, 3.66), (-1.02, 4.44))):
+                 ((-1.02, 3.66), (-1.02, 4.70))):
         rt.track(a, b, "VDD_CORE", width=0.15)
+    # VDD_CORE feed into the under-chip 1V1 square, as on the official board
+    # (its +1V1 rotated into our frame): the switcher pour's lobe reaches
+    # the square through a via, 0.6 mm of B.Cu under the chip and a via in
+    # the square's band (EP edge + 0.25). Each DVDD decoupler gets the same:
+    # a via beside its VDD_CORE pad and B.Cu to a square via at its pin's
+    # spoke. (C5, pin 39, has none: its via and B.Cu walled in U1's west
+    # escapes, and VBUS_SENSE/LIGHT/CHRG_DONE went unrouted on 5 seeds.)
+    # Without them the pour, the square and the caps were separate
+    # F.Cu pieces joined only by ~14 mm of router copper (gate 7 MAJOR-A,
+    # 2026-11-02).
+    rt.via((-0.50, 5.30), "VDD_CORE")
+    rt.via((-0.49, 1.65), "VDD_CORE")
+    rt.track((-0.50, 5.30), (-0.49, 1.65), "VDD_CORE", layer=pcbnew.B_Cu,
+             width=0.6)
+    for ring, via, pad in (((2.15, 0.30), (4.80, 2.30), (4.80, 1.68)),     # C6, pin 6
+                           ((0.00, -2.65), (3.385, -4.85), (3.385, -5.45))):  # C13, pin 23
+        rt.via(ring, "VDD_CORE")
+        rt.via(via, "VDD_CORE")
+        rt.track(ring, via, "VDD_CORE", layer=pcbnew.B_Cu, width=0.4)
+        rt.track(via, pad, "VDD_CORE", width=0.3)
+    # C5 (pin 39) has no locked link: place.py turns its VDD_CORE pad to
+    # face the pin, 1 mm off, and the router joins them. A locked F.Cu link
+    # in pin 39's lane cost a neighbouring pin its fanout escape (65 of 67
+    # escaped against 66; 2026-11-03 probes).
     # channel the HRO connector's interleaved duplicate-pad joins through
     # the front layer: DM hops inboard of the pad row, DP outboard
     # (DM's vias sit 0.2 mm past the pad ends, y -13.25, not on the pads at

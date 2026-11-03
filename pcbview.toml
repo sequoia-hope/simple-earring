@@ -1,16 +1,59 @@
-# pcbview.toml -- the earring's viewer, for Boardroom's pcbview build:
+# pcbview.toml -- the earring's viewer (vendor/pcbview; options in its README.md):
 #
-#     ~/Software/easy_pcb/scripts/view.sh build pcbview.toml
+#     scripts/view.sh build pcbview.toml      then  python3 scripts/render.py --index-only
+#     scripts/view.sh models pcbview.toml     which parts lack a 3D model
+#
+# The registered server (proj up simple_earring) serves out/, so the site goes to
+# out/viewer/ (served at /viewer/) and the viewer is embedded in the dashboard,
+# out/index.html, between its pcbview markers. render.py keeps that block when it
+# rewrites the page.
 
 title = "simple_earring"
 subtitle = "RP2350A LED earring, rev 3 (LiPo, WS2816C zones)"
-out = "viewer"
-back = { href = "../out/index.html", label = "Dashboard" }
+out = "out/viewer"
+back = { href = "../index.html", label = "Dashboard" }
 
 [[boards]]
 id = "earring-a"
 name = "earring, variant A"
 pcb = "hw/earring/a/earring.kicad_pcb"
 sch = "hw/earring/a/earring.kicad_sch"
-note = "Ø30.5 mm teardrop, 4-layer, 45 WS2816C-1313 in three switched zones; routed with ultraroute, DRC 0/0."
-embed = "index.html"
+note = "Ø30.5 mm teardrop, 4-layer, 45 WS2816C-1313 in three switched zones; routed with ultraroute 99bb7ca (seed 2), DRC 0 errors / 0 unconnected (2026-11-03)."
+embed = "out/index.html"
+
+# 3D stand-ins for the EasyEDA footprints whose model is a .wrl only (kicad-cli's
+# GLB exporter meshes STEP, not VRML). The project's own converted STEPs are
+# retired as *.step.disabled (79b5450: their frames disagree with the baked WRLs),
+# so these are KiCad 9's stock models of the same packages. Rotations worked out
+# per the pcbview README: the footprint's pads against the stock footprint's, in
+# the library frame; KiCad model rotation is clockwise-positive, and the offset's
+# y is up (the opposite of the footprint's y).
+
+[models."SOT-323_L2.0-W1.3-H1.0-LS2.1-P1.30.wrl"]   # D2 D4 Q2-Q10: SOT-323_BAT54SW / _MOSFET
+# pads 1,2 at x=+0.80 and 3 at x=-0.80; the stock SOT-323_SC-70 has 1,2 at x=-0.94: a half turn
+path = "${KICAD9_3DMODEL_DIR}/Package_TO_SOT_SMD.3dshapes/SOT-323_SC-70.step"
+offset = [0, 0, 0]
+rotate = [0, 0, 180]
+
+[models."LGA-14_L2.5-W3.0-H0.9-P0.50.wrl"]          # U6, the IMU: LGA-14_L3.0-W2.5-P0.50-TL
+# pad for pad the same as Bosch_LGA-14_3x2.5mm_P0.5mm (pin 1 at -1.26,-0.75)
+path = "${KICAD9_3DMODEL_DIR}/Package_LGA.3dshapes/Bosch_LGA-14_3x2.5mm_P0.5mm.step"
+offset = [0, 0, 0]
+rotate = [0, 0, 0]
+
+[models."USON-8_L2-W3-H0.6X0.5P.wrl"]               # U7, the flash: USON-8_L3.0-W2.0-P0.50-BL-EP
+# pins 1-4 along y=+1.51 here, along x=-1.425 on Winbond_USON-8-1EP_3x2mm: (x,y) -> (y,-x),
+# a quarter turn anticlockwise
+path = "${KICAD9_3DMODEL_DIR}/Package_SON.3dshapes/Winbond_USON-8-1EP_3x2mm_P0.5mm_EP0.2x1.6mm.step"
+offset = [0, 0, 0]
+rotate = [0, 0, -90]
+
+[models."USB-C_SMD-TYPE-C-31-M-12_1.wrl"]           # J1: the same HRO TYPE-C-31-M-12
+# KiCad 9's library names USB_C_Receptacle_HRO_TYPE-C-31-M-12.step but this install doesn't
+# ship it; the kicad-demos package carries the same library model (RoyalBlue54L demo, whose
+# footprint is the stock one with a zero model transform). Same orientation as that footprint;
+# this one's origin is 1.42 mm further toward the mouth (shield pins -1.71/2.47 vs -3.13/1.05,
+# pegs -1.21 vs -2.60).
+path = "/usr/share/kicad/demos/royalblue54L_feather/lib/3dmodels/Connector_USB.3dshapes/USB_C_Receptacle_HRO_TYPE-C-31-M-12.STEP"
+offset = [0, -1.42, 0]
+rotate = [0, 0, 0]

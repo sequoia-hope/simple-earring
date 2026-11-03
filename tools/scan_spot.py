@@ -13,7 +13,7 @@ Usage:
   python3 tools/scan_spot.py REF [--side front|back|both] [--step 0.25]
                              [--rot 0,90,180,270] [--near REF.PAD,...]
                              [--clear 0.2] [--top 20] [--exclude REF,...]
-                             [--keepout x0,y0,x1,y1;...]
+                             [--keepout x0,y0,x1,y1;...] [--art MM]
 
 The board is read as-is: run place.py and route.py --no-freeroute first, so
 the locked pre-routes are present, and park the not-yet-placed parts
@@ -101,8 +101,20 @@ def intersects(a, b):
 class Static:
     """Everything already on the board, as polygons to collide against."""
 
-    def __init__(self, board, skip, clear, hole_clear, edge_clear):
+    def __init__(self, board, skip, clear, hole_clear, edge_clear, art_clear=None):
         self.copper = {pcbnew.F_Cu: [], pcbnew.B_Cu: []}
+        # The board's own silk art (name texts, URL letters, the heart):
+        # a part's courtyard may not land on it (2026-11-03: Q3/R23 sat on
+        # the name, D2/Q2 on the URL). Off unless --art is given.
+        self.art = {pcbnew.F_Cu: [], pcbnew.B_Cu: []}
+        if art_clear is not None:
+            for d in board.GetDrawings():
+                for silk, side in ((pcbnew.F_SilkS, pcbnew.F_Cu),
+                                   (pcbnew.B_SilkS, pcbnew.B_Cu)):
+                    if d.GetLayer() == silk:
+                        p = poly_of(d, silk, art_clear)
+                        txt = d.GetText() if hasattr(d, "GetText") else "art"
+                        self.art[side].append((f"art '{txt}'", bbox(p), p))
         self.cy = {pcbnew.F_Cu: [], pcbnew.B_Cu: []}
         self.holes = []
         for fp in board.GetFootprints():
@@ -149,6 +161,12 @@ class Static:
                 m.Move(d)
                 if intersects(m, other):
                     return f"courtyard {ref}"
+        for ref, bb, other in self.art[side]:
+            if overlaps(moved_bb, bb):
+                m = pcbnew.SHAPE_POLY_SET(cy)
+                m.Move(d)
+                if intersects(m, other):
+                    return ref
         for lay, base_bb, base in pads:
             pb = (base_bb[0] + dx, base_bb[1] + dy,
                   base_bb[2] + dx, base_bb[3] + dy)
@@ -227,6 +245,8 @@ def main():
                     help="x0,y0,x1,y1;... centre-relative boxes to avoid")
     ap.add_argument("--rmax", type=float, default=15.5)
     ap.add_argument("--board", default=str(PCB))
+    ap.add_argument("--art", type=float, default=None, metavar="MM",
+                    help="keep courtyards MM off the board's own silk art")
     a = ap.parse_args()
 
     board = pcbnew.LoadBoard(a.board)
@@ -243,7 +263,8 @@ def main():
 
     global CY_MARGIN
     CY_MARGIN = mm(a.cy_margin)
-    static = Static(board, skip, mm(a.clear), mm(a.hole_clear), mm(a.edge_clear))
+    static = Static(board, skip, mm(a.clear), mm(a.hole_clear), mm(a.edge_clear),
+                    None if a.art is None else mm(a.art))
     rots = [float(r) for r in a.rot.split(",")]
     sides = {"front": [False], "back": [True], "both": [False, True]}[a.side]
 

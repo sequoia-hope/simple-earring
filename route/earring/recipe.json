@@ -29,7 +29,7 @@
     "--pour-cost",
     "3",
     "--seed",
-    "1",
+    "2",
     "--threads",
     "1",
     "--timeout",
@@ -43,6 +43,7 @@
   "result": {
     "drc_errors": 0,
     "unconnected": 0,
-    "date": "2026-11-02"
+    "date": "2026-11-03",
+    "note": "seed 2 of a 1,2,4-7 sweep on the route stage's input; holds for this board file (item order)"
   }
 }

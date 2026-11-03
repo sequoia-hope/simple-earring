@@ -367,9 +367,13 @@ def main():
     # The courtyard is deliberately NOT widened to cover the pads: at
     # +-2.75 x +-1.725 it would overlap Y1's courtyard (they sit 0.005mm
     # apart after the crystal repack) and trip courtyards_overlap.
+    # C5 (DVDD pin 39's 100 nF) is rot 270 so its VDD_CORE pad faces pin
+    # 39 and route.py can lock a 1 mm F.Cu link to it; at rot 90 its GND
+    # pad faced the pin and the cap reached it through 7.5 mm and 2 vias
+    # (gate 7 MAJOR-B, 2026-11-03; RP2350 datasheet 6.1.3).
     DECAP = [(-4.8, -4.55, 90), (4.8, -3.6, 90),
              (-4.8, -2.1, 90), (4.8, -1.2, 90),
-             (-4.8, 0.15, 90), (4.8, 1.2, 90),
+             (-4.8, 0.15, 270), (4.8, 1.2, 90),
              (3.2, -8.8, 0), (-3.2, -8.8, 0), (-6.3, 5.7, 90)]
     for i, (x, y, rot) in enumerate(DECAP):
         place(fps[f"C{i+1}"], x, y, rot=rot)
@@ -456,8 +460,12 @@ def main():
     # VBATT is the clip's west foot 6mm north, and PWR_EN heads up the
     # west corridor to U3 — the same channel the old SW2->U3 PWR_EN
     # route proved out. D refs are NOT relaxer-movable: keep exact.
-    place(fps["D2"], -9.1, 8.2, rot=90, back=True)
-    place(fps["R17"], -7.4, 8.7, rot=90, back=True)
+    # (2026-11-03: moved off the back URL text, which D2 sat on, to the west
+    # flank by Q4/U3: tools/scan_spot.py --art 0.15 against the placed
+    # board with route.py's pre-routes. Sum-distance to Q4.3/R11.1/U3.4
+    # dropped from ~36 to 31.8 mm.)
+    place(fps["D2"], -8.25, 0.75, rot=90, back=True)
+    place(fps["R17"], -10.25, 1.00, rot=90, back=True)
     # R18 (VBUS -> PWR_EN 100k): back tip, the pocket WEST of J1's GND
     # tie pad — the VBUS leg hops to the locked A4B9 via-in-pad at
     # (-2.35,-13.45), PWR_EN heads down the west corridor to D2/U3.
@@ -580,7 +588,11 @@ def main():
     # +x clip foot, which is the one compromise: VBATT reaches it either
     # around the annulus or through a via to C17 on the front, and at 40mA
     # neither run costs anything measurable.
-    place(fps["Q2"], 9.25, 8.00, rot=90, back=True)
+    # (2026-11-03: Q2 sat on the back URL text. The east shoulder has no
+    # legal SC-70 spot clear of the text, so it moved south-centre, between
+    # U2 and U3, outside U1's shadow (scan_spot.py --art 0.15 --cy-margin
+    # 0.1; sum-distance to R22.2/U2.5/U3.6 went from 24.3 to 23.3 mm).)
+    place(fps["Q2"], -1.00, 6.25, rot=180, back=True)
     # (R22, R21, D3, C29 and the R19/R20 VBUS tap: back, see BACK)
     # Q3 (LED data level shifter) takes the best of those six SC-70 front
     # spots — and it happens to sit almost exactly on the line from the
@@ -588,6 +600,10 @@ def main():
     # 6.8mm from one and 6.9mm from the other. Gate lands at (-3.45,-9.85)
     # facing the MCU, drain at (-5.05,-10.50) facing the ring. rot 0 is the
     # only legal orientation here.
+    # (2026-11-03: this spot sat on the maker's name. Every spot clear of
+    # the name left U1's west/north signals unrouted on all seeds, the
+    # west flank and the back under U1 alike, so Q3/R23 stay here and the
+    # name moved instead (silk_art.py HAND_TEXTS), with the user's OK.)
     place(fps["Q3"], -4.25, -10.50, rot=0)
 
     # R23 pulls LEDL_D0 up to VLED_L, 1.8mm off Q3's drain. (Since the zone

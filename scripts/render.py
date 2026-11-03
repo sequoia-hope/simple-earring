@@ -8,7 +8,7 @@ board for visual review, and generate the out/ dashboard that serves them.
   render.py --index-only    rewrite out/index.html, touch nothing else
 
 The dashboard is a reverse-chronological feed (see FEED below) over the top
-of the live build outputs. It is generated HERE, not edited in out/ — hand
+of the pcbview board viewer (scripts/view.sh build pcbview.toml). It is generated HERE, not edited in out/ — hand
 edits to the served page get silently wiped by the next build, which has
 already cost one banner (3528329)."""
 import subprocess
@@ -70,6 +70,26 @@ TAGS = {
 }
 
 FEED = [
+    dict(
+        date="2026-11-03", sha=None, tags=["layout"],
+        title="Gate 7 passes: parts off the silk art, core supply fixed, new viewer",
+        lede="Nothing sits on the name or the GitHub URL any more. The name moved to "
+             "the open area west of the MCU, because the LED data shifter only routes "
+             "where it is. The RP2350's core supply now follows the official layout. "
+             "DRC is 0 errors and 0 unconnected, and the independent review passed. "
+             "The page now embeds the pcbview viewer, with the LiPo cell in 3D.",
+        body="""
+<p><b>Back:</b> D2, R17 and Q2 moved off the URL, and its letters are spaced by their real
+widths, so none of them touch. <b>Front:</b> Q3 and R23 were tried in every spot clear of
+the name, and each one left MCU signals unrouted, so the name moved instead, at 60&deg; like
+"Be Gay".</p>
+<p><b>Core supply:</b> the switcher pour reaches the chip's core ring through a via, 3.65&nbsp;mm
+of 0.6&nbsp;mm back copper and a via (~10&nbsp;m&Omega;), as on the official board. C5, C6 and
+C13 each have a short path to their pins. Open, all minor: VBATT got longer (107&nbsp;m&Omega;,
+within budget), router leftovers, and signals over the VREG plane slots.</p>
+""",
+        media=[],
+    ),
     dict(
         date="2026-11-02", sha=None, tags=["layout"],
         title="DRC clean; the routing review finds the core supply in pieces",
@@ -480,7 +500,7 @@ button acts like a press and pushes ~24&nbsp;A through D4. It needs a
 bidirectional TVS, in the committed design too.</p>
 
 <p><b>Also:</b> 3D models for every part except the test points, including
-SW2 (B3U) and the LPR302823 cell on its VHB tape. The <a href='#viewer'>3D
+SW2 (B3U) and the LPR302823 cell on its VHB tape. The <a href='#board3d'>3D
 viewer</a> now shows the real back-side stack.</p>
 """,
         media=[("sim/button/plots/tsweep.png",
@@ -1212,15 +1232,15 @@ INDEX_HTML = """<!DOCTYPE html>
   body { background:var(--bg); color:#ddd; font-family:sans-serif; margin:0;
          padding:1rem 1rem 4rem; }
   a { color:#8bf; }
-  h1 { font-size:1.15rem; font-weight:600; margin:0 0 .5rem; }
-  h2 { font-size:.95rem; font-weight:600; color:#bbb; margin:1.8rem 0 .6rem;
+  body > h1 { font-size:1.15rem; font-weight:600; margin:0 0 .5rem; }
+  body > h2 { font-size:.95rem; font-weight:600; color:#bbb; margin:1.8rem 0 .6rem;
        border-bottom:1px solid var(--line); padding-bottom:.3rem; }
-  h4 { font-size:.85rem; color:#cfcfd6; margin:1rem 0 .35rem; }
+  .entry h4 { font-size:.85rem; color:#cfcfd6; margin:1rem 0 .35rem; }
   .row { display:flex; flex-wrap:wrap; gap:1rem; }
-  figure { margin:0; }
-  figcaption { text-align:center; padding:.3rem; color:#aaa; font-size:.85rem;
+  .row figure { margin:0; }
+  .row figcaption { text-align:center; padding:.3rem; color:#aaa; font-size:.85rem;
                max-width:min(46vw,900px); }
-  img { max-width:min(46vw,900px); height:auto; border-radius:8px;
+  .row img { max-width:min(46vw,900px); height:auto; border-radius:8px;
         background:var(--card); }
   #ts { color:#777; font-size:.8rem; font-weight:400; }
   .nav { display:flex; flex-wrap:wrap; gap:.45rem; font-size:.85rem;
@@ -1277,33 +1297,23 @@ INDEX_HTML = """<!DOCTYPE html>
   pre.art { background:#202026; border:1px solid var(--line); border-radius:6px;
             padding:.6rem .8rem; font-size:.78rem; line-height:1.45;
             color:#a9c8a9; overflow-x:auto; }
-  .warn { background:#2a2119; border-left:3px solid #d9a441; border-radius:4px;
+  .entry .warn { background:#2a2119; border-left:3px solid #d9a441; border-radius:4px;
           padding:.5rem .7rem; }
-  .note { background:#1e2429; border-left:3px solid #5a8fb5; border-radius:4px;
+  .entry .note { background:#1e2429; border-left:3px solid #5a8fb5; border-radius:4px;
           padding:.5rem .7rem; }
 
-  /* ---- layer stack viewer ---- */
-  #viewer { display:flex; gap:1rem; align-items:flex-start; }
-  #panel { padding:12px; min-width:210px; background:var(--card);
-           border-radius:8px; }
-  .lay { display:flex; align-items:center; gap:8px; padding:5px 2px; }
-  .lay .sw { width:14px; height:14px; border-radius:3px; }
-  #stack { position:relative; }
-  #stack img { position:absolute; inset:0; width:100%; height:100%;
-               max-width:none; pointer-events:none; border-radius:0;
-               background:none; }
-  #stack img.base { position:relative; display:block; width:auto; height:auto;
-                    max-width:min(66vw,1100px); background:#fff;
-                    border-radius:8px; }
-  label { user-select:none; }
-  input[type=range] { width:100%; }
   .hint { color:#888; font-size:.75rem; margin-top:10px; }
+  /* the pcbview viewer (section.vw) is embedded below: page rules for bare
+     elements and shared class names (h1, h4, img, .warn) are scoped to the
+     page's own parts so they don't leak into it */
+  section.vw { margin-bottom:1rem; }
 </style></head><body>
 
 <h1>simple_earring <span id="ts"></span></h1>
 <div class="nav">
   <a href="#feed">updates ↓</a>
-  <a href="#outputs">live outputs ↓</a>
+  <a href="#board">board viewer ↓</a>
+  <a href="viewer/">viewer full page</a>
   <a href="case/preview/" style="color:#c9f">TPU case</a>
   <a href="rework/" style="color:#a88">R8 rework (retired)</a>
   <a href="wear/" style="color:#9cf">wear log</a>
@@ -1320,75 +1330,17 @@ INDEX_HTML = """<!DOCTYPE html>
 {{FEED}}
 </ol>
 
-<h2 id="outputs">Live outputs</h2>
+<h2 id="board">Board viewer</h2>
 <div class="hint" style="margin:0 0 .7rem">
-  regenerated by <code>scripts/render.py</code> on every build; images on this
-  page auto-refresh every 15&nbsp;s</div>
-<div class="row">
-  <figure><img class="rf" id="ptop" src="render_place_top.png"><figcaption>placement preview front (unrouted, updates right after place)</figcaption></figure>
-  <figure><img class="rf" id="pbot" src="render_place_bottom.png"><figcaption>placement preview back (unrouted)</figcaption></figure>
-</div>
-<div class="row">
-  <figure><img class="rf" id="rtop" src="render_top.png"><figcaption>front, routed (MCU + LED ring)</figcaption></figure>
-  <figure><img class="rf" id="rbot" src="render_bottom.png"><figcaption>back, routed (battery clip)</figcaption></figure>
-</div>
-<div class="row">
-  <figure><img class="rf" id="laytop" src="layout_top.png"><figcaption>layout top (F.Cu over In1/In2/B.Cu)</figcaption></figure>
-  <figure><img class="rf" id="laybot" src="layout_bottom.png"><figcaption>layout bottom, mirrored (B.Cu over In2/In1/F.Cu)</figcaption></figure>
-</div>
-
-<h2>Copper layers</h2>
-<div class="row">
-  <figure><img class="rf" id="grid" src="layout_layers.png" style="max-width:min(92vw,1400px)"><figcaption>individual copper layers (top view)</figcaption></figure>
-</div>
-
-<h2>Layer stack viewer</h2>
-<div id="viewer">
-  <div id="panel">
-    <div id="layers"></div>
-    <div style="margin-top:12px">others opacity
-      <input type="range" id="dim" min="0" max="100" value="25">
-    </div>
-    <div class="hint">radio = selected layer (always opaque)<br>
-         checkbox = layer visible at all<br>
-         slider = opacity of visible, unselected layers<br>
-         all layers drawn from the top, unmirrored</div>
-  </div>
-  <div id="stack">
-    <img class="base rf" id="img_edge" src="layer_edge.png">
-{{IMGS}}
-  </div>
-</div>
+  schematic, PCB layers and 3D of the board on disk, made by pcbview
+  (<code>scripts/view.sh build pcbview.toml</code>, pinned at
+  <code>vendor/pcbview</code>) &middot; {{VIEWER_BUILT}} &middot;
+  <a href="viewer/">open full page</a></div>
+{{VIEWER}}
 <script>
-const LAYERS = {{LAYERS_JS}};
-const dim = document.getElementById('dim');
-const box = document.getElementById('layers');
-const state = {sel: LAYERS[0][1], vis: Object.fromEntries(
-    LAYERS.map(l => [l[1], true]))};
-for (const [name, slug, color] of LAYERS) {
-  const row = document.createElement('div');
-  row.className = 'lay';
-  row.innerHTML = `<input type="radio" name="sel" id="r_${slug}">` +
-    `<input type="checkbox" id="v_${slug}" checked>` +
-    `<span class="sw" style="background:${color}"></span>` +
-    `<label for="r_${slug}">${name}</label>`;
-  box.appendChild(row);
-  row.querySelector(`#r_${slug}`).onchange = () => { state.sel = slug; apply(); };
-  row.querySelector(`#v_${slug}`).onchange = e => {
-    state.vis[slug] = e.target.checked; apply(); };
-}
-document.getElementById('r_' + state.sel).checked = true;
-dim.oninput = apply;
-function apply() {
-  for (const [, slug] of LAYERS) {
-    const img = document.getElementById('img_' + slug);
-    img.style.display = state.vis[slug] ? '' : 'none';
-    img.style.opacity = (slug === state.sel) ? 1 : dim.value / 100;
-  }
-}
-apply();
-// only images the build regenerates carry class="rf"; historical shots in
-// collapsed feed entries stay static so expanding one is not a reload storm
+// only feed images marked live (class="rf") reload; historical shots in
+// collapsed feed entries stay static so expanding one is not a reload storm.
+// The viewer is not reloaded: rebuild it and refresh the page.
 function refresh() {
   const t = Date.now();
   for (const img of document.querySelectorAll('img.rf')) {
@@ -1399,73 +1351,6 @@ function refresh() {
 }
 setInterval(refresh, 15000);
 refresh();
-</script>
-
-<h2>Interactive 3D board</h2>
-<div id="three" style="width:min(94vw,1400px);height:640px;background:#222228;
-     border-radius:8px;overflow:hidden"></div>
-<div class="hint" style="color:#888;font-size:.75rem;margin-top:6px">
-  drag = orbit, wheel = zoom, right-drag = pan (board.glb regenerates each build)</div>
-<script type="importmap">
-{"imports": {"three": "./vendor/three.module.js"}}
-</script>
-<script type="module">
-import * as THREE from 'three';
-import { TrackballControls } from './vendor/TrackballControls.js';
-import { GLTFLoader } from './vendor/GLTFLoader.js';
-const el = document.getElementById('three');
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x222228);
-const cam = new THREE.PerspectiveCamera(
-    40, el.clientWidth / el.clientHeight, 0.001, 10);
-const renderer = new THREE.WebGLRenderer({antialias: true});
-renderer.setPixelRatio(window.devicePixelRatio);
-renderer.setSize(el.clientWidth, el.clientHeight);
-el.appendChild(renderer.domElement);
-scene.add(new THREE.AmbientLight(0xffffff, 1.0));
-const d1 = new THREE.DirectionalLight(0xffffff, 2.2);
-d1.position.set(1, 1, 2); scene.add(d1);
-const d2 = new THREE.DirectionalLight(0xffffff, 1.0);
-d2.position.set(-1, -0.5, -2); scene.add(d2);
-// TrackballControls (not Orbit): no pole clamp, so the board can be
-// tumbled continuously end over end
-const controls = new TrackballControls(cam, renderer.domElement);
-controls.rotateSpeed = 4.0;
-controls.zoomSpeed = 1.4;
-controls.panSpeed = 0.6;
-controls.dynamicDampingFactor = 0.12;
-// Draw only when the view changes. Rendering every frame keeps the compositor
-// busy for nothing and makes the whole page scroll slowly; the controls fire
-// 'change' while dragged and while their damping eases out, which is exactly
-// when a frame is worth drawing. Off screen, nothing runs at all.
-let dirty = true, onscreen = true;
-controls.addEventListener('change', () => { dirty = true; });
-new IntersectionObserver(([e]) => { onscreen = e.isIntersecting; }).observe(el);
-new GLTFLoader().load('board.glb?' + Date.now(), g => {
-  const obj = g.scene;
-  const box = new THREE.Box3().setFromObject(obj);
-  obj.position.sub(box.getCenter(new THREE.Vector3()));
-  scene.add(obj);
-  const r = box.getSize(new THREE.Vector3()).length();
-  cam.position.set(0, r * 0.55, r * 0.8);
-  cam.near = r / 1000; cam.far = r * 20;
-  cam.updateProjectionMatrix();
-  controls.update();
-  dirty = true;
-});
-(function loop() {
-  requestAnimationFrame(loop);
-  if (!onscreen) return;
-  controls.update();
-  if (dirty) { renderer.render(scene, cam); dirty = false; }
-})();
-window.addEventListener('resize', () => {
-  cam.aspect = el.clientWidth / el.clientHeight;
-  cam.updateProjectionMatrix();
-  renderer.setSize(el.clientWidth, el.clientHeight);
-  controls.handleResize();
-  dirty = true;
-});
 </script>
 </body></html>
 """
@@ -1603,48 +1488,63 @@ def main():
     sys.exit(0 if ok else 1)
 
 
+PV_BEGIN, PV_END = "<!-- pcbview:begin -->", "<!-- pcbview:end -->"
+
+
+def _viewer_block(index):
+    """The pcbview viewer, embedded between its markers.
+
+    pcbview (scripts/view.sh build pcbview.toml, `embed = "out/index.html"`)
+    writes the viewer between the markers of the page that is already there;
+    this page is regenerated far more often than the viewer is, so the block
+    pcbview last wrote is carried over from the old page rather than lost.
+    Before the first viewer build the markers hold a note saying so."""
+    try:
+        old = index.read_text()
+        a, b = old.find(PV_BEGIN), old.find(PV_END)
+        if 0 <= a < b and "<section" in old[a:b]:
+            return old[a:b + len(PV_END)]
+    except OSError:
+        pass
+    return (f"{PV_BEGIN}\n<p class=\"status\">No viewer built yet: run "
+            f"<code>scripts/view.sh build pcbview.toml</code>.</p>\n{PV_END}")
+
+
+def _viewer_built():
+    """When the embedded viewer was built, flagged if the board is newer."""
+    import datetime
+    built = ROOT / "out" / "viewer" / "earring-a" / "built.json"
+    try:
+        t = built.stat().st_mtime
+    except OSError:
+        return '<span style="color:#f88">viewer not built</span>'
+    stamp = f"built {datetime.datetime.fromtimestamp(t):%b %-d %H:%M}"
+    try:
+        if t < PCB.stat().st_mtime:
+            return (f'<span style="color:#f88">{stamp} &mdash; STALE, board is '
+                    f'newer</span>')
+    except OSError:
+        pass
+    return stamp
+
+
 def write_index():
-    """The dashboard: one page served from out/ (:8618), auto-refreshing,
-    with the update feed, the copper-stack viewer and the 3D board.
+    """The dashboard: one page served from out/ (proj up simple_earring), with the update
+    feed and the pcbview board viewer (SCH / PCB / 3D / Overview) embedded.
 
     Split out so `render.py --index-only` can rewrite it in a fraction of a
     second without touching the .kicad_pcb — which matters because editing
     FEED is a text edit, and a full render is minutes of kicad-cli that also
-    cannot run while route.py holds the board file."""
-    # swatches: sampled from each exported layer PNG so they always match
-    # kicad-cli's theme, whatever the layer count
-    def swatch(slug):
-        try:
-            from PIL import Image
-            im = Image.open(ROOT / "out" / f"layer_{slug}.png")
-            im = im.convert("RGBA").resize((128, 128))
-            counts = {}
-            for r, g, b, a in im.getdata():
-                if a > 200:
-                    counts[(r, g, b)] = counts.get((r, g, b), 0) + 1
-            if counts:
-                r, g, b = max(counts, key=counts.get)
-                return f"#{r:02x}{g:02x}{b:02x}"
-        except Exception:
-            pass
-        return "#888888"
-    imgs = "\n".join(
-        f'    <img class="rf" id="img_{slug}" src="layer_{slug}.png">'
-        for _, slug in LAYER_STACK)
-    layers_js = "[" + ", ".join(
-        f'["{name}", "{slug}", "{swatch(slug)}"]'
-        for name, slug in LAYER_STACK) + "]"
-    import shutil
-    shutil.copytree(ROOT / "web" / "vendor", ROOT / "out" / "vendor",
-                    dirs_exist_ok=True)
-
+    cannot run while route.py holds the board file. The viewer itself is
+    built by pcbview, not here: see _viewer_block."""
     index = ROOT / "out" / "index.html"
     # placeholder substitution, not %-formatting: the feed is prose full of
     # percent signs ("20-50%", "+50% over spec") and every one of them would
     # have to be doubled
     page = INDEX_HTML
-    for key, val in (("IMGS", imgs), ("LAYERS_JS", layers_js),
-                     ("FEED", _feed_html()), ("STATUS", _status_html())):
+    for key, val in (("FEED", _feed_html()), ("STATUS", _status_html()),
+                     ("VIEWER_BUILT", _viewer_built()),
+                     ("VIEWER", _viewer_block(index))):
         page = page.replace("{{%s}}" % key, val)
     index.write_text(page)
     print(f"wrote {index}")

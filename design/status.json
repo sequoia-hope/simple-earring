@@ -2,13 +2,11 @@
   "schema": 1,
   "board": "earring",
   "phase": 7,
-  "doing": "2026-11-02: no-pour area at CC1/VBUS: DRC 0 errors, 0 unconnected. The gate 7 review FAILS on one new finding: VDD_CORE is 5 separate F.Cu pieces (pour to core-pin ring only via 14 mm of router copper). Your call: fix in route.py and re-route, or accept.",
-  "needs_user": [
-    "Gate 7 MAJOR-A: lock F.Cu VDD_CORE spokes (pin 50, C6, C13) into the under-chip ring in route.py and re-route (recommended), or accept in decisions.md"
-  ],
+  "doing": "2026-11-03: gate 7 PASSED. Parts are off the silk art (the name moved west of U1, with the user's OK); the RP2350 core supply follows the official layout; DRC 0/0 on ultraroute 99bb7ca seed 2. The dashboard shows the pcbview viewer (battery in 3D).",
+  "needs_user": [],
   "checks": {
     "DRC": {
-      "result": "0 errors, 0 unconnected, parity 28 (2026-11-02)",
+      "result": "0 errors, 0 unconnected, parity 28 (2026-11-03)",
       "ok": true,
       "gate": 7
     },
@@ -28,7 +26,7 @@
       "gate": 7
     },
     "current capacity": {
-      "result": "VBATT BT1->Q2 63 mOhm at 0.4 mm; VBUS J1->D3 50 mOhm, 0.2 mm floor",
+      "result": "VBATT BT1->Q2 107 mOhm at 0.4 mm (accepted, 15 mV at 140 mA); VBUS 63 mOhm, 0.2 mm floor",
       "ok": true,
       "gate": 7
     },
@@ -38,9 +36,14 @@
       "gate": 7
     },
     "VDD_CORE topology": {
-      "result": "5 separate F.Cu pieces; L1 pour to ring via 14 mm/3 vias (~75 mOhm); pin-50 joint 0.118 mm",
-      "ok": false,
+      "result": "pour to ring ~10 mOhm via locked 0.6 mm B.Cu; C5 1.4 mm, 0 vias; C6/C13 ~10 mOhm",
+      "ok": true,
       "gate": 7
+    },
+    "silk art": {
+      "result": "no part, pad or silk on the name, URL or other art",
+      "ok": true,
+      "gate": 6
     }
   },
   "gates": {
@@ -65,7 +68,7 @@
       "stale_because": null
     },
     "7": {
-      "state": "failed",
+      "state": "passed",
       "stale_because": null
     },
     "8": {
@@ -104,13 +107,13 @@
       "earring": {
         "opens": 0,
         "drc_ok": true,
-        "last_route": "build.py route stage 2026-11-02, ultraroute 99bb7ca seed 1 (pinned)",
+        "last_route": "build.py route stage 2026-11-03, ultraroute 99bb7ca seed 2 (pinned)",
         "router": "ultraroute 99bb7ca (vendor/ultraroute)",
         "recipe": "route/earring/recipe.json",
-        "updated": "2026-11-02T18:30:00-08:00",
+        "updated": "2026-11-03T12:00:00-08:00",
         "findings": {
           "error": 0,
-          "warning": 2
+          "warning": 1
         },
         "report": "design/gates/phase7.md"
       }
@@ -123,5 +126,5 @@
       }
     }
   },
-  "updated": "2026-11-02T18:30:00-08:00"
+  "updated": "2026-11-03T12:00:00-08:00"
 }

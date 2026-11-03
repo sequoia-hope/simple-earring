@@ -55,9 +55,13 @@ HEART_AT = (101.5, 105.491)   # board position of heart center
 HEART_SCALE = 1.0             # points are stored already scaled (3.4mm wide)
 
 # (text, (x, y), angle_deg) - F.Silkscreen, 0.8mm, left/bottom justified
+# The name was at (90.52,92.82)/(91.75,93.39), 30 deg, until 2026-11-03: Q3/R23
+# (the LED data shifter) sat on it and every other Q3 spot broke routing,
+# so the name moved 10 mm south to the open front area west of U1, turned
+# to 60 deg like 'Be Gay' (fit by a scan against courtyards, pads and silk).
 HAND_TEXTS = [
-    ('Sequoia Hope', (90.519164, 92.822526), 30.0),
-    ('Alexander', (91.747502, 93.392809), 30.0),
+    ('Sequoia Hope', (90.2785, 104.3103), 60.0),
+    ('Alexander', (91.6274, 104.19), 60.0),
     ('Be Gay', (90.567161, 97.687147), 60.0),
     ('Do Crimes', (107.15, 93.24), 300.0),
     ('Love Everyone', (102.102506, 86.619369), 315.0),
@@ -68,9 +72,30 @@ HAND_TEXTS = [
 ARC_CENTER = (100.0, 100.0)   # battery + board-disc center
 ARC_H = 1.0
 ARCS = [
-    ('github.com/', 11.8, 0.92, -0.7),
+    ('github.com/', 11.6, 0.92, -0.7),
     ('sequoia-hope/simple-earring', 13.2, 0.88, -0.7),
 ]
+
+
+ARC_GAP = 0.20   # mm between URL letters at the glyph tops
+
+
+def _ink_half_width(board, ch):
+    """Half the inked width of one URL glyph, its wider side."""
+    t = pcbnew.PCB_TEXT(board)
+    t.SetText(ch)
+    t.SetTextHeight(mm(ARC_H))
+    t.SetTextWidth(mm(ARC_H))
+    t.SetTextThickness(mm(0.15))
+    t.SetHorizJustify(pcbnew.GR_TEXT_H_ALIGN_CENTER)
+    ps = pcbnew.SHAPE_POLY_SET()
+    t.TransformShapeToPolygon(ps, pcbnew.B_SilkS, 0, mm(0.005),
+                              pcbnew.ERROR_INSIDE)
+    if not ps.OutlineCount():
+        return 0.2
+    x0 = t.GetPosition().x
+    bb = ps.BBox()
+    return max(x0 - bb.GetLeft(), bb.GetRight() - x0) / 1e6
 
 
 def add_art(board):
@@ -106,12 +131,21 @@ def add_art(board):
 
     # URL arcs, back, per-char mirrored text (coin-bottom style: chars
     # left->right seen from the back, glyph tops toward center)
+    # Letters are spaced by their own ink width (KiCad's font is
+    # proportional), with ARC_GAP between neighbours measured at the glyph
+    # tops, the inner radius, where the arc is shortest. A fixed advance
+    # ran 'm', 'w' and '-' into their neighbours (0.03 mm gaps, under the
+    # 0.15 silk clearance; 2026-11-03). The advance column is unused.
     cx, cy = ARC_CENTER
-    for text, r, adv, off in ARCS:
-        step = math.degrees(adv / r)
-        n = len(text)
+    for text, r, _adv, off in ARCS:
+        half = [_ink_half_width(board, ch) for ch in text]
+        r_in = r - ARC_H / 2
+        pos = [0.0]
+        for a, b in zip(half, half[1:]):
+            pos.append(pos[-1] + math.degrees((a + b + ARC_GAP) / r_in))
+        mid = pos[-1] / 2
         for i, ch in enumerate(text):
-            s = math.radians((i - (n - 1) / 2) * step + off)
+            s = math.radians(pos[i] - mid + off)
             u, v = r * math.sin(s), r * math.cos(s)
             t = pcbnew.PCB_TEXT(board)
             t.SetText(ch)

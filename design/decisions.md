@@ -573,3 +573,22 @@ zone's origin (112.46,91.73), which sent two days of notes to the wrong place.
 `tools/route_audit/pinch.py` finds the real spot. Fix: an F.Cu no-pour rule area
 (`nopour_cc1_vbus`), added after routing, so the route itself doesn't change. The alternative
 was logging the strip as an acceptable fill artefact; but a 0.077 mm strip of copper can lift.
+
+## 2026-11-03: parts off the silk art; the name moves
+
+The user asked for parts off their name (front) and off the repo URL (back).
+- D2, R17 and Q2 moved on the back, by `tools/scan_spot.py --art 0.15 --cy-margin 0.1`.
+- The URL letters were re-spaced by glyph width: the fixed advance ran letters into each other.
+- Q3 (LED data shifter) and R23 were tried in every spot clear of the name: the front west flank, and the back under U1. Each left U1's west or north signals unrouted on every seed tried, and the original spot sweeps clean. So, with the user's OK, Q3/R23 stay and the name moved to the open front area west of U1, at 60 deg like "Be Gay". The scan checked it against courtyards, pads and silk.
+- Side effect, accepted: VBATT BT1 → Q2 is now 107 mΩ over 49 mm (was 63 mΩ). That's 15 mV at 140 mA, inside the budget. A locked VBATT trunk would fix it if it matters later.
+
+## 2026-11-03: VDD_CORE topology follows the official board
+
+- The switcher pour reaches the under-chip 1V1 square through a locked via, 0.6 mm B.Cu and a via (~10 mΩ), as on RPI-RP2350A-MINIMAL_R4-S1.
+- C6 and C13 each get a locked via and B.Cu link to the square.
+- C5 is turned to face pin 39 and the router joins them (1.4 mm, 0 vias). A locked link there blocked a fanout escape.
+- Gate 7 MAJOR-A and MAJOR-B are resolved.
+
+## 2026-11-03: route reproducibility
+
+Ultraroute traced a non-reproducing seed to the board file's item order, which feeds its connection order. gen_board.py and place.py create items with random KiCad UUIDs, and KiCad saves sorted by UUID, so every board/place regeneration reshuffles the file. route.py already seeds UUIDs (eee01cd). Next: seed them in gen_board/place too, then re-sweep, optionally with ultraroute's `--cpu-clock` (main cd0a82a) to remove wall-clock load dependence. Until then the recipe's seed holds only for the committed board.

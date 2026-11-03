@@ -1,3 +1,6 @@
 [submodule "vendor/ultraroute"]
 	path = vendor/ultraroute
 	url = https://github.com/sequoia-hope/ultraroute
+[submodule "vendor/pcbview"]
+	path = vendor/pcbview
+	url = https://github.com/sequoia-hope/pcbview

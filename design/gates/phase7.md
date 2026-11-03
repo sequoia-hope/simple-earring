@@ -231,3 +231,33 @@ outline) can miss small-track joints; use erosion for those.
 **Verdict: FAIL** on MAJOR-A. The gate passes if MAJOR-A is fixed in route.py's VREG block
 (locked F.Cu spokes from pin 50 and from C6/C13 into the ring, and a ≥ 0.15 mm pin-50 joint)
 and re-routed, or if it is accepted in decisions.md with the physics.
+
+## Re-route 2026-11-03: VDD_CORE spokes, parts off the silk art, ultraroute 99bb7ca seed 2
+
+**Changes** (route.py, place.py and silk_art.py):
+- **VDD_CORE.** Locked, as on the official board: a via in the switcher pour's lobe, 3.65 mm of 0.6 mm B.Cu and a via into the under-chip square. C6 and C13 each get a via beside the pad plus 0.4 mm B.Cu to a square via. The pin-50 (FB) leg runs into the pour's body. C5 is turned (rot 270) so its VDD_CORE pad faces pin 39, and the router joins them. A locked C5 link cost a neighbouring pin its fanout escape, so it was dropped.
+- **Silk art** (user request: "move those things off my name"):
+  - D2, R17 and Q2 moved off the back URL, by `tools/scan_spot.py --art`. The new flag makes the board's own silk art an obstacle.
+  - The URL letters are now spaced by glyph width, with a 0.2 mm gap at the glyph tops; the inner arc moved to r 11.6.
+  - Q3/R23 could not leave the name: every spot clear of it left U1 signals unrouted on every seed (west flank, then the back under U1). With the user's OK, the name moved instead, to the open front area west of U1, at 60 deg like "Be Gay".
+- **Recipe.** Seed 2, the best of a sweep of seeds 1, 2 and 4–7 on the route stage's own input (seeds 2, 5 and 7 clean). Ultraroute found the route depends on the file's item order. gen_board/place don't seed KiCad UUIDs yet, so the same seed only holds until the board is regenerated.
+
+| check | evidence | ok |
+|---|---|---|
+| DRC | `kicad-cli pcb drc --schematic-parity --severity-all`: **0 errors, 0 unconnected**, parity 28 (as before). Silk: 13 silk_overlap and 19 silk_over_copper, all footprint-to-footprint or pin-1 dots, none involving art text (was 34 + 23, 21 of them on art). 1 track_dangling (VLED_L 0.21 mm stub). The via_dangling is gone | yes |
+| VDD_CORE | L1.1 to any DVDD pin ~10 mΩ through locked copper. C5 to pin 39: 1.38 mm, 0 vias. C6: 9.9 mΩ. C13: 10.7 mΩ. No neck under 0.127 mm (DRC rerun with connection_width 0.127) | yes |
+| art clearance | no part, pad or silk on the name, the URL or other art; URL letter gaps ≥ 0.15 mm | yes |
+
+## Review: independent (stronger model, fresh context), 2026-11-03, route 99bb7ca seed 2
+
+**Verdict: PASS** for gate 7, and for gate 6 as it covers the moved parts. **Resolved:** MAJOR-A, MAJOR-B (C5), MINOR-A (no joint under 0.127 mm); also MINOR-D, except 3 caps. The other earlier findings are unchanged.
+
+| # | sev | finding | resolution |
+|---|---|---|---|
+| MINOR-1 | MINOR | VBATT got longer with Q2's move: BT1.1 → Q2.3 107 mΩ, 49 mm, 11 vias (was 63 mΩ, 29.5 mm). That's 15 mV at 140 mA, within spec | accepted (decisions.md 2026-11-03); a locked VBATT trunk is the fix if wanted |
+| MINOR-2 | MINOR | The heart touches Q1's outline and mask aperture (pre-existing) | gate 9 |
+| MINOR-3 | MINOR | "Be Gay" and "Love Everyone" sit inside cap courtyards, clear of silk and pads (pre-existing) | gate 9 |
+| MINOR-4 | MINOR | Router leftovers: 57 GND micro-segments at U3, 123 tracks under 0.05 mm, the VLED_L stub | strip in the route stage; ask ultraroute |
+| MINOR-5 | MINOR | In2 over the In1 VREG slots: CHRG_DONE 2.1, LIGHT 1.7, VBATT 3.3 mm | rule area or log |
+| MINOR-6 | MINOR | C15, C27 and C75 have no GND via within 1 mm | pad vias, or accept |
+| NOTE-1..3 | NOTE | PATH_GATE is 28 mm (a static node). The moved parts sit under the cell within the 1.1 mm cap, in sensible spots. The silk counts above | — |
