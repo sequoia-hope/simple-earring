@@ -5,8 +5,10 @@ Usage:
   python3 build.py                 # all stages
   python3 build.py --to route      # stop after 'route'
   python3 build.py --only render   # run a single stage
+  python3 build.py --variant b     # build variant B (hw/earring/b)
 """
 import argparse
+import os
 import subprocess
 import sys
 import time
@@ -37,7 +39,8 @@ def run_stage(name: str) -> bool:
         return True
     print(f"\n=== [{name}] {SCRIPTS[name]} ===")
     t0 = time.time()
-    r = subprocess.run([sys.executable, str(script)] + parts[1:], cwd=ROOT)
+    r = subprocess.run([sys.executable, str(script)] + parts[1:], cwd=ROOT,
+                       env=os.environ)
     dt = time.time() - t0
     status = "ok" if r.returncode == 0 else f"FAILED ({r.returncode})"
     print(f"=== [{name}] {status} in {dt:.1f}s ===")
@@ -48,7 +51,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--to", choices=STAGES, help="stop after this stage")
     ap.add_argument("--only", choices=list(SCRIPTS), help="run a single stage")
+    ap.add_argument("--variant", default=os.environ.get("EARRING_VARIANT", "a"),
+                    help="board variant: a (WS2816C ring) or b (IS31FL3741A matrix)")
     args = ap.parse_args()
+    os.environ["EARRING_VARIANT"] = args.variant
 
     if args.only:
         stages = [args.only]

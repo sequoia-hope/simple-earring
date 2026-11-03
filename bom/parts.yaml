@@ -476,3 +476,15 @@ c_1u:    {lcsc: C52923,  footprint: C_0402_1005Metric, verified: yes}     # CL05
 c_4u7:   {lcsc: C23733,  footprint: C_0402_1005Metric_small_pads, verified: yes}  # VREG in/out: CL05A475MP5NRNC 4.7uF 10V X5R 0402
 c_10u_0805: {lcsc: C15850, footprint: C_0805_2012Metric, verified: yes}   # charger VCC/BAT: CL21A106KAYNNNE 10uF 25V X5R 0805
 c_10u_0603: {lcsc: C19702, footprint: C_0603_1608Metric, verified: yes}   # CL10A106KP8NNNC 10uF 10V (not 6.3V) X5R 0603; also C75, the hold timer (+-10%, X5R +-15%, DC bias: sim ctmr corner)
+
+# ---- variant B (IS31FL3741A matrix, design/variant-b-matrix.md) ----
+matrix_driver:
+  mpn: IS31FL3741A-QFLS4-TR
+  lcsc: C2940604
+  footprint: QFN-60-1EP_7x7mm_P0.4mm_EP5.4x5.4mm
+  verified: pending      # 2026-11-03: JLC 463 stock, $3.31@10; audit design/parts/is31fl3741a.md
+rgb_led:
+  mpn: XL-1010RGB-YG
+  lcsc: C965834
+  footprint: LED_XL-1010RGB
+  verified: pending      # 2026-11-03: JLC 12,478 stock, $0.031@100; audit design/parts/xl-1010rgb.md

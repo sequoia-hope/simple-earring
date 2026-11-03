@@ -1,0 +1,14 @@
+# Variant B overlay: merged over design.yaml when EARRING_VARIANT=b
+# (python3 build.py --variant b). design/variant-b-matrix.md has the why.
+leds:
+  drive: matrix          # one IS31FL3741A (U11) driving plain RGB LEDs
+  part: rgb_led          # XL-1010RGB-YG, 1 x 1 mm, common anode
+  matrix:
+    sw: 9                # SW lines scanned (SWS register); 9 -> 1/9 duty
+    per_sw: 5            # adjacent LEDs per SW arc -> 15 CS lines used
+    riset: 22k           # PLACEHOLDER until the phase 1 audit sets it
+    riset_part: r_22k
+    bulk: 10u            # PVCC bulk; PLACEHOLDER until the audit
+    bulk_part: c_10u_0603
+    i2c_pullup: 4.7k     # I2C0 to the driver, 400 kHz; PLACEHOLDER
+    i2c_pullup_part: r_4k7

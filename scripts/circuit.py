@@ -165,14 +165,31 @@ def load_parts():
     return yaml.safe_load((ROOT / "bom" / "parts.yaml").read_text())
 
 
+def _overlay(base, over):
+    for k, v in over.items():
+        if isinstance(v, dict) and isinstance(base.get(k), dict):
+            _overlay(base[k], v)
+        else:
+            base[k] = v
+    return base
+
+
 def load_design():
-    return yaml.safe_load((ROOT / "design.yaml").read_text())
+    """design.yaml, with design.<variant>.yaml merged over it for variant B+."""
+    from paths import VARIANT
+    design = yaml.safe_load((ROOT / "design.yaml").read_text())
+    over = ROOT / f"design.{VARIANT}.yaml"
+    if VARIANT != "a" and over.exists():
+        _overlay(design, yaml.safe_load(over.read_text()) or {})
+    design["variant"] = VARIANT
+    return design
 
 
 def build_circuit(design=None):
     design = design or load_design()
     parts = load_parts()
     c = Circuit(design=design)
+    matrix = design["leds"].get("drive") == "matrix"   # variant B
     n_leds = design["leds"]["count"]
 
     # --- MCU ---
@@ -201,12 +218,22 @@ def build_circuit(design=None):
     u1[RP_PINS["QSPI_IOVDD"]] = "3V3"
     u1[RP_PINS["QSPI_SS"]] = "BOOTSEL"
     u1[RP_PINS["GND"]] = "GND"
-    u1[GPIO[GP_LED_DATA]] = "LED_DATA_L"  # -> Q3 gate, NOT the ring directly
-    u1[GPIO[GP_LED_DATA_R]] = "LED_DATA_R"
-    u1[GPIO[GP_LED_DATA_C]] = "LED_DATA_C"
-    u1[GPIO[GP_LED_EN]] = "LED_EN_L"
-    u1[GPIO[GP_LED_EN_R]] = "LED_EN_R"
-    u1[GPIO[GP_LED_EN_C]] = "LED_EN_C"
+    if matrix:
+        # Variant B: the driver takes I2C0 on the old LED_DATA_C/R pins
+        # (GPIO16 = I2C0 SDA, GPIO17 = I2C0 SCL, adjacent pins 27/28), SDB on
+        # LED_DATA_L's GPIO18 and INTB on LED_EN_L's GPIO1. GPIO0 and GPIO22
+        # (LED_EN_R/C) come free.
+        u1[GPIO[GP_LED_DATA_C]] = "DRV_SDA"
+        u1[GPIO[GP_LED_DATA_R]] = "DRV_SCL"
+        u1[GPIO[GP_LED_DATA]] = "DRV_SDB"
+        u1[GPIO[GP_LED_EN]] = "DRV_INTB"
+    else:
+        u1[GPIO[GP_LED_DATA]] = "LED_DATA_L"  # -> Q3 gate, NOT the ring directly
+        u1[GPIO[GP_LED_DATA_R]] = "LED_DATA_R"
+        u1[GPIO[GP_LED_DATA_C]] = "LED_DATA_C"
+        u1[GPIO[GP_LED_EN]] = "LED_EN_L"
+        u1[GPIO[GP_LED_EN_R]] = "LED_EN_R"
+        u1[GPIO[GP_LED_EN_C]] = "LED_EN_C"
     u1[ADC_VBSENSE] = "VBSENSE"
     u1[ADC_LIGHT] = "LIGHT"
     u1[ADC_VBUS] = "VBUS_SENSE"
@@ -616,8 +643,9 @@ def build_circuit(design=None):
     # a dark LED, and a driven DI into an unpowered part back-feeds it
     # through its input clamp (VI max VDD+0.7). Hence per-zone shifters
     # below, each pulled up to its OWN zone rail.
-    for u, r, cap, z in (("U4", "R10", "C20", "L"), ("U9", "R33", "C78", "R"),
-                         ("U10", "R34", "C79", "C")):
+    for u, r, cap, z in (() if matrix else
+                         (("U4", "R10", "C20", "L"), ("U9", "R33", "C78", "R"),
+                          ("U10", "R34", "C79", "C"))):
         c.add(u, "load_switch", "TPS22913", {
             "A2": "VSYS", "A1": f"VLED_{z}", "B1": "GND", "B2": f"LED_EN_{z}",
         })
@@ -717,11 +745,27 @@ def build_circuit(design=None):
     # (WS2816C keeps VIH = 0.7*VDD, so the shifters stay. One per zone,
     # each pulled up to its own zone rail: a dark zone's R is dead, so its
     # first DI is never driven above an unpowered VDD.)
-    for q, r, z in (("Q3", "R23", "L"), ("Q9", "R31", "R"), ("Q10", "R32", "C")):
+    for q, r, z in (() if matrix else
+                    (("Q3", "R23", "L"), ("Q9", "R31", "R"), ("Q10", "R32", "C"))):
         c.add(q, "lvl_nfet", "BSS138W",
               {1: f"LED_DATA_{z}", 2: "GND", 3: f"LED{z}_D0"})
         c.add(r, "r_1k", "1k", {1: f"VLED_{z}", 2: f"LED{z}_D0"})
 
+    if matrix:
+        add_matrix(c, design)
+    else:
+        add_ring(c, design, n_leds)
+
+    # resolve footprints/lcsc from parts.yaml
+    for comp in c.components.values():
+        p = parts[comp.part]
+        comp.footprint = p["footprint"]
+        comp.lcsc = p.get("lcsc", "")
+    return c
+
+
+def add_ring(c, design, n_leds):
+    """Variant A: WS2816C pixels chained per zone, one 100n per two LEDs."""
     # --- LED ring (pin numbers from LED_PIN), chained per zone ---
     # Net LED<z>_D<j> feeds the DI of the j-th LED in that zone's chain.
     pins = {}
@@ -739,12 +783,68 @@ def build_circuit(design=None):
             c.add(f"C{30+i}", "c_100n", "100n",
                   {1: f"VLED_{zone_of[i + 1]}", 2: "GND"})
 
-    # resolve footprints/lcsc from parts.yaml
-    for comp in c.components.values():
-        p = parts[comp.part]
-        comp.footprint = p["footprint"]
-        comp.lcsc = p.get("lcsc", "")
-    return c
+
+# IS31FL3741A QFN-60 pin map (Lumissil ds Rev. C p.3; round-pendant's
+# symbols.py). SW1..SW9 are pins 16..24; CS1..CS39 run round the rest.
+DRV_SW_PIN = {i: 15 + i for i in range(1, 10)}
+DRV_CS_PIN = dict(zip(range(1, 40),
+                      [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 37, 38, 39, 40,
+                       41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54,
+                       56, 57, 58, 59, 60, 1, 2, 3, 4, 5, 6]))
+# XL-1010RGB-YG (XINGLIGHT ds p.8): pad 3 is the common anode, 1 R, 2 G, 4 B.
+RGB_PIN = {"A": 3, "R": 1, "G": 2, "B": 4}
+
+
+def led_matrix(design):
+    """Variant B: LED number -> (SW line, (CS for R, G, B)).
+
+    LEDs are taken in ring order (LED1.. as variant A numbers them) and cut
+    into arcs of `per_sw` adjacent LEDs: an arc shares one SW (anode) line,
+    so SW nets stay local, and the k-th LED of every arc shares the same
+    three CS (cathode) lines, which run as a bus round the ring."""
+    m = design["leds"]["matrix"]
+    per = m["per_sw"]
+    n = design["leds"]["count"]
+    assert n <= m["sw"] * per, "matrix too small for the LED count"
+    out = {}
+    for i in range(n):
+        sw, k = divmod(i, per)
+        out[i + 1] = (sw + 1, (3 * k + 1, 3 * k + 2, 3 * k + 3))
+    return out
+
+
+def add_matrix(c, design):
+    """Variant B: one IS31FL3741A driving the LEDs as a SW x CS matrix."""
+    m = design["leds"]["matrix"]
+    used_cs = 3 * m["per_sw"]
+    pins = {
+        9: "DRV_SDA", 10: "DRV_SCL", 7: "DRV_INTB", 11: "DRV_SDB",
+        13: "DRV_ISET", 8: "GND",            # ADDR to GND: address 0x30
+        15: "VSYS", 25: "VSYS", 14: "VSYS",  # PVCC, PVCC, AVCC
+        12: "GND", 36: "GND", 55: "GND", 61: "GND",  # 61 = exposed pad
+    }
+    for i, pin in DRV_SW_PIN.items():
+        pins[pin] = f"SW{i}" if i <= m["sw"] else ""
+    for i, pin in DRV_CS_PIN.items():
+        pins[pin] = f"CS{i}" if i <= used_cs else ""
+    c.add("U11", "matrix_driver", "IS31FL3741A", pins)
+    # Support parts, ds Figure 2: 1u + 100n at each PVCC and at AVCC, bulk
+    # on PVCC, RISET, SDB RC to GND, INTB pull-up, I2C0 pull-ups.
+    for cref, val, part in (("C80", "1u", "c_1u"), ("C81", "100n", "c_100n"),
+                            ("C82", "1u", "c_1u"), ("C83", "100n", "c_100n"),
+                            ("C84", "1u", "c_1u"), ("C85", "100n", "c_100n"),
+                            ("C86", m["bulk"], m["bulk_part"])):
+        c.add(cref, part, val, {1: "VSYS", 2: "GND"})
+    c.add("R35", m["riset_part"], m["riset"], {1: "DRV_ISET", 2: "GND"})
+    c.add("R36", "r_100k", "100k", {1: "DRV_SDB", 2: "GND"})   # off at boot
+    c.add("C87", "c_100n", "100n", {1: "DRV_SDB", 2: "GND"})
+    c.add("R37", "r_100k", "100k", {1: "DRV_INTB", 2: "3V3"})
+    c.add("R38", m["i2c_pullup_part"], m["i2c_pullup"], {1: "DRV_SDA", 2: "3V3"})
+    c.add("R39", m["i2c_pullup_part"], m["i2c_pullup"], {1: "DRV_SCL", 2: "3V3"})
+    for i, (sw, (r, g, b)) in led_matrix(design).items():
+        c.add(f"LED{i}", "rgb_led", "XL-1010RGB",
+              {RGB_PIN["A"]: f"SW{sw}", RGB_PIN["R"]: f"CS{r}",
+               RGB_PIN["G"]: f"CS{g}", RGB_PIN["B"]: f"CS{b}"})
 
 
 if __name__ == "__main__":

@@ -39,7 +39,7 @@ from circuit import LED_PIN, load_design  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 from paths import PCB  # noqa: E402
-RECIPE = ROOT / "route" / "earring" / "recipe.json"
+from paths import RECIPE  # noqa: E402  (per variant)
 ROUTE_SH = ROOT / "scripts" / "route.sh"
 ULTRAROUTE = ROOT / "vendor" / "ultraroute"
 # the RP2350 power block (ultraroute job earring-kicad-locked): these pours

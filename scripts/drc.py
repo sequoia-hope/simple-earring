@@ -8,7 +8,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 from paths import PCB  # noqa: E402
-REPORT = ROOT / "out" / "drc.json"
+from paths import VOUT  # noqa: E402
+REPORT = VOUT / "drc.json"
 
 
 def main():
