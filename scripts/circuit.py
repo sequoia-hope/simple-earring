@@ -807,6 +807,14 @@ def led_matrix(design):
     n = design["leds"]["count"]
     assert n <= m["sw"] * per, "matrix too small for the LED count"
     out = {}
+    if m.get("bus", "cs") == "sw":
+        # The other way round: arcs of `sw` adjacent LEDs share one CS
+        # triplet (local), and the k-th LED of every arc shares SW k, so the
+        # ring bus is the SW lines (9) instead of the CS lines (15).
+        for i in range(n):
+            g, k = divmod(i, m["sw"])
+            out[i + 1] = (k + 1, (3 * g + 1, 3 * g + 2, 3 * g + 3))
+        return out
     for i in range(n):
         sw, k = divmod(i, per)
         out[i + 1] = (sw + 1, (3 * k + 1, 3 * k + 2, 3 * k + 3))

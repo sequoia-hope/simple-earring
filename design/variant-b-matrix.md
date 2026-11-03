@@ -196,3 +196,16 @@ correct as copied.
 - The driver's SDA VOL is unspecified.
 - How many EP vias to fit.
 - The reel Vf/Iv bins.
+
+## Routing attempts (2026-11-03)
+
+Ultraroute 99bb7ca, with variant A's recipe args. A seed sweep on B's own input, each route judged by KiCad after a refill.
+
+- **CS bus:** 15 CS lines round the ring, 5-LED SW arcs, timeout 480 s.
+  - Every seed (1–6) left **78–84 connections open**, about 47 of them CS and 11 SW.
+  - Fanout: 79 of 85 escaped. Negotiation: 231 of 320 connections.
+- **SW bus:** 9 SW lines round the ring, 9-LED CS arcs (`bus: sw`), timeout 900 s.
+  - Every seed left **48–55 open**, about 13 CS and 19 SW, plus scattered other nets.
+  - The map change helped, but it's nowhere near routable.
+
+**Conclusion:** placement fits, but a 4-layer board with the driver on the back-west doesn't route with the free router. The matrix needs either structure (a pre-routed ring bus) or more layers.
