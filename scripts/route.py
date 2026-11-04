@@ -522,6 +522,46 @@ def main():
                 for x, y in list(hole.coords)[:-1]:
                     z.Outline().Append(mm(CX + x), mm(CY + y), 0, 0)
     disc_r = 8.95
+    if matrix and design["leds"]["matrix"].get("bus_rings"):
+        # Variant B: the SW lines are a locked ring bus on In2 (user's call,
+        # 2026-11-03: the free router left ~50 open with no structure). 9
+        # concentric rings between the 3V3 disc and the perimeter LEDs;
+        # each LED and the driver drop a via onto their own ring. No other
+        # net's via fits in the band, so crossings stay on F/B.
+        mcfg = design["leds"]["matrix"]
+        r0, pitch = mcfg.get("bus_r0", 9.05), mcfg.get("bus_pitch", 0.42)
+        disc_r = r0 - pitch - 0.05   # 3V3 disc shrinks to clear the band
+        nseg = 96
+        # Locked vias already in the band (route.py's VBUS via at r 10.35):
+        # a ring passing one leaves a gap there, so it is an open arc,
+        # which still joins all its LEDs and the driver.
+        band_vias = [(rel(t.GetPosition()), t.GetNetname()) for t in board.GetTracks()
+                     if t.Type() == pcbnew.PCB_VIA_T and t.IsLocked()]
+
+        def seg_dist(p, a, b):
+            ax, ay = a
+            bx, by = b
+            L2 = (bx - ax) ** 2 + (by - ay) ** 2
+            f = max(0.0, min(1.0, ((p[0] - ax) * (bx - ax) + (p[1] - ay) * (by - ay)) / L2))
+            return math.hypot(p[0] - ax - f * (bx - ax), p[1] - ay - f * (by - ay))
+        for k in range(mcfg["sw"]):
+            r = r0 + k * pitch
+            pts = [(r * math.cos(2 * math.pi * i / nseg),
+                    r * math.sin(2 * math.pi * i / nseg)) for i in range(nseg)]
+            ni = board.FindNet(f"SW{k + 1}")   # fresh: a cached NETINFO
+            assert ni and ni.GetNetname() == f"SW{k + 1}"   # went stale once
+            for a, b in zip(pts, pts[1:] + pts[:1]):
+                if any(net != f"SW{k + 1}" and seg_dist(v, a, b) < 0.2 + 0.075 + 0.15
+                       for v, net in band_vias):
+                    continue
+                t = pcbnew.PCB_TRACK(board)
+                t.SetStart(vec(*a))
+                t.SetEnd(vec(*b))
+                t.SetLayer(pcbnew.In2_Cu)
+                t.SetWidth(mm(0.15))
+                t.SetNetCode(ni.GetNetCode())
+                t.SetLocked(True)
+                board.Add(t)
     # circle disc; overlaps the narrow tip part of the VLED hole, where its
     # higher priority carves VLED back automatically
     rt.zone(pcbnew.In2_Cu, "3V3", rt.circle_poly(disc_r), priority=2,

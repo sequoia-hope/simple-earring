@@ -209,3 +209,13 @@ Ultraroute 99bb7ca, with variant A's recipe args. A seed sweep on B's own input,
   - The map change helped, but it's nowhere near routable.
 
 **Conclusion:** placement fits, but a 4-layer board with the driver on the back-west doesn't route with the free router. The matrix needs either structure (a pre-routed ring bus) or more layers.
+- **Locked In2 ring bus** (9 concentric SW rings, `bus_rings`), 4 layers, timeout 900 s:
+  - Every seed left **71–82 open**, which is worse.
+  - The 3.4 mm band blocks every other net's vias, and fanout failures went from 6 to 15.
+  - Switched off.
+- **6 layers** (`board.layers: 6`, no ring bus), timeout 900 s:
+  - Every seed left **8–10 open**: CS 2–5, SW 1–4, the rest scattered.
+  - Negotiation got 293 of 315 connections. Fanout: 81 of 85 escaped.
+  - That's the range variant A was in before its seeds and pre-routes were tuned.
+- **Conclusion:** variant B is a 6-layer board, unless every LED stub and via is laid out by hand
+  on 4 layers.
