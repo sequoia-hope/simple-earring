@@ -106,16 +106,16 @@ cost = "−$3.0"
 id = "earring-e"
 family = "matrix"
 title = "E: back unloaded, 0.1 mm"
-badge = "7 open at 45 min"
+badge = "4 open at 110 min"
 kind = "probe"
 specs = ["4 layers", "0.10 mm rules", "23 parts moved", "−$3.0 vs A"]
 desc = """D with 23 back parts moved off the LEDs' via room (the charger to the front), 1 mm test pads and
-0.10 mm rules board-wide. 15&ndash;19 open in 15 minutes; 7 with 45 minutes (see the route card)."""
+0.10 mm rules board-wide. 15&ndash;19 open in 15 minutes, 7 in 45, 4&ndash;5 in 110 (see the route card)."""
 docs = [{ href = "docs/variant-e.html", label = "Notes" }]
 layers = "4L"
 leds = "45× XL-1615RGBC"
 driver = "AW20198QNR, tip pocket"
-result = "15–19 open (7 at 45 min)"
+result = "4 open at 110 min (5 with 0 DRC)"
 cost = "−$3.0"
 
 [[board]]
@@ -148,10 +148,11 @@ docs = [{ href = "docs/variant-e.html", label = "Notes" }]
 [[board]]
 id = "earring-e-route"
 family = "routes"
-title = "E routed: seed 4, 4 layers"
-badge = "7 open · 0 DRC"
+title = "E routed: seed 6, 4 layers"
+badge = "4 open · 2 DRC"
 kind = "probe"
-specs = ["4 layers", "433 vias", "2,537 tracks", "45 min"]
-desc = """The closest 4-layer result: 0 DRC errors and the plane intact, still improving when time ran out.
-Open: 4 GND pour islands on F.Cu/B.Cu (stitching vias should join them), CS11 to LED31, USB D+ and VBATT."""
+specs = ["4 layers", "450 vias", "2,658 tracks", "110 min"]
+desc = """The closest 4-layer result, from a 6,600 s run, with the GND plane whole. Open: CS14, CS6, USB D+ and
+VSYS; 2 neck errors at SW3/SW7 vias. Seed 3 reached 5 open with 0 errors. Gains had slowed to about one open
+per 20 minutes. USB D+ is open on 4 of 6 seeds, which points to a hand fix at the tip rather than more time."""
 docs = [{ href = "docs/variant-e.html", label = "Notes" }]

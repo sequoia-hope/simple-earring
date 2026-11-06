@@ -84,7 +84,7 @@ id = "earring-e"
 name = "earring, variant E (D with the back unloaded, 0.1 mm rules)"
 pcb = "hw/earring/e/earring.kicad_pcb"
 sch = "hw/earring/e/earring.kicad_sch"
-note = "From variant D: 23 back parts moved off the LEDs' via room (charger to the front), 1 mm test pads, 0.10 mm rules board-wide. 4 layers: 15-19 open in 15 min, 7 in 45 min (route earring-e-route). design/variant-e.md (2026-11-06)."
+note = "From variant D: 23 back parts moved off the LEDs' via room (charger to the front), 1 mm test pads, 0.10 mm rules board-wide. 4 layers: 15-19 open in 15 min, 4-5 in 110 min (route earring-e-route). design/variant-e.md (2026-11-06)."
 
 [[boards]]
 id = "earring-f"
@@ -107,8 +107,8 @@ note = "Variant F routed by ultraroute 99bb7ca (route/earring-f/recipe.json, see
 
 [[boards]]
 id = "earring-e-route"
-name = "earring, variant E routed (4 layers, seed 4, 45 min)"
+name = "earring, variant E routed (4 layers, seed 6, 110 min)"
 pcb = "route/earring-e/best/earring.kicad_pcb"
 sch = "hw/earring/e/earring.kicad_sch"
 project_dir = "hw/earring/e"
-note = "Variant E routed by ultraroute 99bb7ca (route/earring-e/recipe.json, seed 4, 2700 s): 7 unconnected (4 GND pour islands on F.Cu/B.Cu, CS11 to LED31, USB_C_DP, VBATT), 0 DRC errors, In1 GND plane whole. The best 4-layer result (2026-11-06)."
+note = "Variant E routed by ultraroute 99bb7ca (route/earring-e/recipe.json, seed 6, 6600 s): 4 unconnected (CS14, CS6, USB_C_DP, VSYS), 2 connection_width necks (SW3, SW7 vias), In1 GND plane whole. The best 4-layer result (2026-11-06)."

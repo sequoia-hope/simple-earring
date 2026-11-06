@@ -45,6 +45,7 @@ the outer ring is clear from LED5 round to LED33. Placed DRC: 0 errors.
 | **E, step 3** (back unloaded) | 4 | 27–37 | 1–6 | 587–604 |
 | **E, step 3 + 1** (0.1 mm board-wide) | 4 | **15–19** | 0–3 | 574–586 |
 | E, same, 2700 s (seeds 3, 4) | 4 | **9, 7** | 0 | 572–577 |
+| E, same, 6600 s (seeds 1–6) | 4 | **4–10** (seed 6: 4, seed 3: 5) | 0–2 | 564–584 |
 | **F, step 3 + 1 + 2** (6 layers) | 6 | **0 on every seed** | 2–7 (connection_width only) | 591–612 |
 
 - **Step 3 alone** cut the matrix opens: SW+CS went from 12–18 to 9–15. But GND opens rose to 4–9, as relocated back
@@ -54,6 +55,16 @@ the outer ring is clear from LED5 round to LED33. Placed DRC: 0 errors.
     572–577 mm², and both still hit the deadline while improving.
   - Seed 4's 7 opens: 4 GND pads that didn't reach the plane, 1 CS, USB_C_DP and VBATT. 4 layers is close but not
     done; the GND opens might take hand-placed stitching vias.
+  - **6600 s runs (2026-11-06), all six seeds:** 8, 9, **5**, 10, 6, **4** open.
+    - Best: seed 6, 4 open (CS14, CS6, USB_C_DP, VSYS) and 2 `connection_width` necks (SW3, SW7 vias). Seed 3, 5
+      open (CS10, CS9, RUN_KICK, SW4, USB_C_DP) and 0 DRC errors. Saved as `route/earring-e/best/` (seed 6).
+    - Seed 4 did worse than its 2700 s run (10 vs 7): the stages are wall-clock bounded, so the same seed lands
+      differently under different machine load.
+    - Diminishing returns: seed 6 went 6 → 5 → 4 open at ~3640 s and ~4760 s, then 20+ minutes without a gain;
+      seed 3 dropped one open about every 15–20 min to 5. Both still hit the deadline mid-shove.
+    - USB_C_DP (R6 on F.Cu to J1 B6 on B.Cu) is open on 4 of 6 seeds and every long run: a fixed blocker at the tip,
+      worth a hand route or a small R6 move rather than more router time.
+    - No GND opens on the two best seeds (they were 4 of seed 4's 7 at 2700 s).
 - **Step 2 routes.** F reached 0 open on all 6 seeds.
   - The first F sweep had one R14 via-in-pad error on every seed: variant A's 6-layer workaround now fails our "no via
     hole in SMD pad" rule. route.py skips that via on the matrix variants.

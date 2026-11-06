@@ -1,7 +1,7 @@
 {
     "$schema": "https://schemas.kicad.org/drc.v1.json",
     "coordinate_units": "mm",
-    "date": "2026-11-06T02:12:17-0800",
+    "date": "2026-11-06T11:49:10-0800",
     "included_severities": [
         "error"
     ],
@@ -13,20 +13,20 @@
             "description": "Missing connection between items",
             "items": [
                 {
-                    "description": "Pad 20 [CS11] of U11 on B.Cu",
+                    "description": "Track [CS14] on F.Cu, length 1.2000 mm",
+                    "pos": {
+                        "x": 111.779078,
+                        "y": 98.525
+                    },
+                    "uuid": "11e92d5d-af6d-4d0d-844d-54bf7a6a6571"
+                },
+                {
+                    "description": "Pad 17 [CS14] of U11 on B.Cu",
                     "pos": {
                         "x": 102.35,
-                        "y": 92.55
+                        "y": 91.35
                     },
-                    "uuid": "9dfc4856-c60a-4f70-8787-660635d5dec4"
-                },
-                {
-                    "description": "Pad 3 [CS11] of LED31 on F.Cu",
-                    "pos": {
-                        "x": 108.345557,
-                        "y": 89.742669
-                    },
-                    "uuid": "d5f59ca0-e77f-46c0-a0bd-4a827a7ff8c2"
+                    "uuid": "2e60fe38-2ece-4fca-87aa-7f5a05d2588d"
                 }
             ],
             "severity": "error",
@@ -36,89 +36,20 @@
             "description": "Missing connection between items",
             "items": [
                 {
-                    "description": "Zone 'gnd_back' [GND] on B.Cu, priority 0",
+                    "description": "Track [CS6] on F.Cu, length 3.0401 mm",
                     "pos": {
-                        "x": 112.455223,
-                        "y": 91.731389
+                        "x": 88.329078,
+                        "y": 103.825
                     },
-                    "uuid": "ed1211b3-8b68-4f1d-bcd3-244c56aa5bc4"
+                    "uuid": "08228557-1270-4185-8767-4b4c6693bf43"
                 },
                 {
-                    "description": "Zone 'gnd_front' [GND] on F.Cu, priority 0",
+                    "description": "Pad 34 [CS6] of U11 on B.Cu",
                     "pos": {
-                        "x": 112.455223,
-                        "y": 91.731389
+                        "x": 97.65,
+                        "y": 91.35
                     },
-                    "uuid": "0ecf7672-609f-4e72-843d-aed8c39f83fa"
-                }
-            ],
-            "severity": "error",
-            "type": "unconnected_items"
-        },
-        {
-            "description": "Missing connection between items",
-            "items": [
-                {
-                    "description": "Zone 'gnd_front' [GND] on F.Cu, priority 0",
-                    "pos": {
-                        "x": 112.455223,
-                        "y": 91.731389
-                    },
-                    "uuid": "0ecf7672-609f-4e72-843d-aed8c39f83fa"
-                },
-                {
-                    "description": "Zone 'gnd_front' [GND] on F.Cu, priority 0",
-                    "pos": {
-                        "x": 112.455223,
-                        "y": 91.731389
-                    },
-                    "uuid": "0ecf7672-609f-4e72-843d-aed8c39f83fa"
-                }
-            ],
-            "severity": "error",
-            "type": "unconnected_items"
-        },
-        {
-            "description": "Missing connection between items",
-            "items": [
-                {
-                    "description": "Zone 'gnd_back' [GND] on B.Cu, priority 0",
-                    "pos": {
-                        "x": 112.455223,
-                        "y": 91.731389
-                    },
-                    "uuid": "ed1211b3-8b68-4f1d-bcd3-244c56aa5bc4"
-                },
-                {
-                    "description": "Zone 'gnd_front' [GND] on F.Cu, priority 0",
-                    "pos": {
-                        "x": 112.455223,
-                        "y": 91.731389
-                    },
-                    "uuid": "0ecf7672-609f-4e72-843d-aed8c39f83fa"
-                }
-            ],
-            "severity": "error",
-            "type": "unconnected_items"
-        },
-        {
-            "description": "Missing connection between items",
-            "items": [
-                {
-                    "description": "Zone 'gnd_back' [GND] on B.Cu, priority 0",
-                    "pos": {
-                        "x": 112.455223,
-                        "y": 91.731389
-                    },
-                    "uuid": "ed1211b3-8b68-4f1d-bcd3-244c56aa5bc4"
-                },
-                {
-                    "description": "Zone 'gnd_front' [GND] on F.Cu, priority 0",
-                    "pos": {
-                        "x": 112.455223,
-                        "y": 91.731389
-                    },
-                    "uuid": "0ecf7672-609f-4e72-843d-aed8c39f83fa"
+                    "uuid": "5468bbab-8bc6-4666-8969-e99238af170c"
                 }
             ],
             "severity": "error",
@@ -151,25 +82,72 @@
             "description": "Missing connection between items",
             "items": [
                 {
-                    "description": "Pad 1 [VBATT] of R24 on F.Cu",
+                    "description": "Track [VSYS] on In2.Cu, length 0.1803 mm",
                     "pos": {
-                        "x": 92.99,
-                        "y": 91.0
+                        "x": 98.779078,
+                        "y": 89.175
                     },
-                    "uuid": "760374c0-3b48-4d89-aec1-0242d0018e6a"
+                    "uuid": "2fccc7cc-bd09-4914-b3bb-6333ebbb941e"
                 },
                 {
-                    "description": "Pad 1 [VBATT] of BT1 on B.Cu",
+                    "description": "Pad 1 [VSYS] of C86 on F.Cu",
                     "pos": {
-                        "x": 106.0,
-                        "y": 84.0
+                        "x": 95.225,
+                        "y": 89.0
                     },
-                    "uuid": "df8674f4-6533-4a1e-a0ec-9224e0a40658"
+                    "uuid": "92f80548-4046-4d1a-ba0b-3847432fb1e1"
                 }
             ],
             "severity": "error",
             "type": "unconnected_items"
         }
     ],
-    "violations": []
+    "violations": [
+        {
+            "description": "Copper connection too narrow (rule 'JLC min connection width' minimum connection width 0.0900 mm; actual 0.0619 mm) (In2.Cu)",
+            "items": [
+                {
+                    "description": "Track [SW3] on In2.Cu, length 2.4187 mm",
+                    "pos": {
+                        "x": 88.629078,
+                        "y": 96.875
+                    },
+                    "uuid": "f15dd4d0-85e2-4aeb-a009-37030e09c646"
+                },
+                {
+                    "description": "Via [SW3] on F.Cu - B.Cu",
+                    "pos": {
+                        "x": 88.979078,
+                        "y": 96.075
+                    },
+                    "uuid": "d8b89a9b-16c9-47c8-b95a-6b5c4119ff78"
+                }
+            ],
+            "severity": "error",
+            "type": "connection_width"
+        },
+        {
+            "description": "Copper connection too narrow (rule 'JLC min connection width' minimum connection width 0.0900 mm; actual 0.0185 mm) (F.Cu)",
+            "items": [
+                {
+                    "description": "Via [SW7] on F.Cu - B.Cu",
+                    "pos": {
+                        "x": 86.929078,
+                        "y": 96.775
+                    },
+                    "uuid": "32f5d51e-dce6-480a-bafc-83c3dd94cb64"
+                },
+                {
+                    "description": "Track [SW7] on F.Cu, length 0.2902 mm",
+                    "pos": {
+                        "x": 86.562776,
+                        "y": 96.509689
+                    },
+                    "uuid": "441eff78-223b-47fa-ae89-e1c799d42ca0"
+                }
+            ],
+            "severity": "error",
+            "type": "connection_width"
+        }
+    ]
 }

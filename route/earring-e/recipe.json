@@ -46,6 +46,7 @@
     "timeout": 900,
     "open": "15-19 (0.1 mm board-wide); 27-37 (unload only, 0.1 mm matrix class)",
     "installed": false,
-    "long_2700s": "seed 4: 7 open (GND 4, CS, USB_C_DP, VBATT), seed 3: 9; 0 DRC errors"
+    "long_2700s": "seed 4: 7 open (GND 4, CS, USB_C_DP, VBATT), seed 3: 9; 0 DRC errors",
+    "long_6600s": "seeds 1-6: 8, 9, 5, 10, 6, 4 open; seed 6 = 4 open (CS14, CS6, USB_C_DP, VSYS) + 2 connection_width necks, seed 3 = 5 open + 0 errors; best saved in route/earring-e/best (seed 6)"
   }
 }

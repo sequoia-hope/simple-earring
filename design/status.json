@@ -2,9 +2,9 @@
   "schema": 1,
   "board": "earring",
   "phase": 7,
-  "doing": "2026-11-06: matrix variants B-F on the dashboard gallery. E (4L: driver off the LEDs, back unloaded, 0.10 mm rules) routes to 15-19 open in 15 min, 7 open / 0 DRC in 45 min (seed 4); F (E on 6 layers) routes 0 open on every seed, 2 neck errors on the best. Neither installed. Variant A stays the gate-7-passed board.",
+  "doing": "2026-11-06: matrix variants. E (4L: driver off the LEDs, back unloaded, 0.10 mm rules) routes to 4 open + 2 necks (seed 6) or 5 open + 0 errors (seed 3) with 6600 s; gains had slowed to ~1 open per 20 min. F (E on 6 layers) routes 0 open on every seed, 2 neck errors on the best. Neither installed. Variant A stays the gate-7-passed board.",
   "needs_user": [
-    "Matrix earring: 6 layers (variant F, 0 open, 2 necks to fix) or keep pushing 4 layers (variant E, 7 open at 45 min: 4 GND islands, CS11, USB D+, VBATT)? Then install that route and clean up gate 7."
+    "Matrix earring: 6 layers (variant F, 0 open, 2 necks to fix) or 4 layers (variant E, 4-5 open after 110 min: CS lines, USB D+ at the tip, VSYS; would need hand routing)? Then install that route and clean up gate 7."
   ],
   "checks": {
     "DRC": {
@@ -158,7 +158,8 @@
       "earring-e": {
         "opens": 15,
         "drc_ok": false,
-        "last_route": "scratch sweep 2026-11-06, 99bb7ca, 0.1 mm board-wide, best 15 open; not installed"
+        "last_route": "scratch sweep 2026-11-06, 99bb7ca, 0.1 mm board-wide, best 15 open; not installed",
+        "best_6600s": "seed 6: 4 open, 2 connection_width; seed 3: 5 open, 0 errors (route/earring-e/best = seed 6)"
       },
       "earring-f": {
         "opens": 0,
@@ -174,5 +175,5 @@
       }
     }
   },
-  "updated": "2026-11-06T10:00:00-08:00"
+  "updated": "2026-11-06T14:00:00-08:00"
 }
