@@ -624,3 +624,14 @@ comparison.
   - Under U1: its back keepout is full of escape vias on variant A.
   - The ring wedges: no 5.8 mm square fits at any angle.
   - Clearing all back parts off the LEDs: 277 mm² of courtyards against 203 mm² of free area.
+
+## 2026-11-06: variants E and F, the user's order 3 → 1 → 2
+
+- **Variant E** (parent D): 23 back parts moved off the LEDs' via room, TP1–3 down to 1.0 mm pads, 0.10 mm rules
+  board-wide. On 4 layers it routes to 15–19 open.
+- **Variant F** (E on 6 layers): 0 open on every seed.
+- route.py drops R14's 3V3 via-in-pad on the matrix variants: it fails the "No via hole in SMD pad" rule.
+- **Alternatives:**
+  - 4 layers with In1 opened to signals: rejected, the GND plane is kept.
+  - Longer 4-layer runs: being measured.
+- Detail: `design/variant-e.md`.

@@ -629,7 +629,10 @@ def main():
     # simultaneously (seen live as the last stuck edge, 6/6 seeds).
     # (6+ layers only: on 4 layers there is no In3 pour and the via
     # dangled)
-    if n_layers >= 6:
+    # (Not on the matrix variants: their back is re-placed, and the via's
+    # hole in R14's pad now fails the "No via hole in SMD pad" rule; the
+    # router reaches R14's 3V3 on its own there. Variant F, 2026-11-06.)
+    if n_layers >= 6 and design["leds"].get("drive") != "matrix":
         rt.via(rel(pad_of(fps["R14"], 2).GetPosition()), "3V3")
     # NB: no channel vias for the USB_DM/DP escapes. The escapes' front
     # loop (DM upper row, DP looping east around R6/R7) only failed when

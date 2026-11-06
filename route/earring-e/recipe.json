@@ -1,0 +1,50 @@
+{
+  "note": "Variant E (D with the back unloaded, 0.10 mm rules board-wide) recipe.",
+  "router": "ultraroute",
+  "router_commit": "99bb7ca",
+  "lab_experiment": "~/Software/ultraroute-lab/experiments/vled-width-1 (run s0)",
+  "job": "~/Software/ultraroute/jobs/earring-kicad-locked",
+  "input": "route.py's pre-routed board (build.py --to route, or route.py --no-autoroute), plus the rp2350_power block route.py adds",
+  "args": [
+    "--negotiate",
+    "--rip-up",
+    "--nudge",
+    "--tighten",
+    "--prefanout",
+    "--diff-pairs",
+    "--shove-plough",
+    "region",
+    "--shove-reach",
+    "0.5",
+    "--shove-repair",
+    "20",
+    "--shove-ties",
+    "--shove-passes",
+    "60",
+    "--shove-patience",
+    "8",
+    "--strip",
+    "--planes",
+    "In1.Cu",
+    "--pour-cost",
+    "3",
+    "--seed",
+    "2",
+    "--threads",
+    "1",
+    "--timeout",
+    "480"
+  ],
+  "after": [
+    "F.Cu no-pour area nopour_cc1_vbus between R4.1 and the VBUS A4B9 via (route.py, before the refill)",
+    "refill zones at 0.2 mm minimum width on the large planes, VREG pours 0.15 (route.py)",
+    "kicad-cli pcb drc (build stage drc)"
+  ],
+  "result": {
+    "date": "2026-11-06",
+    "seeds": "1-6",
+    "timeout": 900,
+    "open": "15-19 (0.1 mm board-wide); 27-37 (unload only, 0.1 mm matrix class)",
+    "installed": false
+  }
+}

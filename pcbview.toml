@@ -71,3 +71,17 @@ name = "earring, variant D (C with the driver off the LED rings)"
 pcb = "hw/earring/d/earring.kicad_pcb"
 sch = "hw/earring/d/earring.kicad_sch"
 note = "From variant C: the AW20198QNR moved to the back pocket south of USB-C, the only spot clear of every LED; the USB ESD chip, USB series resistors and BOOTSEL timer moved to make room. Placed; 4-layer routing trials in design/variant-d.md (2026-11-06)."
+
+[[boards]]
+id = "earring-e"
+name = "earring, variant E (D with the back unloaded, 0.1 mm rules)"
+pcb = "hw/earring/e/earring.kicad_pcb"
+sch = "hw/earring/e/earring.kicad_sch"
+note = "From variant D: 23 back parts moved off the LEDs' via room (charger to the front), 1 mm test pads, 0.10 mm rules board-wide. 4 layers: 15-19 open. design/variant-e.md (2026-11-06)."
+
+[[boards]]
+id = "earring-f"
+name = "earring, variant F (E on 6 layers)"
+pcb = "hw/earring/f/earring.kicad_pcb"
+sch = "hw/earring/f/earring.kicad_sch"
+note = "Variant E on 6 layers: routes 0 open on every seed (not installed yet). design/variant-e.md (2026-11-06)."

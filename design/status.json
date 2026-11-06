@@ -2,9 +2,9 @@
   "schema": 1,
   "board": "earring",
   "phase": 7,
-  "doing": "2026-11-06: variant D = C with the driver moved to the only LED-free back pocket (south of USB-C), USB ESD + BOOTSEL timer moved. 4-layer with In1 plane: 41-50 open at C's rules, 28-37 with a 0.10 mm matrix netclass. Still capacity-bound; options: 6 layers, 0.10 mm for all signals, unload the back (design/variant-d.md). Variant A stays the gate-7-passed board.",
+  "doing": "2026-11-06: matrix variants. E (4L: driver off the LEDs, back unloaded, 0.10 mm rules) routes to 15-19 open; F (E on 6 layers) routes 0 open on every seed, 2 connection_width necks left on the best seeds. Not installed. Variant A stays the gate-7-passed board.",
   "needs_user": [
-    "Variants C/D won't route on 4 layers with a GND plane: choose 6 layers, 0.10 mm rules board-wide, or unloading back parts"
+    "Matrix earring routes on 6 layers (variant F, 0 open); 4-layer best is 15-19 open. Go with 6 layers? Then install F's route and clean up gate 7."
   ],
   "checks": {
     "DRC": {
@@ -120,6 +120,10 @@
     {
       "title": "variant D (driver off the LED rings)",
       "href": "design/variant-d.md"
+    },
+    {
+      "title": "variants E/F (unload, 0.1 mm, 6 layers)",
+      "href": "design/variant-e.md"
     }
   ],
   "apps": {
@@ -146,6 +150,16 @@
         "opens": 28,
         "drc_ok": false,
         "last_route": "scratch sweep 2026-11-06, ultraroute 99bb7ca, recipe + 0.1 mm matrix class, best seed 2 (28 open); not installed"
+      },
+      "earring-e": {
+        "opens": 15,
+        "drc_ok": false,
+        "last_route": "scratch sweep 2026-11-06, 99bb7ca, 0.1 mm board-wide, best 15 open; not installed"
+      },
+      "earring-f": {
+        "opens": 0,
+        "drc_ok": false,
+        "last_route": "scratch sweep 2026-11-06, 99bb7ca, 6 layers, 0 open all seeds, best seeds 1/3 with 2 connection_width; not installed"
       }
     },
     "composer": {

@@ -310,9 +310,10 @@ def build_circuit(design=None):
     # a long hold on the power button now does its job. BOOTSEL_SW is driven
     # by Q7 in the one-button block below; R3 is unchanged.)
     c.add("R3", "r_1k", "1k", {1: "BOOTSEL", 2: "BOOTSEL_SW"})
-    c.add("TP1", "testpoint", "RUN", {1: "RUN"})
-    c.add("TP2", "testpoint", "SWCLK", {1: "SWCLK"})
-    c.add("TP3", "testpoint", "SWDIO", {1: "SWDIO"})
+    tp = design["board"].get("testpoint_part", "testpoint")
+    c.add("TP1", tp, "RUN", {1: "RUN"})
+    c.add("TP2", tp, "SWCLK", {1: "SWCLK"})
+    c.add("TP3", tp, "SWDIO", {1: "SWDIO"})
 
     # --- USB-C ---
     c.add("J1", "usb_conn", "USB-C", {

@@ -1,0 +1,47 @@
+(version 1)
+
+# JLCPCB 4-layer capability rules the single global knobs can't express.
+# Global rules carry the VIA numbers (hole-to-copper 0.2, hole-to-hole 0.2);
+# component through-holes are held to JLC's tighter PTH limits here.
+
+(rule "JLC PTH hole to copper"
+  (condition "A.Pad_Type == 'Through-hole'")
+  (constraint hole_clearance (min 0.28mm)))
+
+(rule "JLC PTH hole to hole"
+  (condition "A.Pad_Type == 'Through-hole' && B.Pad_Type == 'Through-hole'")
+  (constraint hole_to_hole (min 0.45mm)))
+
+# JLC lists SMD pad-to-pad (different nets) at 0.15, above the 0.127 global.
+(rule "JLC SMD pad to pad"
+  (condition "A.Pad_Type == 'SMD' && B.Pad_Type == 'SMD'")
+  (constraint clearance (min 0.15mm)))
+
+# LED supply: 0.3mm class width, necked to no less than 0.2mm at the
+# WS2816C's 0.5mm pads. The largest zone (VLED_R, 19 LEDs) at full
+# white pulls several hundred mA; 0.15mm was the default class.
+(rule "VLED min width"
+  (condition "A.NetClass == 'vled'")
+  (constraint track_width (min 0.2mm)))
+
+# Current-carrying power nets (VBUS, VSYS, VBATT): 0.4mm class width, necked
+# to no less than 0.2mm at crowded pads. IPC-2221 at 0.5oz inner, dT 10C:
+# 0.2mm carries 0.23A, above VBATT's 140mA continuous cell limit. (LESSONS:
+# a class width is only the router's target; DRC enforces this floor.)
+(rule "power min width"
+  (condition "A.NetClass == 'power'")
+  (constraint track_width (min 0.2mm)))
+
+# No copper joint narrower than JLC's minimum trace. Catches two tracks that
+# meet only where their round ends overlap (gate 7, 2026-10-31: 0.05mm necks
+# on VBATT and CHRG passed the default DRC).
+(rule "JLC min connection width"
+  (constraint connection_width (min 0.09mm)))
+
+# No via hole in or touching an SMD pad. The vias are tented with 0 mask
+# expansion, so a hole in a pad is open in the pad's aperture and wicks
+# solder (gate 7 re-review 2026-11-01, MAJOR-1: 124 such vias). The via's
+# land may still touch the pad; only the hole is held off.
+(rule "No via hole in SMD pad"
+  (condition "A.Type == 'Via' && B.Pad_Type == 'SMD'")
+  (constraint physical_hole_clearance (min 0.1mm)))

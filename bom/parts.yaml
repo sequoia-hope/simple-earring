@@ -444,6 +444,12 @@ testpoint:
   footprint: TestPoint_Pad_1.5x1.5mm
   verified: yes          # bare pad, not assembled
 
+testpoint_1mm:           # variant E: smaller pads, off the LED via rows
+  mpn: ~
+  lcsc: ~
+  footprint: TestPoint_Pad_D1.0mm
+  verified: yes          # bare pad, not assembled (KiCad TestPoint lib)
+
 # --- passives (0402 unless noted) ---
 # Every entry below was re-checked against its LCSC/JLCPCB product page on
 # Aug 5 2026: value, tolerance and PACKAGE all confirmed. The one that was

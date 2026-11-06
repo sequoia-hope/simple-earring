@@ -178,6 +178,37 @@ TIP_MOVED = {
     "D5": (5.75, -0.25, 0, True), "R26": (-6.50, -4.25, 0, False), "R28": (6.75, -0.75, 0, False), "C75": (6.00, -2.25, 0, True), "U8": (6.75, -3.25, 90, False), "Q8": (-5.75, -4.50, 0, True),
 }
 
+# Variant E (design.e.yaml leds.matrix.unload_back): back parts moved off the
+# front LEDs' footprints + via room (user's call 2026-11-06, option 3: unload
+# the back). Re-scanned in signal order with every LED courtyard + 0.9 mm as a
+# keepout (scan_spot is per side, so it can't see front LEDs otherwise).
+# Same form as MATRIX; None = parked until scanned.
+UNLOAD = {
+    "TP1": (-5.75, -2.00, 0, True),
+    "TP2": (5.75, -4.50, 0, True),
+    "TP3": (-5.75, 0.25, 0, True),
+    "U6": (8.50, -5.00, 0, True),
+    "C23": (6.25, -9.00, 0, True),
+    "C24": (10.00, -2.75, 90, True),
+    "U7": (1.50, 5.25, 0, True),
+    "R3": (4.50, 5.25, 90, True),
+    "U2": (6.25, 4.50, 90, False),
+    "C17": (8.50, 3.50, 90, False),
+    "U3": (-6.00, 5.25, 90, True),
+    "Q5": (-8.50, -3.00, 90, True),
+    "Q4": (-8.75, -5.75, 0, True),
+    "D4": (-11.25, 0.50, 0, True),
+    "R24": (-6.50, -9.00, 0, False),
+    "D2": (-7.50, 2.50, 0, True),
+    "R17": (-6.75, 4.00, 0, False),
+    "R11": (-5.75, 2.25, 0, False),
+    "R12": (-8.00, 5.25, 0, False),
+    "C21": (-8.25, 4.25, 0, True),
+    "R20": (7.00, 1.50, 90, False),
+    "Q7": (0.00, 8.75, 0, True),
+    "C77": (4.00, -7.00, 90, False),
+}
+
 
 def mm(v):
     return pcbnew.FromMM(v)
@@ -725,6 +756,12 @@ def main():
             else:
                 place(fps[ref], *spot[:3], back=spot[3])
     table = MATRIX_AW_TIP if tip else MATRIX_AW if aw else MATRIX
+    if aw and design["leds"]["matrix"].get("unload_back"):
+        for i, (ref, spot) in enumerate(UNLOAD.items()):
+            if spot is None:
+                place(fps[ref], 30 + 4 * (i % 6), 20 + 4 * (i // 6), back=True)
+            else:
+                place(fps[ref], *spot[:3], back=spot[3])
     for i, (ref, spot) in enumerate(table.items()):
         if ref not in fps:
             continue
@@ -753,7 +790,7 @@ def resolve_overlaps(board, fps, max_iter=300):
     # board, and a relaxer nudge silently invalidates that (R20's scanned
     # spot was legal until relaxation slid it 0.8mm into R16).
     EXEMPT = {"R4", "R5", "R8", "C11", "C12", "R13", "C22",
-              "R19", "R20", "R21", "R22", "R23", "C29"} | set(ONEBTN) | set(ZONES) | set(BACK) | set(MATRIX) | set(MATRIX_AW) | set(MATRIX_MOVED) | set(MATRIX_AW_TIP) | set(TIP_MOVED)
+              "R19", "R20", "R21", "R22", "R23", "C29"} | set(ONEBTN) | set(ZONES) | set(BACK) | set(MATRIX) | set(MATRIX_AW) | set(MATRIX_MOVED) | set(MATRIX_AW_TIP) | set(TIP_MOVED) | set(UNLOAD)
 
     def movable(ref):
         if ref in EXEMPT:
