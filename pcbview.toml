@@ -64,3 +64,10 @@ name = "earring, variant C (AW20198QNR matrix, XL-1615 LEDs)"
 pcb = "hw/earring/c/earring.kicad_pcb"
 sch = "hw/earring/c/earring.kicad_sch"
 note = "From variant B: round-pendant's low-density driver (AW20198QNR, QFN-40 5x5) and the 1.6 x 1.5 mm XL-1615RGBC LED, 45 LEDs on a 9 SW x 15 CS matrix. Placed, not routed (2026-11-05). design/variant-c.md."
+
+[[boards]]
+id = "earring-d"
+name = "earring, variant D (C with the driver off the LED rings)"
+pcb = "hw/earring/d/earring.kicad_pcb"
+sch = "hw/earring/d/earring.kicad_sch"
+note = "From variant C: the AW20198QNR moved to the back pocket south of USB-C, the only spot clear of every LED; the USB ESD chip, USB series resistors and BOOTSEL timer moved to make room. Placed; 4-layer routing trials in design/variant-d.md (2026-11-06)."

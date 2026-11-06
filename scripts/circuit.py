@@ -840,9 +840,13 @@ def led_matrix(design):
         # The other way round: arcs of `sw` adjacent LEDs share one CS
         # triplet (local), and the k-th LED of every arc shares SW k, so the
         # ring bus is the SW lines (9) instead of the CS lines (15).
+        # arc_triplet (optional): arc g -> CS triplet t (1-based), so each
+        # arc can take the triplet on the driver side that faces it.
+        order = m.get("arc_triplet") or list(range(1, n // m["sw"] + 2))
         for i in range(n):
             g, k = divmod(i, m["sw"])
-            out[i + 1] = (k + 1, (3 * g + 1, 3 * g + 2, 3 * g + 3))
+            t = order[g] - 1
+            out[i + 1] = (k + 1, (3 * t + 1, 3 * t + 2, 3 * t + 3))
         return out
     for i in range(n):
         sw, k = divmod(i, per)

@@ -160,6 +160,24 @@ MATRIX_AW = {
     "C87": (-6.75, 0.75, 0, True), "R35": (-7.25, 2.25, 90, True), "R38": (-6.00, 2.25, 90, True), "R39": (-8.50, 4.25, 0, True),
 }
 
+# Variant D (design.d.yaml leds.matrix.spot: tip): the AW20198 in the only
+# back pocket clear of every LED, between J1's pin row and U1's escape
+# keepout (scan of a 5.8 mm courtyard against the LED courtyards + 0.5 mm,
+# any rotation: 2026-11-06). Its SW side faces north, onto the In2 band, and
+# the control side faces U1. Same form as MATRIX; None = parked until scanned.
+MATRIX_AW_TIP = {
+    "U11": (0.00, -9.25, 270, True),
+    "C80": (2.25, -11.00, 90, False), "C81": (1.00, -11.50, 90, False), "C82": (2.75, -7.00, 90, False), "C83": (3.50, -7.00, 90, True), "C86": (-4.00, -11.00, 0, False),
+    "C87": (-4.50, -6.50, 90, False), "R35": (-3.50, -7.00, 90, True), "R38": (-4.75, -9.00, 90, False), "R39": (-3.00, -7.00, 0, False),
+}
+# Variant D: the parts the driver evicted from the tip pocket (the USB ESD
+# chip and its series Rs, the BOOTSEL timer), re-scanned in signal order.
+# U5 is unlocked here: its VBUS pre-routes are variant A-C only (route.py).
+TIP_MOVED = {
+    "U5": (-0.25, -15.00, 90, False), "R6": (4.25, 5.25, 90, False), "R7": (0.00, 7.50, 90, False), "C28": (3.50, -12.25, 90, True),
+    "D5": (5.75, -0.25, 0, True), "R26": (-6.50, -4.25, 0, False), "R28": (6.75, -0.75, 0, False), "C75": (6.00, -2.25, 0, True), "U8": (6.75, -3.25, 90, False), "Q8": (-5.75, -4.50, 0, True),
+}
+
 
 def mm(v):
     return pcbnew.FromMM(v)
@@ -699,7 +717,15 @@ def main():
             else:
                 place(fps[ref], *spot[:3], back=spot[3])
     aw = "U11" in fps and fps["U11"].GetValue() == "AW20198QNR"
-    for i, (ref, spot) in enumerate((MATRIX_AW if aw else MATRIX).items()):
+    tip = aw and design["leds"]["matrix"].get("spot") == "tip"
+    if tip:
+        for i, (ref, spot) in enumerate(TIP_MOVED.items()):
+            if spot is None:
+                place(fps[ref], -30 - 4 * (i % 6), 20 + 4 * (i // 6), back=True)
+            else:
+                place(fps[ref], *spot[:3], back=spot[3])
+    table = MATRIX_AW_TIP if tip else MATRIX_AW if aw else MATRIX
+    for i, (ref, spot) in enumerate(table.items()):
         if ref not in fps:
             continue
         if spot is None:
@@ -709,8 +735,9 @@ def main():
 
     resolve_overlaps(board, fps)
     # see LOCKED at the top for why each part is locked
+    locked = LOCKED - ({"U5"} if tip else set())
     for ref, fp in fps.items():
-        fp.SetLocked(ref.startswith("LED") or ref in LOCKED)
+        fp.SetLocked(ref.startswith("LED") or ref in locked)
     pcbnew.SaveBoard(str(PCB), board)
     print(f"placed {len(fps)} footprints -> {PCB.name}")
 
@@ -726,7 +753,7 @@ def resolve_overlaps(board, fps, max_iter=300):
     # board, and a relaxer nudge silently invalidates that (R20's scanned
     # spot was legal until relaxation slid it 0.8mm into R16).
     EXEMPT = {"R4", "R5", "R8", "C11", "C12", "R13", "C22",
-              "R19", "R20", "R21", "R22", "R23", "C29"} | set(ONEBTN) | set(ZONES) | set(BACK) | set(MATRIX) | set(MATRIX_AW) | set(MATRIX_MOVED)
+              "R19", "R20", "R21", "R22", "R23", "C29"} | set(ONEBTN) | set(ZONES) | set(BACK) | set(MATRIX) | set(MATRIX_AW) | set(MATRIX_MOVED) | set(MATRIX_AW_TIP) | set(TIP_MOVED)
 
     def movable(ref):
         if ref in EXEMPT:

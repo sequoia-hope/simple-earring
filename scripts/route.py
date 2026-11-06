@@ -445,10 +445,14 @@ def main():
     # U5.5's via: south-east, between U5.6 and C28.1 (VBUS too). East of the
     # pad is C28.2 (GND), 0.44 mm away. The B.Cu stub runs east past U5.4/5.6,
     # then south; the trunk reaches it on F.Cu by a spur (post-route section).
-    rt.via((1.45, -10.25), "VBUS")
-    for a, b in (((0.92, -11.50), (1.35, -11.50)),
-                 ((1.35, -11.50), (1.45, -10.25))):
-        rt.track(a, b, "VBUS", layer=pcbnew.B_Cu, width=0.2)
+    # (Variant D moved U5 out of the tip pocket for the matrix driver, so
+    # its U5-tied VBUS via, stub and trunk are left to the router.)
+    u5_tip = design["leds"].get("matrix", {}).get("spot") == "tip"
+    if not u5_tip:
+        rt.via((1.45, -10.25), "VBUS")
+        for a, b in (((0.92, -11.50), (1.35, -11.50)),
+                     ((1.35, -11.50), (1.45, -10.25))):
+            rt.track(a, b, "VBUS", layer=pcbnew.B_Cu, width=0.2)
     rt.via((2.20, -12.99), "VBUS")   # SE of tie B4A9 — Sequoia moved it
     # off-pad (Aug 7) to clear the tip; the tie pad still joins the trunk
     # ---------- crystal (locked, F.Cu only) ----------
@@ -679,6 +683,8 @@ def main():
                   ((1.60, -12.20), (2.20, -12.99))]  # ends on the moved via (was 2.35,-13.45, which left it dangling)
     vb_blocked = 0
     pw = design["jlcpcb"]["power_track_mm"]
+    if design["leds"].get("matrix", {}).get("spot") == "tip":
+        VBUS_TRUNK = []   # U5 moved (variant D): no trunk over its body
     for a, b2 in VBUS_TRUNK:
         # fat first (power netclass width), thin fallback: the corridor
         # over U5's body was verified for 0.15 — the fat variant only goes

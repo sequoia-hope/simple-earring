@@ -610,3 +610,17 @@ comparison.
   LEDs beside J1's shell legs snap to the nearest 90° to fit the 2.28 mm slot between the legs.
 - **Same 9 × 15 matrix map as B.** That keeps the driver swap the only variable. Alternative: 8 SW × 18 CS (an 8-line bus,
   1/8 duty), to try if 4-layer routing falls short.
+
+## 2026-11-06: variant D, the matrix driver off the LED rings
+
+- **Decision:** a new variant D (parent C) puts U11 in the back pocket south of J1. It's the only spot where a 5 × 5
+  driver clears every front LED plus via room, at any rotation.
+  - U5 (USB ESD) moves to the front at the tip; R6/R7 move to the front by U1's USB pins.
+  - The BOOTSEL timer moves elsewhere. U5's VBUS pre-routes are off for this variant.
+- **Why:** the user asked for the driver to dodge the LEDs (C had it under LEDs 8–10/39). Every other part could move;
+  the LEDs, MCU, button and USB stay.
+- **Result:** it routes no better than C (41–50 open vs 37–45). With a 0.10 mm matrix netclass it reaches 28–37.
+- **Alternatives considered:**
+  - Under U1: its back keepout is full of escape vias on variant A.
+  - The ring wedges: no 5.8 mm square fits at any angle.
+  - Clearing all back parts off the LEDs: 277 mm² of courtyards against 203 mm² of free area.
