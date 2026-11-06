@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>simple_earring — R8 charge-current rework</title>
+<style>
+  body { background:#15171d; color:#dfe3ea; font-family:system-ui,sans-serif;
+         margin:0; padding:1.4rem 1.6rem 4rem; line-height:1.55; }
+  .wrap { max-width:1180px; margin:0 auto; }
+  a { color:#8bf; }
+  h1 { font-size:1.35rem; font-weight:650; margin:0 0 .2rem; }
+  h2 { font-size:1.05rem; font-weight:650; color:#cbd2dd; margin:2.2rem 0 .6rem;
+       border-bottom:1px solid #262b34; padding-bottom:.35rem; }
+  h3 { font-size:.95rem; font-weight:600; color:#aeb6c2; margin:1.3rem 0 .4rem; }
+  p, li { font-size:.93rem; color:#c3cad4; }
+  code { background:#1e222a; padding:.08rem .34rem; border-radius:4px;
+         font-size:.87em; color:#e6d9a8; }
+  .sub { color:#7d8695; font-size:.85rem; }
+  .verdict { background:#241a1c; border:1px solid #ff4d4d; border-radius:10px;
+             padding:1rem 1.3rem; margin:1.1rem 0 .4rem; }
+  .verdict .big { font-size:2.0rem; font-weight:700; color:#ff6b6b; }
+  .cards { display:flex; flex-wrap:wrap; gap:.8rem; margin:.9rem 0; }
+  .card { background:#1b1f27; border:1px solid #262b34; border-radius:9px;
+          padding:.65rem .9rem; min-width:150px; }
+  .card .k { font-size:.75rem; color:#7d8695; text-transform:uppercase;
+             letter-spacing:.05em; }
+  .card .v { font-size:1.25rem; font-weight:650; color:#e8ecf2; margin-top:.15rem; }
+  table { border-collapse:collapse; width:100%; margin:.7rem 0 .3rem;
+          font-size:.88rem; }
+  th, td { text-align:right; padding:.4rem .6rem; border-bottom:1px solid #242932; }
+  th { color:#98a1af; font-weight:600; font-size:.78rem; text-transform:uppercase;
+       letter-spacing:.04em; }
+  td:first-child, th:first-child { text-align:left; }
+  tr.pick { background:#221a1c; } tr.pick td { color:#ffd9d9; font-weight:600; }
+  tr.now td { color:#8d95a2; }
+  .bad { color:#f87171; } .good { color:#4ade80; } .warn { color:#fbbf24; }
+  figure { margin:0; background:#181c23; border:1px solid #262b34;
+           border-radius:10px; padding:.7rem; }
+  figure img { width:100%; height:auto; display:block; border-radius:6px; }
+  figcaption { color:#8d97a8; font-size:.82rem; padding-top:.55rem; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:1rem; align-items:start; }
+  @media (max-width:900px){ .two { grid-template-columns:1fr; } }
+  ol li, ul li { margin:.32rem 0; }
+  .callout { border-left:3px solid #fbbf24; background:#221e14;
+             padding:.6rem .9rem; border-radius:0 7px 7px 0; margin:.9rem 0; }
+  .callout.danger { border-left-color:#f87171; background:#241a1c; }
+  .callout.ok { border-left-color:#4ade80; background:#16211a; }
+  .callout p { margin:.3rem 0; }
+</style></head><body><div class="wrap">
+
+<p class="sub"><a href="../">← simple_earring outputs</a></p>
+<h1>R8 charge-current rework — run the CPU <em>and</em> the lights while charging</h1>
+<p class="sub">Existing (ordered) boards · rev <code>43eadc1</code> · geometry and
+netlist read from that commit, not the working tree</p>
+
+<div class="verdict">
+  <div class="sub">R8, the LGS4056H PROG resistor — <code>I(mA) = 900 / R(kΩ)</code></div>
+  <div class="big">22k → 15k, <em>only together with the EN network</em></div>
+  <p style="margin:.5rem 0 0;color:#e8d5d5">The fitted cell is a
+  <b>Cornell Dubilier RJD2032C1</b>, whose datasheet specifies a charging current of
+  <b>40 mA (0.5C) — with no published maximum</b>. Today's 22k gives 40.9 mA, so
+  <b>the board is already at the cell's rated charge current</b>. On the ordered
+  boards the power switch cuts the LDO enable directly, so with SW2 off the cell
+  receives the <em>whole</em> programmed current — 15k alone would push 60 mA, 50%
+  over spec, every time you charge switched off. <b>Add the EN network (option A) or
+  stay at 22k.</b></p>
+</div>
+
+<h2>Why the board can't charge today</h2>
+
+<p>There is no power path. The NCP730's input and the LGS4056H's BAT pin are the
+<b>same <code>VBATT</code> node</b>, so the programmed current is split between the
+system and the cell. With <code>R8 = 22k</code> the charger sources 41 mA and the
+running board eats most of it.</p>
+
+<h3>System current, measured — not guessed</h3>
+<p>Two rates on the same cell near the same voltage, so the cell's unknown dQ/dV
+cancels out:</p>
+<div class="cards">
+  <div class="card"><div class="k">charging</div><div class="v">+2.90 mV/min</div>
+    <div class="sub">111 samples, least-squares</div></div>
+  <div class="card"><div class="k">discharging</div><div class="v">−2.13 mV/min</div>
+    <div class="sub">w0018, 56.4 min run</div></div>
+  <div class="card"><div class="k">⇒ system draw</div><div class="v">~17 mA</div>
+    <div class="sub">MCU@50MHz + USB + IMU</div></div>
+  <div class="card"><div class="k">⇒ into the cell</div><div class="v bad">~24 mA</div>
+    <div class="sub">and only with LEDs off</div></div>
+</div>
+<p class="sub">(<code>I_sys = I_prog / (1 + chg/dis)</code>. Independently consistent
+with the datasheet estimate of 15–20 mA. Treat as ±30%.)</p>
+
+<h3>The LED rail is the expensive part</h3>
+<p>45 × SK6805 draw <b>0.3 mA each just being powered</b> — 13.5 mA before a single
+pixel lights (<code>bom/parts.yaml:46</code>). With ~4 mA of dim emission the rail
+costs ~17.5 mA whenever it is up.</p>
+
+<h2>⚠ What if the power switch is off?</h2>
+
+<p>This is the case that decides the value, and on the ordered boards it is
+<b>not</b> a corner case — switch off, plug in is the natural way to leave an
+earring charging.</p>
+
+<p>The ordered netlist is unambiguous:</p>
+<pre style="background:#1b1f27;border:1px solid #262b34;border-radius:8px;
+     padding:.7rem .9rem;font-size:.85rem;color:#c3cad4;overflow-x:auto"><code
+style="background:none;padding:0">SW2   1=VBATT  2=PWR_EN  3=GND      ← common wired STRAIGHT to the enable
+U3    4=PWR_EN 6=VBATT           ← NCP730 EN
+PWR_EN net members:  SW2.2, U3.4  ← nothing else on it</code></pre>
+
+<p>So with <b>SW2 off and USB plugged in</b>:</p>
+<ul>
+  <li><code>PWR_EN</code> is pulled to <b>GND by the switch</b> → NCP730 disabled →
+      3V3 dead → <b>MCU off</b>;</li>
+  <li><code>LED_EN</code> falls to GND through R10 (10k) → TPS22913 off →
+      <b>LED rail off</b>;</li>
+  <li>residual load on VBATT is the R11/R12 sense divider (~1.8 µA) plus regulator
+      shutdown current — call it <b>~3 µA, i.e. nothing</b>;</li>
+  <li>the charger is still enabled (CE tied to VBUS), so <b>the cell receives the
+      full programmed current.</b></li>
+</ul>
+
+<div class="callout danger">
+<p><b>The ordered boards have no rev-2 EN network.</b> <code>R17</code>,
+<code>R18</code> and <code>D2</code> — the parts that let USB hold the LDO on
+regardless of the switch — exist in the current <code>circuit.py</code> but
+<b>are not on the fabricated boards</b> (123 footprints at <code>43eadc1</code>;
+R17/R18/R19/R20/D2/Q1/R16 all absent). The firmware header's "rev 2 power scheme:
+USB boots the chip even with SW2 off" does <em>not</em> describe this hardware.</p>
+</div>
+
+<p>Which means a single resistor cannot satisfy both operating modes:</p>
+<ul>
+  <li><b>SW2 on</b> (what you want: CPU + lights while charging) wants
+      I_prog ≈ 60 mA, or the cell gets almost nothing.</li>
+  <li><b>SW2 off</b> wants I_prog ≤ 40 mA, because with no load the cell sees all of
+      it and 40 mA is the RJD2032C1's rated charging current.</li>
+</ul>
+<p><b>22k sits exactly at the SW2-off limit</b> (40.9 mA vs the datasheet's 40 mA).
+Any increase at all trades that guarantee away. That is the real design tension, and
+it is worth naming rather than papering over.</p>
+<p>The way out is not a different resistor — it is <b>making the load impossible to
+remove</b>. With the EN network fitted, SW2-off + USB still boots the MCU, so the
+cell tops out at 60 − 17.3 ≈ <b>43 mA</b> (and ~39 mA once the indicator's LED duty
+is counted) in <em>every</em> switch position. That is the whole argument for
+option A.</p>
+
+<h2>The cell: Cornell Dubilier RJD2032C1</h2>
+<p>Not the LIR2032 the schematic names — and the differences matter. From the
+<a href="https://www.cde.com/resources/catalogs/RJD.pdf">RJD series datasheet</a>
+(Feb-25):</p>
+<div class="cards">
+  <div class="card"><div class="k">capacity</div><div class="v">85 mAh</div>
+    <div class="sub">80 mAh min — 2× a LIR2032</div></div>
+  <div class="card"><div class="k">charging current</div><div class="v warn">40 mA</div>
+    <div class="sub">0.5C · no max published</div></div>
+  <div class="card"><div class="k">charging voltage</div><div class="v good">4.2 V ±0.03</div>
+    <div class="sub">CC/CV — matches the LGS4056H</div></div>
+  <div class="card"><div class="k">internal resistance</div><div class="v">≤ 700 mΩ</div>
+    <div class="sub">not the ~3.75 Ω the firmware assumes</div></div>
+  <div class="card"><div class="k">discharge</div><div class="v">16 mA std · 160 mA max</div>
+    <div class="sub">0.2C / 2C</div></div>
+  <div class="card"><div class="k">chemistry</div><div class="v">NMC / graphite</div>
+    <div class="sub">3.7 V nom, 3.0 V cut-off, UL1642</div></div>
+</div>
+
+<div class="callout danger">
+<p><b>Charging has no published maximum.</b> The datasheet gives discharge as two
+columns — standard 16 mA <em>and</em> maximum 160 mA — but charging gets a single
+number: 40 mA. That asymmetry is deliberate. There is no "it'll take 1C" headroom to
+lean on: above 40 mA you are off-datasheet with nothing to cite.</p>
+<p><b>And 22k already hits it.</b> 900/22k = 40.9 mA ≈ the rated 40 mA. Whether by
+design or luck, the board as ordered is exactly at the cell's charge spec.</p>
+</div>
+
+<h2>Choosing the value</h2>
+<p>Budget with the LED rail up <b>continuously</b> — the demanding case. C rates are
+against 85 mAh; the last column is measured against the datasheet's 40 mA:</p>
+
+<table>
+<tr><th>R8</th><th>I_prog</th><th>system</th><th>LED rail</th><th>into cell</th>
+    <th>cell rate</th><th>half charge</th><th class="bad">SW2 OFF → cell</th></tr>
+<tr class="now"><td>22k <span class="sub">(today)</span></td><td>40.9 mA</td><td>17.3 mA</td>
+    <td>17.5 mA</td><td class="bad">6.1 mA</td><td>0.07C</td><td>6.9 h</td>
+    <td class="good">40.9 mA — at spec</td></tr>
+<tr><td>20k</td><td>45.0 mA</td><td>17.3 mA</td><td>17.5 mA</td>
+    <td class="bad">10.2 mA</td><td>0.12C</td><td>4.1 h</td>
+    <td class="warn">45 mA — +13%</td></tr>
+<tr><td>18k</td><td>50.0 mA</td><td>17.3 mA</td><td>17.5 mA</td>
+    <td class="warn">15.2 mA</td><td>0.18C</td><td>2.8 h</td>
+    <td class="warn">50 mA — +25%</td></tr>
+<tr><td>16k</td><td>56.2 mA</td><td>17.3 mA</td><td>17.5 mA</td>
+    <td class="good">21.4 mA</td><td>0.25C</td><td>2.0 h</td>
+    <td class="bad">56 mA — +41%</td></tr>
+<tr class="pick"><td>15k</td><td>60.0 mA</td><td>17.3 mA</td><td>17.5 mA</td>
+    <td>25.2 mA</td><td>0.30C</td><td>1.7 h</td>
+    <td class="bad">60 mA — +50%</td></tr>
+<tr><td>12k</td><td>75.0 mA</td><td>17.3 mA</td><td>17.5 mA</td>
+    <td>40.2 mA</td><td>0.47C</td><td>1.0 h</td>
+    <td class="bad">75 mA — +88%</td></tr>
+</table>
+<p class="sub">"half charge" = time to put 42 mAh in at that current. Note the whole
+<b>into cell</b> column stays under 40 mA — with the switch <em>on</em>, every value
+here is spec-compliant, because the running board absorbs the difference. The problem
+lives entirely in the last column.</p>
+
+<h2>Decision table</h2>
+<table>
+<tr><th>Option</th><th>Parts</th><th>Lights while charging</th>
+    <th>SW2-off safety</th><th>Verdict</th></tr>
+<tr class="pick"><td><b>A.</b> 15k <b>+ rev-2 EN network</b><br>
+    <span class="sub">D2 BAT54S, R17 100k, R18 100k</span></td>
+    <td>4</td><td class="good">yes, 25 mA to cell</td>
+    <td class="good">≤43 mA — within spec</td>
+    <td>the right answer</td></tr>
+<tr><td><b>B.</b> 18k alone</td><td>1</td>
+    <td class="warn">yes, 15 mA to cell</td>
+    <td class="warn">50 mA, +25% over spec</td>
+    <td>off-datasheet, but mildly</td></tr>
+<tr><td><b>C.</b> 15k alone + switch discipline</td><td>1</td>
+    <td class="good">yes, 25 mA to cell</td>
+    <td class="bad">60 mA, +50% if you forget</td>
+    <td>not recommended on a wearable</td></tr>
+<tr class="now"><td><b>D.</b> leave 22k</td><td>0</td>
+    <td class="bad">no — 6 mA to cell</td>
+    <td class="good">40.9 mA — at spec</td>
+    <td>spec-correct; fix the goal in firmware</td></tr>
+</table>
+<p class="sub">With an 85 mAh cell rated at a flat 40 mA charge, option D is no longer
+merely "status quo" — it is the only single-part choice that stays on-datasheet in
+both switch positions. If the EN network is off the table, the honest path to
+"lights while charging" is firmware (duty-cycle the rail, idle the MCU between
+blinks) rather than more current.</p>
+
+<div class="callout ok">
+<p><b>Option A in one line:</b> the rev-2 EN network makes the MCU impossible to
+switch off while USB is present, which is exactly the guarantee 15k needs. The design
+already exists at <code>circuit.py:329–331</code> — you would be back-porting rev 2's
+power scheme onto the ordered boards, not inventing anything.</p>
+<p class="sub">It is real surgery though: cut the SW2 → U3.4 connection, then add
+D2 (SOT-323 dual Schottky, SW_ON→PWR_EN in series plus the PWR_EN→VBATT clamp the
+NCP730's <code>V_EN ≤ V_IN + 0.3</code> abs-max requires), R17 (PWR_EN→GND) and R18
+(VBUS→PWR_EN). Adding R18 <em>alone</em> does not work — a closed switch to ground
+beats a 100k pull-up, which is precisely why rev 2 needed the series diode.</p>
+</div>
+
+<h3>Bench test: is your board already modded?</h3>
+<p>Five seconds, and it settles which row you are on. With USB connected and the
+board enumerated, <b>flip SW2 to off</b>:</p>
+<ul>
+  <li><b>Board stays on USB</b> → an EN network is present → option A applies,
+      15k is safe.</li>
+  <li><b>Board drops off USB</b> → stock ordered hardware → the SW2-off column is
+      live, choose A, B or C.</li>
+</ul>
+<p class="sub">Stock behaviour is to drop off. Note this also means "switched off"
+and "unplugged" look identical from the host — the ambiguity rev 3's R19/R20 VBUS
+sense was added to resolve.</p>
+
+<h2>What R8 does</h2>
+<figure style="max-width:880px">
+  <img src="schem.svg" alt="U2 PROG pin through R8 to ground, with the current formula">
+  <figcaption>R8 sets the charger's total output. It is the only component option
+  B or C touches.</figcaption>
+</figure>
+
+<h2>Where R8 is</h2>
+<div class="two">
+  <figure>
+    <img src="board.svg" alt="Front view of the earring board with R8 highlighted">
+    <figcaption>R8 sits between the charger (U2) and the LED load switch (U4), in the
+    lower-right of the front face, just inside the LED ring.</figcaption>
+  </figure>
+  <figure>
+    <img src="detail.svg" alt="Zoomed view of R8 and its neighbours">
+    <figcaption>±4.6 mm around R8, 1 mm grid. Top pad is GND, bottom pad is PROG.
+    Nearest neighbour is C17 (0603) at 1.5 mm; dashed outlines are back-side parts.</figcaption>
+  </figure>
+</div>
+
+<h2>Rework procedure (R8 itself)</h2>
+<ol>
+  <li><b>Confirm the target.</b> R8 is the lone 0402 standing vertically about 3 mm
+      east of U2, with the 0603 bulk caps C16/C17 flanking it. Meter it — 22 kΩ.</li>
+  <li><b>Protect the neighbours.</b> C17 is 1.5 mm away, C16 1.1 mm below. Fine-tip
+      iron and tweezers beat broad hot air; a wide nozzle will swim both 0603s.</li>
+  <li><b>Lift R8</b> — tin both pads, work the tweezers side to side, lift.</li>
+  <li><b>Wick the pads flat</b>, clean, flux.</li>
+  <li><b>Place the new resistor</b> and solder. Orientation is irrelevant.</li>
+  <li><b>Verify before power:</b> meter pad-to-pad for the new value, and check for
+      shorts to the C16/C17 terminals.</li>
+</ol>
+
+<div class="callout">
+<p><b>Part not yet sourced.</b> You need a <b>15 kΩ (or 18 kΩ) ±1% 0402</b>. No LCSC
+code here on purpose — this project has already been bitten by a part whose value was
+right and whose package was an 0603 on an 0402 land. Verify the package on the LCSC
+page, then add the entry to <code>bom/parts.yaml</code>.</p>
+</div>
+
+<h2>Verifying it worked</h2>
+<p>Plug in, switch <b>on</b>, watch <code>tools/charge_monitor.py</code>:</p>
+<ul>
+  <li>the <b>rate</b> should roughly quadruple at the same cell voltage
+      (~2.9 → ~11 mV/min around 3.58 V) for 15k, or roughly double for 18k;</li>
+  <li>VBATT should clear the <b>3.70 V SK6805 floor</b> in minutes rather than the
+      better part of an hour, at which point the ring can light;</li>
+  <li><code>chrg=1</code> throughout.</li>
+</ul>
+<p class="sub">If the rate does not move at all, that is a solder problem, not a
+sizing problem — the charge rate scales with <code>900/R</code>.</p>
+
+<h2>What this does <em>not</em> fix</h2>
+<ul>
+  <li><b>DONE still never asserts with the switch on.</b> Termination needs BAT
+      current below ~C/10 (6 mA at 15k) and the system alone draws 17 mA from the
+      same node, so the charger stays in CC/CV and the cell floats at 4.2 V
+      (<code>firmware/src/main.cpp:670</code>). Ironically, <b>switch-off charging is
+      the only mode that terminates correctly</b> — no load, so the current really
+      does taper to the threshold.</li>
+  <li><b>A flat cell is still dark at first.</b> The LEDs need 3.7 V regardless of
+      available current, so a deeply depleted cell stays dark until it climbs past
+      the floor — just far sooner.</li>
+  <li><b>The real fix is a power path</b> (feed the LDO from VBUS through a Schottky
+      when a cable is present, so the charger only ever feeds the cell). Rev-3 work,
+      not a rework.</li>
+</ul>
+
+<h2>Follow-ups</h2>
+<ul>
+  <li class="bad"><b>Firmware gauge bug found via the datasheet.</b>
+      <code>chargePct()</code> (<code>main.cpp:251</code>) subtracts a flat
+      <b>150 mV</b> for IR rise while charging, which implies ~3.75 Ω of cell
+      resistance. The RJD2032C1 is <b>≤ 700 mΩ</b> — at 40 mA the real rise is about
+      <b>28 mV</b>. The gauge is over-correcting by ~120 mV and therefore reads far
+      too low while charging: tonight's 3568 mV showed 3%, where ~6% is closer. The
+      voltage table is also shaped for a LiCoO2 LIR2032, not this NMC cell.</li>
+  <li><b>BT1 is the wrong part in the schematic</b> — <code>circuit.py</code> declares
+      <code>LIR2032</code> (~40 mAh). The fitted cell is 85 mAh and <b>3.6 mm thick</b>
+      vs a CR2032's 3.2 mm, which is a clip-fit question as well as a capacity one.</li>
+  <li><b>Good news on runtime:</b> 85 mAh instead of ~40 mAh roughly doubles every
+      battery-life estimate. At the reworked firmware's ~17 mA average that is on the
+      order of 5 hours, not 2.</li>
+  <li><code>scripts/circuit.py:277</code> still carries <code>rprog_val = "22k"</code>
+      and the 41 mA comment. Note that rev 2/3 <em>does</em> have the EN network, so
+      on a fresh board 15k is safe — the conflict on this page is specific to the
+      ordered hardware.</li>
+  <li>Thermals are a non-issue: worst case (5.25 V VBUS, 3.0 V cell, 60 mA) is 135 mW
+      in the DFN-2×2, ≈9 °C rise. USB draw stays ~65 mA.</li>
+</ul>
+
+<p class="sub" style="margin-top:2.5rem">Diagrams and netlist read from
+<code>out/earring.kicad_pcb</code> at commit <code>43eadc1</code>, the ordered
+revision; regenerate with <code>python3 scripts/gen_rework_svg.py</code>. The
+working-tree copy of that file is currently un-placed — all 131 footprints at one
+point — so it cannot be used for rework geometry.</p>
+
+</div></body></html>

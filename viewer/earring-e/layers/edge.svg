@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="32.005mm" height="37.248mm" viewBox="83.998 78.75 32.005 37.248">
+<g style="fill:#c8c8c8; fill-opacity:1;stroke:#c8c8c8; stroke-opacity:1;
+stroke-linecap:round; stroke-linejoin:round;"
+transform="translate(0 0) scale(1 1)">
+</g>
+<g style="fill:none;
+stroke:#D0D2CD; stroke-width:0.1; stroke-opacity:1;
+stroke-linecap:round; stroke-linejoin:round;">
+<path d="M87.293 91.569
+L95.3 79.5
+" />
+<path d="M95.3 79.5
+L104.7 79.5
+" />
+<path d="M104.7 79.5
+L112.707 91.569
+" />
+<path d="M87.293 91.569 A15.25 15.25 0.0 1 0 112.707 91.569" />
+</g>
+<g style="fill:#c8c8c8; fill-opacity:1; stroke:none;">
+<circle cx="101.375" cy="100.875" r="0.125" />
+</g>
+<g style="fill:#c8c8c8; fill-opacity:1; stroke:none;">
+<circle cx="101.375" cy="99.5" r="0.125" />
+</g>
+<g style="fill:#c8c8c8; fill-opacity:1; stroke:none;">
+<circle cx="101.375" cy="98.125" r="0.125" />
+</g>
+<g style="fill:#c8c8c8; fill-opacity:1; stroke:none;">
+<circle cx="100" cy="100.875" r="0.125" />
+</g>
+<g style="fill:#c8c8c8; fill-opacity:1; stroke:none;">
+<circle cx="100" cy="99.5" r="0.125" />
+</g>
+<g style="fill:#c8c8c8; fill-opacity:1; stroke:none;">
+<circle cx="100" cy="98.125" r="0.125" />
+</g>
+<g style="fill:#c8c8c8; fill-opacity:1; stroke:none;">
+<circle cx="98.625" cy="100.875" r="0.125" />
+</g>
+<g style="fill:#c8c8c8; fill-opacity:1; stroke:none;">
+<circle cx="98.625" cy="99.5" r="0.125" />
+</g>
+<g style="fill:#c8c8c8; fill-opacity:1; stroke:none;">
+<circle cx="98.625" cy="98.125" r="0.125" />
+</g>
+<g style="fill:#c8c8c8; fill-opacity:1; stroke:none;">
+<circle cx="97.1" cy="84.62" r="0.375" />
+</g>
+<g style="fill:#c8c8c8; fill-opacity:1; stroke:none;">
+<circle cx="102.9" cy="84.62" r="0.375" />
+</g>
+<g style="fill:none;
+stroke:#c8c8c8; stroke-width:0.8; stroke-opacity:1;
+stroke-linecap:round; stroke-linejoin:round;">
+<path d="M104.33 84.72
+L104.33 85.52
+" />
+<path d="M104.33 80.64
+L104.33 81.24
+" />
+<path d="M95.67 80.64
+L95.67 81.24
+" />
+<path d="M95.67 84.72
+L95.67 85.52
+" />
+</g>
+</svg>

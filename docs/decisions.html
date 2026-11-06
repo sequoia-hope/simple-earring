@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Decision log</title>
+<style>
+  :root { color-scheme: dark; }
+  body { background:#0d1015; color:#d9dee6; margin:0; padding:1.5rem 16px 4rem;
+         font:15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:860px; margin:0 auto; }
+  a { color:#5b9bff; }
+  h1, h2, h3 { color:#e6eaf0; line-height:1.25; }
+  h1 { font-size:1.6rem; } h2 { font-size:1.2rem; margin-top:2rem;
+       border-bottom:1px solid #262d38; padding-bottom:.3rem; }
+  code { background:#202632; border:1px solid #262d38; border-radius:5px;
+         padding:.05em .3em; font-size:.88em; }
+  pre { background:#161b22; border:1px solid #262d38; border-radius:8px;
+        padding:.7rem .9rem; overflow-x:auto; }
+  pre code { background:none; border:0; padding:0; }
+  table { border-collapse:collapse; font-size:.88rem; display:block; overflow-x:auto; }
+  th, td { border:1px solid #262d38; padding:.35rem .6rem; text-align:left; vertical-align:top; }
+  th { background:#161b22; }
+  .back { font-size:.85rem; color:#8c96a6; }
+</style></head><body><main>
+<p class="back"><a href="../index.html">&larr; Dashboard</a> &middot; <code>design/decisions.md</code></p>
+<h1>Decisions log</h1>
+<h2>2026-10-22 — LiPo replaces the coin cell</h2>
+<ul>
+<li><strong>Cell: LiPol LPR302823 (round Ø28 D-cut, 140 mAh, ~3.0–3.2 mm).</strong> User choice
+  from a survey of cells that fit Ø30.5 with ~1 mm margin, PCM included.
+  Alternatives considered:</li>
+<li>LPR432421: Ø24, 155 mAh, but 4.3 mm thick and no datasheet found.</li>
+<li>LP401523: 15×23, 100 mAh, 4.0 mm, 100 mA discharge cap.</li>
+<li>LP402020 / LP502020: 20×21. Easiest to buy, but the 29.0 mm diagonal
+    reaches 30.4 mm at tolerance.</li>
+<li>Ø30 round family (LPR363027 225 mAh etc.): Ø30 ±1 has no margin on a
+    Ø30.5 board.</li>
+<li>Adafruit #1317 / #1570 and 20×25 cells: &gt;32 mm diagonal, don't fit.</li>
+<li>LCSC stocks no LiPo cells (category 57 holds two MEAN WELL packs).</li>
+<li><strong>Connection: two solder pads, no connector.</strong> User choice. A JST-SH socket
+  is ~3 mm tall and ~4×6 mm of back-side area, for a swap convenience nobody
+  needs on an earring.</li>
+<li><strong>Repo: replace on main</strong>, not a variant branch. User choice. The coin-cell
+  rev 2 stays in git history at <code>4538da2</code>.</li>
+<li><strong>Flat faces the tip.</strong> Geometry: flat chord 9 mm from centre, half-width
+  10.7 mm. The opposite orientation puts the round edge into J1 unless the cell
+  moves 1.5 mm down, and then the flat-end corners reach r ≈ 15 on a 15.25
+  board.</li>
+<li>
+<p><strong>Design to 3.2 mm thickness.</strong> The datasheet side-view dimension "28 ±0.5"
+  is a drawing error. The part name implies 3.0 and the vendor page says 3.2,
+  so take the worse one.</p>
+</li>
+<li>
+<p><strong>R8 22k → 18k (50 mA).</strong> User choice 2026-10-22 over keeping 41 mA.
+  LGS4056H gives I_CC as typical only (no min/max), so the headroom under the
+  cell's 70 mA limit is what covers it. See <code>parts/r8-rprog.md</code>.</p>
+</li>
+<li>
+<p><strong>Charge voltage stays 4.20 V; the LGS4056H-4.35 variant is rejected.</strong> The
+  cell's PCM overcharge trip can be as low as 4.305 V, below a 4.35 V CV
+  point. This gives up the HV cell's top ~10–15% of capacity, which goes
+  unused rather than being fought for.</p>
+</li>
+<li>
+<p><strong>C16/C17 stay 10 µF 10 V 0603 X5R</strong> (gate-1 m1 disputed). At 5 V bias they
+  give ~4–6 µF effective, against the LGS4056H's "10 µF effective". This is
+  unchanged from rev 1/rev 2, both charged correctly on the bench. The
+  LiPo's lower IR (&lt;200 mΩ vs ≤700 mΩ) damps the BAT node <em>less</em>, so watch
+  for CV-phase oscillation on the CHRG/DONE pins during bring-up. If it
+  shows, swap C17 to the 25 V 0805 already in parts.yaml.</p>
+</li>
+</ul>
+<h2>2026-10-22 — SW2 slide switch → momentary power button + CPU-held latch</h2>
+<ul>
+<li><strong>Why:</strong> SW2 (MSK12C02 slide, ~1.5 mm body per its 3D model; the
+  datasheet has no drawing) sits at r 9.4 from centre, inside any Ø28 cell.
+  A sweep against real copper found no cell angle or offset that clears both
+  SW2 and J1 (gate 4 M1). Putting SW2 under the cell would need ~2 mm tape
+  (5.2 mm stack). <strong>User decision:</strong> momentary side-push button on the tip
+  edge beside J1; press wakes the CPU, CPU latches power, long press turns
+  it off (power drops on release).</li>
+<li><strong>Circuit</strong> (keeps every rev-2 node downstream of <code>SW_ON</code> unchanged, so
+  D2 / R17 / R18 / R11 / R12 / C21 and the VBSENSE semantics carry over):</li>
+<li>Q4 CJ2101 P-FET: S = VBATT, D = SW_ON, G = LATCH_G. R24 100k
+    LATCH_G → VBATT keeps it off.</li>
+<li>Power button SW2: BTN_N ↔ GND. D4 (common cathode; BAV70W after the
+    gate-2 review, first drafted as BAT54CW) A2 = LATCH_G, K = BTN_N: a
+    press pulls LATCH_G to ~0.5 V → Q4 on → SW_ON = VBATT → D2 → PWR_EN →
+    LDO on.</li>
+<li>Q5 BSS138W: D = LATCH_G, S = GND, G = PWR_HOLD (GPIO20, pin 32), R25
+    100k pulldown. Firmware asserts it early in boot to hold Q4 on.</li>
+<li>Button sense: D4's A1 = BTN_SENSE (GPIO21, pin 33, internal
+    pull-up). Pressed → ~0.5–0.6 V (silicon VF) = low against VIL 0.8 V.
+    When the board is off, D4-A1 is reverse-biased (BTN_N sits at ~VBATT
+    through D4-A2 + R24), so nothing back-feeds the unpowered GPIO.</li>
+<li>Off-state: zero by construction (Q4 gate at VBATT, Q5 off). The
+    leakage that could false-trigger Q4 is D4-A1's reverse current through
+    R24. <strong>Revised after gate-2 review:</strong> the first draft used a BAT54CW
+    and its 2 µA @25 °C spec, but a Schottky's reverse current at 4 V is
+    ~20 µA by 85 °C (→ 2 V on LATCH_G: latch turns on by itself in a hot
+    car). D4 is now a BAV70W silicon pair (IR ≤ 25 nA @20 V/25 °C, ~1 µA
+    at 4 V/85 °C → 0.1 V) against a ~0.2 V budget (CJ2101 |V_GS(th)| min
+    0.45 V, less tempco and subthreshold). R24 stays 100k (42 µA while
+    running).</li>
+<li>C27 100n on BTN_N: ESD and debounce for the user-touched edge button
+    (gate-2 review m3).</li>
+<li><strong>Firmware must enable the watchdog</strong> (gate-2 review M2): otherwise a
+    hang with PWR_HOLD high can't be turned off and drains the cell to
+    the PCM cut. Any reset drops GPIO20, so a crash = power off on battery.</li>
+<li>USB still boots the LDO via R18 regardless of the latch (unchanged).
+    VBSENSE = 0 on a running board still means "USB-powered, latch off".</li>
+<li><strong>Firmware obligations (new):</strong> assert PWR_HOLD first thing in boot
+  (the user has to hold the button until then); ignore the power-on press
+  until it's released; long press → drop PWR_HOLD (power falls on
+  release); auto-off for low battery (above the PCM's 2.75 V and LDO
+  dropout). On a rev-2 coin board GPIO20/21 are unconnected, so this is
+  harmless there.</li>
+<li><strong>GPIOs:</strong> GPIO20/21 = pins 32/33, the unused west-column run (31 =
+  CHRG). The BT1 centre pad's removal opens the back interior for their
+  escape.</li>
+</ul>
+<h2>2026-10-24 — power-button simulation (ngspice) and the one-button BOOTSEL proposal</h2>
+<ul>
+<li><strong>Testbench:</strong> <code>design/sim/button/</code>. The netlist is generated from
+  <code>circuit.py</code>, the models are datasheet-fitted with limits swept as
+  typ/cold/hot corners, and the RP2350 is behavioral. ngspice comes from conda
+  (<code>mamba create -n spice -c conda-forge ngspice</code>; there is no system
+  package and no sudo).</li>
+<li><strong>Found a defect in the committed design (afabd86): it self-starts when
+  hot.</strong> The board turns on at about 70 °C with nobody touching it. The
+  reverse leakage of D2b (BAT54) and D3 (B5819WS) reaches EN. See
+  <code>design/sim/button/README.md</code>. <strong>Not fixed yet</strong>: the D3 fix trades USB
+  headroom or footprint, so the user chooses.</li>
+<li><strong>Rejected: a VBUS-gated strap ("hold the button while plugging in").</strong> With
+  a charged cell, the press powers the board up from battery before USB
+  arrives, so the bootrom has already sampled QSPI_SS.</li>
+<li><strong>Rejected: RUN double-tap (OTP BOOT_FLAGS1.DOUBLE_TAP).</strong> It needs a
+  button on RUN, which would reset the board on every UI press.</li>
+<li><strong>Rejected: firmware-only BOOTSEL</strong> as the <em>only</em> path. It costs zero parts,
+  and arduino-pico's 1200-baud touch already covers day-to-day uploads. But
+  firmware that dies early would then need SWD, and the SWD pads are under the
+  cell. It stays as a convenience on top of the hardware path.</li>
+<li><strong>Proposed (not adopted): a hold timer → RUN pulse + QSPI_SS strap</strong>
+  (<code>one_button()</code> in run.py).</li>
+<li>Why the P-FET inverter (Q8): D4's diode-OR low is about 0.45 V, too close
+    to the LVC2G14's VT− min of 0.6 V.</li>
+<li>Why R27 = 10k: firmware that leaves GPIO21's pull-up on must not walk the
+    timer.</li>
+<li>Why 10 s: the Schmitt VT+ spread (1.3–2.2 V), the X7R tolerance and the
+    input leakage together give a ~4× spread. Across corners it fires at
+    2.1–8.5 s.</li>
+<li>Why R28 is 560k and not 1.2M: independent review M1. U8's input leakage
+    has to stay small next to the charge current.</li>
+<li>Waiting on user sign-off. Adopting it reopens gates 2 and 6.</li>
+<li><em>(Superseded 2026-10-24: adopted with R27 4.7k, R28 680k, C76/R29
+    10n/1M, and Q4 → LBSS84WT1G; see the entries below.)</em></li>
+</ul>
+<h2>2026-10-24 — adopted: one-button BOOTSEL, silicon D2/D3, button TVS (user decision)</h2>
+<p>The user asked "is accidental BOOTSEL temporary or does it erase firmware?" and
+was told it is temporary: the bootrom only exposes the drive/PICOBOOT, and
+flash changes only if someone writes a UF2. Their decision: <strong>one-button,
+silicon D3, BAV99W, TVS</strong>.</p>
+<ul>
+<li><strong>SW1 deleted; long hold on SW2 = BOOTSEL / force-off.</strong> The <code>one_button()</code>
+  proposal went into circuit.py as simulated, with these changes:</li>
+<li><strong>R28 560k → 680k.</strong> C75 is now the BOM's existing CL10A106KP8NNNC (X5R,
+    basic part). Its corner stacks tolerance, X5R temperature and DC bias
+    (0.70 hot, 1.10 cold). With 560k, the hot minimum fell under 2 s once
+    the bias loss was counted. Window: <strong>2.2–10.3 s, 5 s typical</strong> (2.0–19.4 s at U8's II limit, review F3). The user
+    accepted the early end, knowing an accidental trigger only costs a reboot
+    (on battery: off on release) or, with USB in, a dark board until unplug.</li>
+<li><strong>C77 added</strong> (100n U8 decap).</li>
+<li><strong>D2 → BAV99W</strong> (Nexperia, C8662). Same SOT-323 series-pair pinout as
+  BAT54SW, so the footprint and netlist don't change. The EN clamp loosens
+  to VBATT + 0.6 V. That is still legal, because EN is only ever driven to
+  VBATT − 0.6 or VBUS/2.</li>
+<li><strong>D3 → 1N4007WS</strong> (MDD, C193404, SOD-323: the same land, pad 1 = cathode).
+  Rejected alternatives:</li>
+<li>A higher-barrier Schottky: no datasheet in hand showing the leakage we'd
+    need.</li>
+<li>A P-FET ideal diode: more parts and no room.</li>
+<li>R17 → 22k: simulated, not a fix (EN 1.11 V at 85 °C).</li>
+</ul>
+<p>The cost is VSYS ≈ VBUS − 0.8 V. That is accepted on the grounds that the
+  ring's 3.7 V floor is only violated on a ≤ 4.5 V port, and only when the
+  LEDs are on.
+- <strong>Button ESD: D6 PESD5V0S1BL at the pad, plus R30 1k.</strong> The user approved
+  the TVS. R30 was added because a TVS alone does not help the negative
+  strike: D4 + Q5's body diode (about 1.4 V) conduct before a 5.5 V-VBR
+  TVS does. R30 makes the TVS the only low-impedance path. Simulated:
+  ≤ 22 mA reaches BTN_N, and the strike no longer counts as a press.
+- <strong>D4 BAV70W: Diodes (C93029, 100 left) → Nexperia BAV70W,115 (C28064,
+  17k).</strong> The pinout is the same (Table 2).
+- <strong>74LVC2G14: Nexperia GW (C6085, 2.8k stock)</strong> rather than TI. Same
+  thresholds, but II is ±1 µA where TI's is ±5 µA, and that matters for a
+  µA-level timer.
+- <strong>Placement:</strong> see <code>scripts/place.py</code> ONEBTN. Q6/R29 went to the FRONT,
+  into SW1's old spot. After Q7 took the spot under R3, no back spot near
+  RUN would hold a SOT-323. A centre keepout around U1 keeps the back under
+  the MCU free for escape vias.
+- <strong>Firmware has to change with this board:</strong> GPIO21 is active high with no
+  pull-up, and the long-press-off must be under 2 s.</p>
+<h2>2026-10-24 — adoption review fixes; Q4 → LBSS84WT1G (user decision)</h2>
+<ul>
+<li><strong>F2:</strong> the latch's hot off-state margin depended on an unspecified CJ2101
+  tempco. With R24 100k and the CJ2101's 0.45 V minimum threshold, EN reached
+  0.67 V at 85 °C if the threshold falls 3 mV/°C. Options offered:</li>
+<li>Q4 → a high-threshold P-FET;</li>
+<li>R24 → 22k (+140 µA while on);</li>
+<li>both;</li>
+<li>accept as is.</li>
+</ul>
+<p><strong>The user chose Q4 → high-Vth P-FET</strong>: LRC LBSS84WT1G, C383208,
+  0.8–2.0 V. Q4 passes only ~30 µA, so its higher RDS(on) costs nothing.
+  Q2 and Q8 stay CJ2101 (they need low RDS(on) or don't matter when off).
+- <strong>F4:</strong> R27 10k → 4.7k.
+- <strong>F5:</strong> C76/R29 100n/100k → 10n/1M.
+- <strong>F1:</strong> Q6/R29 moved off the silk art.
+- <strong>F7:</strong> D6 moved to C27's spot and C27 moved behind R30. The locked D6-first
+  pre-route is left to the user's autorouter as a constraint.
+- <strong>F6</strong> (silicon D3 on weak ports, DONE may not assert): accepted. It is
+  on the bring-up list.</p>
+<h2>2026-10-24 — LED ring → WS2816C-1313/4P in three zones (user decision)</h2>
+<ul>
+<li><strong>Part:</strong> Worldsemi WS2816C-1313/4P (C42417612, 67k stock).</li>
+<li>Why: 16-bit per channel plus 4-bit gamma, so the earring's low brightness
+    has fine steps; the user's motivation, with the bigger 140 mAh cell.</li>
+<li>VDD floor is 3.3 V (SK6805: 3.7 V).</li>
+<li>Costs:<ul>
+<li>idle current 0.7 typ / 1.0 max mA per LED (SK6805: 0.3);</li>
+<li>operating temperature only −40…+65 °C;</li>
+<li>MSL 5a;</li>
+<li>0.65 mm tall;</li>
+<li>2× frame time and a 280 µs reset (firmware).</li>
+</ul>
+</li>
+<li>VIH is 0.7·VDD. I first quoted 0.55 from the A-variant survey, which was
+    wrong, so the level shifters stay.</li>
+<li>Footprint: the EasyEDA land (0.50 pads at ±0.40), checked against the
+    datasheet drawing. The pin order is the SK6805's rotated 90°, so the
+    diamond ring and the k-loop carry over.</li>
+<li>Fit check: 1.6 mm courtyards clear each other at the tightest LED
+    spacing (2.33 mm). Only LED44 forced moves: D3 0.25 mm, C29 0.5 mm. The
+    relaxer moved C18 0.15 mm and C26 0.36 mm.</li>
+<li><strong>Three zones (user chose 3 of 1/2/3/5):</strong></li>
+<li>left LED1–18;</li>
+<li>right LED19–37, chained in REVERSE so data enters at the chevron
+    (LED37), beside the left zone's entry;</li>
+<li>centre LED38–45.</li>
+<li><strong>Each zone is its own chain + switch + shifter:</strong></li>
+<li>U4/U9/U10 TPS22913, with R10/R33/R34 pull-downs and C20/C78/C79.</li>
+<li>Q3/Q9/Q10 + R23/R31/R32. Each pull-up goes to its own zone rail, so a
+    dark zone's first DI is never driven above an unpowered VDD.</li>
+<li>Rejected: per-zone power on one shared chain. A dark LED breaks the
+    chain, and the still-driven DI back-feeds it through its clamp.</li>
+<li><strong>GPIOs:</strong></li>
+<li>Data: GPIO16/17/18 (pins 27–29, adjacent, so one PIO program can clock
+    all three chains in parallel).</li>
+<li>Enables: GPIO1 (L, existing), GPIO0 (R, pin 2), GPIO22 (C, pin 34).</li>
+<li><strong>In2:</strong></li>
+<li>VLED_C is an inner band (r 9.35–10.75) for the octagon.</li>
+<li>VLED_L / VLED_R split the outer band (r &gt; 11.05) along the line between
+    the zone boundaries.</li>
+<li>The 3V3 disc is unchanged.</li>
+<li><strong>route.py:</strong> the SK6805-specific freerouting workarounds (C30 via-in-pad,
+  LED1-3/LED32-34 VLED vias, C32→C30 link, LED_D3 fragment) are removed.
+  The board is routed by the user's own GPU autorouter. <code>build.py route</code>
+  (freerouting) is no longer the plan.</li>
+<li><strong>Locking (user request):</strong></li>
+<li>The LEDs, J1 and SW2.</li>
+<li>Also BT1 (cell envelope).</li>
+<li>Also every part that locked copper or a fixed pour lands on: U1, U2, U5,
+    R14, and the reference VREG cluster L1/C11/C12/C13/R13/C22.</li>
+<li>Everything else may be nudged by the router.</li>
+<li><strong>Firmware obligations:</strong></li>
+<li>Three chains, 48-bit GRB, MSB first, reset ≥ 280 µs.</li>
+<li>Invert GPIO16/17/18 at the pad (each zone has a Q-inverter).</li>
+<li>Enable a zone's switch and wait for its rail and the LED's POR (≥ 50 ms
+    precedent, charge-indicator memory) before sending data.</li>
+<li>A dark zone's data line is harmless either way: its pull-up is dead.</li>
+</ul>
+<h2>2026-10-25 — 19 parts moved from the front to the back (room around U1)</h2>
+<p>User request: "free up some space around the CPU and put more components on
+the back while staying under the foam height."</p>
+<ul>
+<li><strong>Height limit:</strong> the under-cell cap stays at 1.1 mm (brief §11; VHB 4956
+  1.5 mm tape). Everything moved is at or under it, using datasheet maximums:</li>
+<li>U2 LGS4056HDA DFN8 0.8 ("0.8 MAX");</li>
+<li>U3 NCP730 WDFN6 0.80 (A 0.70–0.80);</li>
+<li>U7 W25Q16JVUXIQ 0.6 (Winbond §10.1 "USON 2x3x0.6"; datasheet now in
+    design/datasheets/W25Q16JV.pdf);</li>
+<li>U4 TPS22913 0.625;</li>
+<li>0603 CL10A106KP8NNNC 0.9;</li>
+<li>D3 SOD-323 1.10, at the cap.
+  <code>gen_lipo_fit_svg.py</code> treated an unknown height as 0 mm. It now refuses to
+  run when a part under the cell has no HEIGHT entry.</li>
+<li><strong>Moved:</strong></li>
+<li>flash U7 + C25 + R3;</li>
+<li>charger U2 + C16 + C17 + R8;</li>
+<li>LDO U3 + C18 + C19;</li>
+<li>D3, C29, R21, R22, R19, R20;</li>
+<li>LED_L switch U4 + C20, plus R10 (already on the back, moved from the
+    tip to U4).
+  Spots and reasons are in place.py <code>BACK</code>.</li>
+<li><strong>Kept on the front:</strong></li>
+<li>decaps C1–C9 and C13;</li>
+<li>the reference VREG cluster (locked);</li>
+<li>crystal Y1 + C14/C15/R1, to keep the oscillator loop on one layer;</li>
+<li>Q1/R16/C26, since the light sensor must face out;</li>
+<li>the inner-ring caps;</li>
+<li>Q3/R23. The back top-left has no SC-70 spot anywhere near the
+    LED_DATA_L → LED1 line (best legal spot was 21 mm of total reach).</li>
+<li><strong>Placement choices:</strong></li>
+<li>U7 sits just south of the QSPI pin row. At rot 180 its near row
+    carries SCLK/SD0/SD3 (a via and ~3 mm each). SD1/SD2//CS are on the
+    far row and wrap round the body (~6 mm). That holds for either
+    row-facing rotation, and keeping SCLK on the near side is the better
+    half. <em>(Corrected after review: the first draft said every QSPI net
+    was under 4 mm.)</em></li>
+<li>R3 sits at U7's /CS pin. QSPI_SS is the fast side and keeps a short
+    stub; BOOTSEL_SW (slow, behind 1k) carries the distance to Q7.</li>
+<li>U4 moved west, by the VLED_L outer-band half it feeds. Its LED_EN_L is
+    a slow GPIO that crosses from pin 3. The alternative, east beside U9,
+    would have run the zone's supply ~12 mm west instead.</li>
+<li>U3's EN faces R17/D2.</li>
+<li>The charger, D3, R22 and the R19/R20 tap sit on one short VBUS run
+    by C16.</li>
+<li>R19/R20 keep their pads out of U1's back keepout. The first spot put
+    R20 under U1's SE corner, where pins 1–3 escape (review). C18 sits on
+    U3's VSYS pin, between U3.6 and U4.A2 (review: it had been 2.5 mm away
+    with EN/NC between).</li>
+<li>The back keepout under U1 (about ±5.6 × −6…5) is kept clear for the
+    chip's escape vias.</li>
+<li><strong>route.py:</strong> these freerouting assists were removed because they were
+  measured off the old front spots:</li>
+<li>CHRG / CHRG_DONE escape vias and U2's locked landing loop;</li>
+<li>U3's scanned 3V3 via (and the now-unused via-spot helpers);</li>
+<li>the five QSPI straggler vias;</li>
+<li>the LED_EN_L channel via.
+  U2 is no longer locked, because nothing locked lands on it any more.</li>
+<li><strong>Thermal note:</strong> the charger now sits under the cell. Dissipation is
+  (VBUS − VBAT) × 50 mA ≈ 65 mW typical and 110 mW worst (5.25 V port, 3.0 V
+  cell). Plus D3: on USB, all VSYS current (MCU plus every lit LED) goes
+  through it, so about 0.85 V × 0.14 A ≈ 0.12 W at the brief's ceiling,
+  4.5 mm from U2. The charger's own thermal regulation protects the
+  charger, not the pouch. Firmware should cap brightness while charging,
+  and D3 / U2's EP get thermal vias to In1 GND. On a 30 mm board, the
+  rise is set by the whole board's ~70 K/W to air, not by which side the
+  part is on. Bring-up check: cell-surface temperature while charging, with
+  the LEDs lit (the LiPo's charge limit is 45 °C).</li>
+<li><strong>Result:</strong></li>
+<li>front parts within r &lt; 10: 40 → 26;</li>
+<li>front courtyard area within r &lt; 10: 107 → 57 mm²;</li>
+<li>DRC 0 errors, 274 unconnected (unrouted);</li>
+<li>no new silk-to-silk overlaps;</li>
+<li>cell fit: no clash.</li>
+</ul>
+<h2>2026-10-26 — First full route by ultraroute (seed 3 of 6)</h2>
+<ul>
+<li>Routed the bb22fb7 placement with ultraroute's locked-copper recipe at its
+  working-tree build of 2026-10-26 11:51 (commit a73afa0 plus the uncommitted
+  cleanup change). Recipe: <code>--negotiate --rip-up --nudge --tighten --strip
+  --prefanout --shove-plough rip --shove-repair 20 --shove-ties
+  --shove-passes 60 --shove-patience 8</code>, 240 s, 2 threads. Seeds 0–5 left
+  2/1/1/0/0/1 open. Lab experiment <code>earring-reroute-21</code>.</li>
+<li>Kept seed 3: 321 vias, 1354 mm of track. It adds no DRC warning beyond the
+  placed board's, and its only placement change is R16 moving 0.5 mm north
+  (now in place.py). Seed 4 was shorter (316 vias, 1287 mm) but put C26's silk
+  over the art.</li>
+<li>The rp2350_power group the router job adds was stripped, so the board
+  matches what the pipeline makes.</li>
+<li>Project DRC: 0 errors, 0 unconnected, schematic parity 0. 74 warnings, all
+  of them silk, library or the locked pre-route vias' dangling flags.</li>
+<li>Open (gate 7 not passed): the USB pair is split. DM goes about 60 mm round
+  the east side on In2, and DP about 34 mm round the west side across In1 and
+  In2 with 8 vias. 324 mm of signal runs on In1, the GND reference plane. Next
+  step is a locked USB pre-route, or diff-pair support in the router.</li>
+</ul>
+<h2>2026-10-27 — Re-routed with In1 kept as a plane (lab earring-planes-in1, P-s1)</h2>
+<ul>
+<li>This supersedes the 2026-10-26 seed-3 route, which was never committed.</li>
+<li>First pick was lab <code>general-57</code> run <code>L-s0</code>:</li>
+<li>The router was the working-tree build at 5a8428d, with diff pairs and
+    power nets that don't neck below their pad's width.</li>
+<li>The job was <code>earring-kicad-locked</code>: bb22fb7 with its locked copper kept.</li>
+<li>It has the fewest vias of that build's 0-open runs.</li>
+<li>negotiate2-reg4 ear-s1 was shorter, but it necks VSYS to 0.127 mm for
+    2.9 mm.</li>
+<li>But L-s0 still ran 297 mm of signal on In1, the GND plane, including
+    the USB pair.</li>
+<li>easy_pcb's routing flow reserves plane layers with <code>--planes</code>, and the
+  earring had never been routed that way. Re-ran L-s0's recipe with
+  <code>--planes In1.Cu</code>, seeds 0-2.</li>
+<li>The router was the same binary, built 01:03.</li>
+<li>Recipe: <code>--negotiate --rip-up --nudge --tighten --prefanout --diff-pairs
+    --shove-plough region --shove-reach 0.5 --shove-repair 20 --shove-ties
+    --shove-passes 60 --shove-patience 8 --strip --planes In1.Cu --threads 1
+    --timeout 240</code>.</li>
+<li>Seeds 1 and 2 reached 0 open; seed 0 left VBSENSE open.</li>
+<li>Kept seed 1 (<code>P-s1</code>):</li>
+<li>In1 carries no signal; the GND plane fills as one piece of 690 mm²
+    (L-s0: 3 pieces, 582 mm²).</li>
+<li>USB_DM is 25.1 mm and USB_DP 24.8 mm, 0.3 mm apart, mostly on In2 next
+    to that plane. The 10-26 route had 61.5 and 34.1 mm.</li>
+<li>VSYS's narrowest track is 0.23 mm, for 0.1 mm.</li>
+<li>415 vias in all.</li>
+<li>Nudge moved no parts, so R16 stays at bb22fb7's (4.5, 7.6), and the
+  place.py edit from the seed-3 route was dropped.</li>
+<li>The rp2350_power group was stripped and the zones refilled.</li>
+<li>Project DRC: 0 errors, 0 unconnected.</li>
+<li>77 warnings: silk, library, and 10 dangling items. All 8 dangling vias
+    are locked pre-route vias.</li>
+<li>Schematic parity: no net differences. The 28 parity items are no-connect
+    pins and the BOM-exclude flags on BT1/TP1-3, the same 28 as before.</li>
+<li>Button sim (design/sim/button): 54/54 PASS. It builds from circuit.py and
+  is independent of the layout.</li>
+<li>Open for review: In2's power pours are cut up more.</li>
+<li>VLED_R fills 63 mm² (L-s0: 178); VLED_C is in 9 pieces and 3V3 in 8.</li>
+<li>Every pad still connects, but the VLED nets run on 0.15 mm tracks. If
+    the ring's full-white current matters, the VLED net class needs a wider
+    track.</li>
+</ul>
+<h2>2026-10-27 (later) — Freerouting assist vias removed; re-routed (lab earring-noassist, N-s3)</h2>
+<ul>
+<li>ultraroute reported 8 locked vias standing free in the router input.
+  The user's call was to fix it on the earring side.</li>
+<li>They were freerouting-era assists in route.py: the USB_DM/DP and
+    IMU_SDA straggler vias, plus the IMU_SDA/SCL/INT1, SWDIO and SWCLK
+    channel vias.</li>
+<li>Their tracks were never locked, so <code>--strip</code> left them floating, and
+    the router doesn't join free-standing copper.</li>
+<li>All 8 are removed from route.py.</li>
+<li>The same pass fixed three more locked items in route.py:</li>
+<li>USB_C_DP's B.Cu "rise through B6" ran 0.47 mm past the pad and
+    dangled; dropped.</li>
+<li>The VBUS F.Cu trunk's last segment ended at (2.35, -13.45), the old
+    spot of the tie via moved on Aug 7. It now ends on the via at
+    (2.20, -12.99).</li>
+<li>R14's 3V3 via-in-pad into an In3 pour now goes in only on 6+ layers.
+    On 4 layers there is no In3, and the via dangled.</li>
+<li>The regenerated pre-route board (<code>route.py --no-freeroute</code>) differs from
+  the bb22fb7 router input by exactly those 11 items. Pre-route DRC: 0
+  errors.</li>
+<li>Routed with the P-s1 recipe (<code>--planes In1.Cu</code>, 1 thread, 240 s) on the
+  ultraroute target-dev build of 02:10 (802cb3a), seeds 0-3.</li>
+<li>Seeds 0-2 left 2/1/1 open (LIGHT+VSYS / VBUS_SENSE / QSPI_SD2).</li>
+<li>Kept seed 3 (<code>N-s3</code>).</li>
+<li>N-s3:</li>
+<li>USB_DM and USB_DP are both 21.3 mm, with 4 and 2 vias.</li>
+<li>In1 carries no signal; the GND plane fills as 1 piece of 694 mm².</li>
+<li>In2 pours: VLED_R is 1 piece of 78 mm² (P-s1: 3 pieces, 63 mm²);
+    VLED_C is 6 pieces of 32 mm²; VLED_L 3 pieces of 114 mm²; 3V3 5
+    pieces of 96 mm².</li>
+<li>VSYS's narrowest track is 0.23 mm, for 2.6 mm. 411 vias in all.</li>
+<li>No part moved.</li>
+<li>One 0.127 mm 3V3 router stub on B.Cu at (108.3, 90.3) was deleted.</li>
+<li>Project DRC: 0 errors, 0 unconnected, 0 dangling. The 67 warnings are
+  silk and library only.</li>
+<li>Schematic parity: no net differences (the same benign 28).</li>
+<li>The button sim is unaffected (circuit.py unchanged; 54/54 earlier
+    today).</li>
+<li>Gotcha: <code>pcbnew.LoadBoard(lab file).Save(out/...)</code> rewrote
+  out/earring.kicad_pro without its rules. DRC then showed about 1100
+  rule errors (via diameter, drill). Restore it with
+  <code>git checkout out/earring.kicad_pro</code> after installing a board.</li>
+</ul>
+<h2>2026-10-27 (later still) — Pour-aware route (lab pours-1, w3-s1)</h2>
+<ul>
+<li>ultraroute a5e5a0e added <code>--pour-cost W</code>. Crossing another net's pour
+  on a non-plane layer costs W times the length inside it.</li>
+<li>The earring-kicad-locked job now uses <code>--planes In1.Cu --pour-cost 3</code>.</li>
+<li>Its input is the refreshed pre-route board, without the assist vias.</li>
+<li>Installed lab <code>pours-1</code> run <code>w3-s1</code>: the earlier recipe plus <code>--planes
+  In1.Cu --pour-cost 3 --seed 1</code>, ultraroute a190e63 working tree.</li>
+<li>All 9 pours-1 runs routed; w3-s1 is the cost-3 seed with nothing
+    dangling.</li>
+<li>Compared with N-s3 (no pour cost):</li>
+<li>In2 pours total 426 mm², up from 320.</li>
+<li>VLED_C is 2 pieces of 56 mm² (was 6 pieces of 32); VLED_R is 154 mm²
+    (was 78); VLED_L is 116 mm²; 3V3 is 100 mm² in 9 pieces.</li>
+<li>The cost: 495 vias (was 411), and the GND plane is 666 mm² (was 693),
+    still one piece.</li>
+<li>USB_DM is 23.8 mm and USB_DP 24.2 mm (was 21.3 each).</li>
+<li>VSYS's narrowest track is 0.23 mm, for 2.7 mm. No part moved.</li>
+<li>Project DRC: 0 errors, 0 unconnected, 0 dangling. The 67 warnings are
+  silk and library. Schematic parity: no net differences.</li>
+<li>The button sim is unaffected (circuit.py unchanged).</li>
+</ul>
+<h2>2026-10-27 (evening) — VLED tracks widened to 0.3 mm; re-routed (lab vled-width-1, s0)</h2>
+<ul>
+<li>The VLED_L/C/R nets were on the default 0.15 mm class. The In2 pours are
+  cut into pieces joined by tracks, so ring current runs on tracks too.
+  The largest zone, VLED_R, feeds 19 LEDs.</li>
+<li>New <code>vled</code> net class, 0.3 mm, pattern <code>VLED_*</code>.</li>
+<li>It is in <code>out/earring.kicad_pro</code> and <code>scripts/gen_board.py</code>.</li>
+<li><code>out/earring.kicad_dru</code> sets a 0.2 mm minimum for the class, so the
+    router narrows these tracks no further than that at the 0.5 mm LED pads.</li>
+<li>Routed seeds 0-3 with the pour-aware recipe (<code>--planes In1.Cu
+  --pour-cost 3</code>) on ultraroute 8c691ec. Seeds 0 and 3 routed completely;
+  seeds 1 and 2 left 3 and 2 nets open. Installed s0.</li>
+<li>Two locked 3V3 access vias from route.py, (-5.85,-1.60) and
+  (-4.25,-7.55), went unused on F/B: s0 reached the In2 disc without them.
+  They touched copper on one layer only, so they were removed from the
+  installed board. route.py still places them.</li>
+<li>Compared with w3-s1:</li>
+<li>VLED tracks are 196 mm at 0.3 mm, plus 3.5 mm necked to 0.23 mm.</li>
+<li>In2 LED supply pours total 335 mm² (was 326): VLED_C 55 in 4 pieces,
+    VLED_L 132, VLED_R 148. 3V3 is 106 mm².</li>
+<li>GND plane: one piece, 670 mm². Vias: 479 (was 495).</li>
+<li>USB_DM 24.6 mm, USB_DP 24.5 mm. No part moved.</li>
+<li>Project DRC: 0 errors, 0 unconnected, 0 dangling; 67 silk and library
+  warnings. Schematic parity: the 28 known items only (unused pins, BOM
+  flags on BT1/TP1-3).</li>
+</ul>
+<h2>2026-11-01 — gate 7 fixes: VBATT power class, joint-width DRC, crystal on F.Cu, ultraroute 0b9016f</h2>
+<ul>
+<li><strong>VBATT joins the <code>power</code> class</strong> (0.4 mm), alongside VBUS and VSYS, in
+  <code>hw/earring/a/earring.kicad_pro</code> and <code>scripts/gen_board.py</code>. At the 0.15 mm
+  default it ran 54.6 mm round the edge for about 0.29 Ω, and carries all the
+  cell current (gate 7, M3).</li>
+<li><strong>Power class floor 0.2 mm</strong> (<code>earring.kicad_dru</code>, LESSONS: a class width is
+  only the router's target). IPC-2221, 0.5 oz inner, ΔT 10 °C: 0.2 mm carries
+  0.23 A, above the cell's 140 mA continuous limit. There's no <code>nets.csv</code> yet
+  (phase 3), so the current comes from <code>intent.md</code>. VBUS/VSYS at full white
+  on USB (~0.62 A, gate 7 m3) needs the 0.4 mm class width, not the floor; a
+  short 0.2 mm neck is acceptable there. route.py's VBUS-trunk thin fallback
+  went from 0.15 to 0.2 mm to meet the floor.</li>
+<li><strong><code>connection_width (min 0.09mm)</code></strong> on every net (JLC minimum trace). Default
+  DRC passed the 0.05 mm overlap-only joints ultraroute left on VBATT and CHRG
+  (gate 7, B1/B2/M1). DRC now fails them.</li>
+<li><strong>XIN, XOUT and XTAL_R pre-routed and locked on F.Cu</strong> in route.py (skill
+  routing.md 4a; gate 7 M2). XIN runs down the gap between Y1's pad columns
+  rather than round pad 4's east edge as the reviewer suggested: C14.2 (GND)
+  sits 0.33 mm below pad 4, too tight for a 0.15 mm track at 0.127 mm
+  clearance. Pre-route DRC: no violations.</li>
+<li><strong>In4.Cu rule area dropped</strong> from route.py (gate 7 N1; this board has no In4).
+  The two In1 slots under L1 and VREG_LX stay: RP2350 datasheet §6.3.8.</li>
+<li><strong>ultraroute pin 0330831 → 0b9016f</strong>, ultraroute's fix for the overlap-only
+  joints, made at our request (<code>design/ultraroute-requests.md</code> #1). The
+  ultraroute session reported 631 → 0 narrow track-to-track joints on the
+  vled-width-1 s0 input, and 54 → 3 <code>connection_width</code> flags.</li>
+</ul>
+<h2>2026-11-01 (evening) — ultraroute 5064384; pour refill at 0.2 mm minimum width</h2>
+<ul>
+<li><strong>Pin 0b9016f → 5064384</strong>, ultraroute's fix for track-to-pad joints (our request #2: U6.5,
+  U6.2, U8.5 on 3V3). The re-route has no router joint under 0.09 mm.</li>
+<li><strong>The final pour fill uses a 0.2 mm minimum width on the large planes</strong> (gnd_front/back,
+  gnd_plane, vled_*, p3v3_disc). At 0.15 mm, KiCad's fill left two <code>connection_width</code> errors:
+  gnd_back 0.056 and vled_r 0.074. 0.25 mm made new ones, so this is fill-algorithm behaviour,
+  not real thin copper (shapely erosion of the fill found no neck). Only the post-route
+  refill changes: routed over 0.2 mm fills, ultraroute produced a different route with 13
+  same-net via-pair necks. The VREG pours keep 0.15 mm for their 0.3 mm LX finger. VLED_R's
+  fill drops 170 → 155 mm², with every pad still connected.</li>
+<li><strong>Left alone:</strong> the unused locked 3V3 via at (6.2,2.6) (one DRC via_dangling warning).
+  Removing it changes the router's input. It goes the next time the route changes for another
+  reason.</li>
+</ul>
+<h2>2026-11-02 — no via holes in SMD pads</h2>
+<ul>
+<li><strong>New <code>.kicad_dru</code> rule:</strong> via holes stay 0.1 mm clear of every SMD pad
+  (<code>physical_hole_clearance</code>). A via's land may still touch the pad. Gate 7 re-review MAJOR-1:
+  124 holes sat in SMD pads, open in the pads' mask apertures (vias tented, 0 expansion), so
+  they wick solder. The user chose the rule and a re-route over JLC filled-and-capped vias.</li>
+<li><strong>route.py's four locked via-in-pads moved off their pads</strong> with short B.Cu stubs:</li>
+<li>the USB_C_DN joins at J1.A7/B7, to 0.2 mm past the pad ends;</li>
+<li>the VBUS tie A4B9 via, to (-2.35,-13.20);</li>
+<li>U5.5's VBUS via, to (1.45,-10.25), between U5.6 and C28.1, with an F.Cu spur from the trunk.
+    East of the pad, C28.2 (GND) left no room.
+  Pre-route DRC is clean with the rule.</li>
+<li>Re-route: 0 via holes touch SMD pads, 0 unconnected, 392 vias. The router follows the rule.</li>
+</ul>
+<h2>2026-11-02 — route.py seeds KiCad's UUIDs</h2>
+<p>route.py's output changed from run to run. Nothing was random in our script: each new pour
+and track gets a random KiCad UUID, and KiCad saves the board sorted by UUID, so the order of
+pours and tracks in the file changed on every run. The router therefore saw a different input
+each time, and "seed 0" did not make the route repeatable. route.py now calls
+<code>pcbnew.KIID.SeedGenerator(0)</code> right after it loads and wipes the board. It has to come after
+the load, because loading also draws from the generator. Three <code>--no-autoroute</code> runs, starting
+from both the routed and the pre-routed board, now give byte-identical files. Found while
+ultraroute bisected request #4.</p>
+<h2>2026-11-02 — ultraroute 99bb7ca, seed 1, 480 s timeout</h2>
+<ul>
+<li>Pinned 99bb7ca. With 4ed8d5d, hole clearance is checked exactly (5064384 passed 1–2 vias
+  0.5 µm short on every seed). That changes how negotiation plays out, and seed 0 now leaves 3
+  connections open.</li>
+<li>Ultraroute swept seeds 0–3 on our seeded input. Seed 1: 0 unconnected, 0 errors.
+  Seed 2: our sliver. Seed 3: the sliver and a GND via pair. The recipe takes seed 1.</li>
+<li>The seed is a tuning knob, not a fix. If an input change breaks seed 1, sweep again rather
+  than accept unconnected.</li>
+<li>Timeout raised to 480 s, because seed 1 needs ~205–240 s and 240 s left no headroom.</li>
+<li>Result: DRC 1 error (the gnd_front fill sliver, gate 7 MINOR-2), 0 unconnected.</li>
+</ul>
+<h2>2026-11-02 — no-pour area between CC1's R4.1 and the VBUS A4B9 via</h2>
+<p>The DRC's last error was a 0.077 mm strip of gnd_front at (97.74,86.39). The two clearances
+left that much pour between R4.1 (CC1) and route.py's locked VBUS via. KiCad reported it at the
+zone's origin (112.46,91.73), which sent two days of notes to the wrong place.
+<code>tools/route_audit/pinch.py</code> finds the real spot. Fix: an F.Cu no-pour rule area
+(<code>nopour_cc1_vbus</code>), added after routing, so the route itself doesn't change. The alternative
+was logging the strip as an acceptable fill artefact; but a 0.077 mm strip of copper can lift.</p>
+<h2>2026-11-03: parts off the silk art; the name moves</h2>
+<p>The user asked for parts off their name (front) and off the repo URL (back).
+- D2, R17 and Q2 moved on the back, by <code>tools/scan_spot.py --art 0.15 --cy-margin 0.1</code>.
+- The URL letters were re-spaced by glyph width: the fixed advance ran letters into each other.
+- Q3 (LED data shifter) and R23 were tried in every spot clear of the name: the front west flank, and the back under U1. Each left U1's west or north signals unrouted on every seed tried, and the original spot sweeps clean. So, with the user's OK, Q3/R23 stay and the name moved to the open front area west of U1, at 60 deg like "Be Gay". The scan checked it against courtyards, pads and silk.
+- Side effect, accepted: VBATT BT1 → Q2 is now 107 mΩ over 49 mm (was 63 mΩ). That's 15 mV at 140 mA, inside the budget. A locked VBATT trunk would fix it if it matters later.</p>
+<h2>2026-11-03: VDD_CORE topology follows the official board</h2>
+<ul>
+<li>The switcher pour reaches the under-chip 1V1 square through a locked via, 0.6 mm B.Cu and a via (~10 mΩ), as on RPI-RP2350A-MINIMAL_R4-S1.</li>
+<li>C6 and C13 each get a locked via and B.Cu link to the square.</li>
+<li>C5 is turned to face pin 39 and the router joins them (1.4 mm, 0 vias). A locked link there blocked a fanout escape.</li>
+<li>Gate 7 MAJOR-A and MAJOR-B are resolved.</li>
+</ul>
+<h2>2026-11-03: route reproducibility</h2>
+<p>Ultraroute traced a non-reproducing seed to the board file's item order, which feeds its connection order. gen_board.py and place.py create items with random KiCad UUIDs, and KiCad saves sorted by UUID, so every board/place regeneration reshuffles the file. route.py already seeds UUIDs (eee01cd). Next: seed them in gen_board/place too, then re-sweep, optionally with ultraroute's <code>--cpu-clock</code> (main cd0a82a) to remove wall-clock load dependence. Until then the recipe's seed holds only for the committed board.</p>
+<h2>2026-11-05 — variant C: AW20198QNR driver and XL-1615 LEDs</h2>
+<p>The user asked to adopt round-pendant's low-density parallelogram driver and its larger LED for the matrix work. That
+became a new variant, C, so B (IS31FL3741A + XL-1010) stays as the user last saw it. <code>design/variant-c.md</code> has the
+comparison.
+- <strong>Datasheets re-read for both parts.</strong>
+  - The AW20198 pin map matches round-pendant's audit.
+  - Its land pattern does not: p.38 gives 0.50 mm pads, where round-pendant's footprint used 0.60 mm. So our footprint
+    is written from p.38.
+  - The XL-1615's anode is pad 2, not pad 3 as on the XL-1010. <code>circuit.py</code> now keys the pad map by LED part.
+- <strong>REXT 47 k (8.51 mA peak).</strong> That's within 5 % of B's current, and full white is 113 mA, so it stays under the cell's
+  140 mA even with a firmware bug. Rejected: 39 k (10.3 mA), which would help the weak red but breaks the cell budget.
+- <strong>R36 and R37 dropped.</strong> The AW20198 has an internal 1 MΩ EN pull-down and no INTB pin.
+- <strong>LEDs square to the ring tangent.</strong> At B's 45° the 1.6 mm parts leave ~0.1 mm pad to pad, under JLC's 0.15 mm. The four
+  LEDs beside J1's shell legs snap to the nearest 90° to fit the 2.28 mm slot between the legs.
+- <strong>Same 9 × 15 matrix map as B.</strong> That keeps the driver swap the only variable. Alternative: 8 SW × 18 CS (an 8-line bus,
+  1/8 duty), to try if 4-layer routing falls short.</p>
+<h2>2026-11-06: variant D, the matrix driver off the LED rings</h2>
+<ul>
+<li><strong>Decision:</strong> a new variant D (parent C) puts U11 in the back pocket south of J1. It's the only spot where a 5 × 5
+  driver clears every front LED plus via room, at any rotation.</li>
+<li>U5 (USB ESD) moves to the front at the tip; R6/R7 move to the front by U1's USB pins.</li>
+<li>The BOOTSEL timer moves elsewhere. U5's VBUS pre-routes are off for this variant.</li>
+<li><strong>Why:</strong> the user asked for the driver to dodge the LEDs (C had it under LEDs 8–10/39). Every other part could move;
+  the LEDs, MCU, button and USB stay.</li>
+<li><strong>Result:</strong> it routes no better than C (41–50 open vs 37–45). With a 0.10 mm matrix netclass it reaches 28–37.</li>
+<li><strong>Alternatives considered:</strong></li>
+<li>Under U1: its back keepout is full of escape vias on variant A.</li>
+<li>The ring wedges: no 5.8 mm square fits at any angle.</li>
+<li>Clearing all back parts off the LEDs: 277 mm² of courtyards against 203 mm² of free area.</li>
+</ul>
+<h2>2026-11-06: variants E and F, the user's order 3 → 1 → 2</h2>
+<ul>
+<li><strong>Variant E</strong> (parent D): 23 back parts moved off the LEDs' via room, TP1–3 down to 1.0 mm pads, 0.10 mm rules
+  board-wide. On 4 layers it routes to 15–19 open.</li>
+<li><strong>Variant F</strong> (E on 6 layers): 0 open on every seed.</li>
+<li>route.py drops R14's 3V3 via-in-pad on the matrix variants: it fails the "No via hole in SMD pad" rule.</li>
+<li><strong>Alternatives:</strong></li>
+<li>4 layers with In1 opened to signals: rejected, the GND plane is kept.</li>
+<li>Longer 4-layer runs: being measured.</li>
+<li>Detail: <code>design/variant-e.md</code>.</li>
+</ul>
+</main></body></html>

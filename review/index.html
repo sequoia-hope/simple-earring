@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>PCB layout review — 2026-08-06</title>
+<style>
+  body { background:#1a1a1e; color:#ddd; font-family:sans-serif; margin:1rem auto;
+         max-width:1200px; line-height:1.45; }
+  h1 { font-size:1.2rem; font-weight:600; }
+  h2 { font-size:1.05rem; font-weight:600; margin:2.2rem 0 .4rem; padding-top:.8rem;
+       border-top:1px solid #333; }
+  h2 .p1 { color:#ff6b6b; } h2 .p2 { color:#ffc46b; } h2 .p3 { color:#8bc9ff; }
+  .tag { font-size:.75rem; border-radius:4px; padding:1px 7px; margin-right:.5rem;
+         vertical-align:2px; }
+  .t1 { background:#5c2222; color:#ffb3b3; } .t2 { background:#5c4a22; color:#ffe0a3; }
+  .t3 { background:#22405c; color:#a3d0ff; } .tok { background:#225c33; color:#a3ffc0; }
+  .loc { color:#9ad; font-family:monospace; font-size:.9em; }
+  .net { font-family:monospace; color:#eec; background:#2a2a30; border-radius:3px;
+         padding:0 4px; font-size:.9em; }
+  img { max-width:100%; height:auto; border-radius:8px; background:#26262c;
+        display:block; margin:.6rem 0; cursor:zoom-in; }
+  figure { margin:0.4rem 0 1rem; } figcaption { color:#999; font-size:.82rem; padding:.25rem 0; }
+  table { border-collapse:collapse; font-size:.85rem; margin:.5rem 0; }
+  td, th { border:1px solid #383840; padding:3px 9px; text-align:left; }
+  th { background:#26262c; color:#bbb; font-weight:600; }
+  code { background:#2a2a30; padding:0 4px; border-radius:3px; font-size:.9em; }
+  .why { color:#bbb; } .how { color:#9c9; }
+  .note { background:#222228; border-left:3px solid #446; padding:.5rem .8rem;
+          border-radius:0 6px 6px 0; margin:.6rem 0; font-size:.9rem; color:#bcd; }
+  a { color:#8bf; }
+  summary { cursor:pointer; color:#aaa; margin:.6rem 0; }
+</style></head><body>
+
+<h1>Layout review — pre-order polish pass <span style="color:#777;font-weight:400">(Aug 6, 2026 · commit 4de8d2e)</span></h1>
+
+<p class="note" style="border-left-color:#4a4;background:#1e2a20"><b>Fix pass applied:</b>
+most P1–P3 items below have since been fixed or dispositioned —
+see the <a href="fixes.html">fix report with before/after diffs</a>. Two findings were
+corrected in the process: the item-2 sliver isolates nothing (downgraded), and item-8's
+"elbow" is U5's pad entry (withdrawn).</p>
+
+<p>Board state: <b>0 DRC errors, 0 unconnected</b>. Everything below is polish, ranked by
+how much I think it matters. Method: detour-ratio + corner/switchback scan of all 1250
+segments, per-plane raster erosion with geodesic neck localization (each neck attributed to
+the nearest offending track/via), island stitch audit, return-path void sampling under
+critical nets — then every finding confirmed or rejected visually on 40&nbsp;px/mm renders.
+All coordinates are KiCad absolute mm (board center ≈ (100,&nbsp;97.4), +y down), so you can
+type them straight into the KiCad footer / <code>Ctrl-G</code>.</p>
+
+<p class="note">Big-picture: freerouting used <b>In1 and In2 as signal layers</b>. The In1 GND
+plane survived remarkably well (one connected sheet, no sub-1mm bottleneck anywhere except
+one severed 2mm² fragment), but the <b>In2 3V3 disc did not</b> — it is carved into lobes
+that hang on 0.1–0.7mm isthmuses. That, plus re-stitching a few orphaned F.Cu pour pieces,
+is where I'd spend the evening. Items 8+ are aesthetics only.</p>
+
+<h2><span class="tag t1">P1</span>1. 3V3 disc (In2): the LDO feed lobe hangs on 0.3–0.7mm necks</h2>
+<p class="why">U3's 3V3 output stitches into the In2 disc on the west lobe; that lobe reaches
+the rest of the disc only through the circled isthmuses between the <span class="net">PWR_EN</span>
+channel and the <span class="net">VBATT</span>/<span class="net">QSPI_SD2</span> via antipads:
+<span class="loc">(94.8,102.4)</span>&nbsp;0.60mm, <span class="loc">(94.0,103.3)</span>&nbsp;0.67mm,
+<span class="loc">(93.4,104.4)</span>&nbsp;0.30mm, <span class="loc">(92.5,104.8)</span>&nbsp;0.47mm.
+Every 3.3V electron for the MCU decap bank funnels through here.</p>
+<p class="how">Heals cheaply: slide the <span class="net">PWR_EN</span> In2 run ~0.3–0.5mm west
+(it has open moat on its left flank the whole way), and nudge the <span class="net">VBATT</span> +
+<span class="net">QSPI_SD2</span> vias near <span class="loc">(94.7,102.3)</span> apart so their
+antipads stop necklacing. Bonus: the <b>dangling 3V3 via at <span class="loc">(94.15,98.40)</span></b>
+(red circle) sits in a clearance pocket doing nothing — shift it ~0.4mm into disc copper and it
+becomes a second feed into the lobe.</p>
+<figure><img src="p3v3_west.png"><figcaption>In2 west lobe. White = necks, red = the dangling 3V3 via. PWR_EN (cyan) and QSPI_SD2 (yellow) are the movable culprits; VBUS (magenta) is riding the moat, which is fine.</figcaption></figure>
+
+<h2><span class="tag t1">P1</span>2. 3V3 disc (In2): 0.10mm sliver — effectively a break</h2>
+<p class="why">At <span class="loc">(95.23,93.03)</span> the disc's northwest arm connects
+through a <b>0.10mm</b> sliver pinched between the <span class="net">VBUS</span> In2 diagonal
+and a <span class="net">SWCLK</span> via antipad. That's below anything the fab will
+reliably plate as a power path — treat the NW arm as severed today.</p>
+<p class="how">Nudge the <span class="net">VBUS</span> diagonal ~0.3mm southwest (open moat
+below it) or the <span class="net">SWCLK</span> via, and the arm reattaches with real width.</p>
+<figure><img src="p3v3_nw.png"><figcaption>The 0.10mm isthmus. VBUS (magenta) vs SWCLK via antipad.</figcaption></figure>
+<figure><img src="p3v3_necks.png"><figcaption>All In2 necks for orientation: white = 3V3 disc, magenta = VLED annulus (item 12).</figcaption></figure>
+
+<h2><span class="tag t1">P1</span>3. In1 GND: the southeast channel — 4 nets wide, plus a severed fragment</h2>
+<p class="why"><span class="net">QSPI_SD3</span>, <span class="net">CHRG_DONE</span>,
+<span class="net">QSPI_SD1</span> and <span class="net">VBATT</span> share one ~2mm-wide diagonal
+channel through the GND plane below the MCU, then <span class="net">CHRG_DONE</span>+<span class="net">VBATT</span>
+continue east where a <span class="net">VBUS</span> hook conspires with them to cut off a 2.0mm²
+plane fragment at <span class="loc">(105.7,106.5)</span> (alive only through 2 vias).
+Signals crossing above/below the channel lose their return:
+<span class="net">USB_DP</span> 3.4mm bare run on B.Cu near <span class="loc">(97.4,103.4)</span>,
+<span class="net">USB_DM</span> 1.8mm at <span class="loc">(97.8,104.4)</span>,
+<span class="net">QSPI_SD2</span> 1.8mm on F.Cu at <span class="loc">(101.4,106.2)</span>.</p>
+<p class="how">Can't be fully healed (those nets must reach east somehow), but it narrows:
+tuck <span class="net">CHRG_DONE</span> tight against <span class="net">QSPI_SD1</span> so they
+share one clearance, and move the short <span class="net">VBUS</span> In1 hook
+(<span class="loc">(104.5,106.2)–(107.2,107.5)</span>, only 4mm of track) down to In2/B.Cu —
+that alone reattaches the fragment.</p>
+<figure><img src="in1_channels.png"><figcaption>In1 southeast quarter. The white circle is the severed fragment; the magenta VBUS hook is the movable culprit.</figcaption></figure>
+
+<h2><span class="tag t2">P2</span>4. F.Cu GND pour: two big crescents are barely stitched</h2>
+<p class="why">The front pour is 8 pieces. The top crescent (<b>59mm²</b>, whole USB/tip arc)
+hangs on <b>2 GND vias</b>; the bottom crescent (<b>51mm²</b>) hangs on <b>one</b>. They're
+over solid In1 GND so nothing is floating, but as EMI skins / return stitches they're
+doing nothing, and a single-via 51mm² sheet is a resonator with a pin.</p>
+<p class="how">Sprinkle stitching vias — 4–6 per crescent near the LED ring drops (vias are
+free at JLC). The small 2–3mm² islands at <span class="loc">(105.4,98.4)</span>,
+<span class="loc">(105.3,100.6)</span>, <span class="loc">(108.1,104.2)</span>,
+<span class="loc">(94.4,105.2)</span> each have ≥1 via already — one more each if you're in
+the neighborhood. The 11mm² ring under the QFN (<span class="loc">(100,99.5)</span>) is fine:
+it's grounded by the EP + 9 thermal vias.</p>
+<figure><img src="gnd_front_necks.png"><figcaption>F.Cu pour pieces: yellow labels = under-stitched islands (area: via count), white = rim necks between LED diamonds (cosmetic).</figcaption></figure>
+
+<h2><span class="tag t2">P2</span>5. CHRG_DONE ties a literal knot at the charger</h2>
+<p class="why"><span class="net">CHRG_DONE</span> (routed 21.5mm vs 10.8mm point-to-point, 2.0×)
+wraps a full loop around the via cluster at <span class="loc">(108.2,105.4)</span>, and
+<span class="net">CHRG</span> (1.9×) crosses the same corridor twice on its way west. These are
+open-drain status lines — electrically they don't care — but the loop + double-cross costs
+~8mm of In1 plane channel for nothing.</p>
+<p class="how">Classic "abstract puzzle" spot: unwind the yellow loop so it approaches its via
+from the west directly, and let <span class="net">VBATT</span>'s arrow-hook
+(<span class="loc">(105.7,105.9)</span>) drop straight instead. This is the same neighborhood as
+item 3's severed fragment — one session fixes both.</p>
+<figure><img src="chrg_pretzel.png"><figcaption>In1 view, B.Cu ghosted. CHRG_DONE (yellow) loop; VBATT (magenta) hook; VBUS (green) switchback.</figcaption></figure>
+<figure><img src="chrg_paths.png"><figcaption>Full-board context: CHRG (cyan) and CHRG_DONE (yellow) tours, BOOTSEL (magenta), IMU_SDA (green).</figcaption></figure>
+
+<h2><span class="tag t2">P2</span>6. IMU pocket: SDA/SCL knot, trapped sliver, dangling GND jumper</h2>
+<p class="why"><span class="net">IMU_SDA</span> (1.67×, 3 vias) does an S-hook around
+<span class="net">IMU_SCL</span> at U6's north edge (upper circle), trapping a 1.1mm²
+back-pour sliver at <span class="loc">(106.6,90.8)</span>. Nearby, an In2 GND jumper ends
+dangling at <span class="loc">(106.16,93.64)</span> — 0.34mm past its last connection
+(this is the one DRC also flags).</p>
+<p class="how">Re-approach SDA so it lands on its pad from the direction its In1 vertical
+already travels (no hook), which un-traps the sliver; trim the dangling GND tail.</p>
+<figure><img src="imu_cluster.png"><figcaption>B.Cu at U6 (silk ghosted). SDA cyan, SCL yellow, INT1 magenta, LED_EN green.</figcaption></figure>
+
+<h2><span class="tag t2">P2</span>7. USB pair: gap breathes, and it crosses its own broken return</h2>
+<p class="why"><span class="net">USB_DP</span>/<span class="net">USB_DM</span> ride together down
+the west corridor (good) but the intra-pair gap breathes between ~0.5 and ~1.0mm, and the final
+diagonal to the U1 vias crosses the item-3 In1 channel — DP's 3.4mm bare-return run is the
+longest on the board. FS-USB (12Mbps) is forgiving, so this is polish, not a bug.</p>
+<p class="how">Tighten the pair to a constant gap through the corridor; if you narrow the
+item-3 channel first, the bare-return run shrinks on its own. Cheap alternative: two GND
+stitching vias flanking the crossing so the return detour is short.</p>
+<figure><img src="usb_pair.png"><figcaption>DP (cyan) / DM (yellow), B.Cu solid, F.Cu ghosted — R6/R7 at top to U1 pins 51/52 at bottom.</figcaption></figure>
+
+<h2><span class="tag t3">P3</span>8. USB_C fanout: DP's S-wrap under the connector</h2>
+<p class="why"><span class="net">USB_C_DP</span> goes pad → up to its duplicate-pad channel via →
+back down → wide S around the ESD chip; <span class="net">USB_C_DN</span> elbows at
+<span class="loc">(100.9,88.0)</span>. The trip up to the channel via is <b>required</b>
+(interleaved duplicate pads are joined there by design), but the S below is untangleable.</p>
+<figure><img src="usb_fanout.png"><figcaption>B.Cu under J1. Circles: the 180° reversal (top, partly by design) and the elbow (bottom).</figcaption></figure>
+
+<h2><span class="tag t3">P3</span>9. SWD pocket west of the MCU: three staircases in one window</h2>
+<p class="why"><span class="net">SWCLK</span> hard-90s at <span class="loc">(96.62,95.81)</span>
+then runs stacked with <span class="net">RUN</span>'s own staircase; <span class="net">SWDIO</span>
+zigzags below. Debug-only nets — pure aesthetics, but it's a satisfying 10-minute untangle.</p>
+<figure><img src="swclk_corner.png"><figcaption>B.Cu. SWCLK cyan, SWDIO yellow, RUN magenta.</figcaption></figure>
+
+<h2><span class="tag t3">P3</span>10. Crystal: XTAL_R staircase, XIN double-jog</h2>
+<p class="why"><span class="net">XTAL_R</span> steps 90°-45°-90° into R4 at
+<span class="loc">(98.6,94.1)</span>; XIN has a redundant jog pair on its way to pin 21.
+Short, guarded, over solid GND — cosmetic only.</p>
+<figure><img src="xtal.png"><figcaption>F.Cu at Y1. XIN cyan, XOUT yellow, XTAL_R magenta.</figcaption></figure>
+
+<h2><span class="tag t3">P3</span>11. VBUS takes the scenic route: 63mm for a 30mm job</h2>
+<p class="why">VBUS runs J1 → west moat → around the bottom → charger, 2.1× the direct
+distance, ending in its own mini-switchback at U2. Riding the annulus/disc moat is actually
+clever (it displaces no plane copper), but the <b>east</b> moat reaches U2 in roughly half the
+length. ~40mA charge current → zero electrical urgency; listed because you asked for
+circuitous wiring, and this is the champion.</p>
+<figure><img src="vbus_tour.png"><figcaption>VBUS (cyan) on In2, full board.</figcaption></figure>
+
+<h2><span class="tag t3">P3</span>12. Remaining plane nicks — for completeness</h2>
+<ul class="why">
+<li><b>VLED annulus (In2)</b>: two adjacent necks NE of the USB pocket —
+<span class="loc">(101.8,88.8)</span> 0.49mm and <span class="loc">(102.7,89.6)</span> 0.64mm
+(VBUS + GND/3V3 via antipads). The annulus is a ring, so LED current just flows the other way
+around; heal only if you're already there.</li>
+<li><b>B.Cu pour slivers</b> along the hand-routed corridors (17 sub-0.8mm necks; see full map
+below). The sheet stays connected; optionally add a via to the bigger tongues.</li>
+<li><b>Dangling 3V3 vias</b> (KiCad-flagged, freerouting leftovers):
+<span class="loc">(94.15,98.4)</span> — reuse for item 1! — plus
+<span class="loc">(106.82,91.76)</span>, <span class="loc">(106.2,102.6)</span>,
+<span class="loc">(105.02,88.22)</span>, <span class="loc">(101.09,105.6)</span>,
+<span class="loc">(106.3,86.14)</span>. Delete or make them land in copper.</li>
+<li><b>VBATT F.Cu tail</b> at <span class="loc">(94.17,102.54)</span>: track end sits ~0.15mm
+off its via center (hidden under the annulus — cosmetic in the file only).</li>
+</ul>
+<figure><img src="gnd_back_necks.png"><figcaption>B.Cu pour neck map.</figcaption></figure>
+
+<h2><span class="tag tok">OK</span>Checked and healthy — no action</h2>
+<ul class="why">
+<li><b>In1 GND plane</b>: one sheet, no bottleneck under 1.0mm between any two regions
+(besides the item-3 fragment). For a board with 231 through-vias, that's excellent.</li>
+<li><b>QSPI corridor on F.Cu</b>: the five escapes each own their gap, clean 45s
+(<a href="qspi_corridor_f.png">see render</a>) — the punchlist's hardest problem ended well.</li>
+<li><b>Under-QFN pour</b>: EP + 9 thermal vias, solid.</li>
+<li><b>VREG cluster</b>: left alone on purpose — it's the official RPi pour transplant,
+including the skinny LX finger (<a href="../index.html">dashboard</a> renders it fine).</li>
+<li><b>Ring corner-90 hits</b> from the scan (radial GND/VLED drops): all sub-0.5mm stitch
+segments, invisible at 1:1 — rejected during the visual pass.</li>
+<li><b>Crystal cage, USB duplicate-pad channel vias, BOOTSEL/IMU GPIO corridor
+discipline</b>: all as designed.</li>
+</ul>
+
+<h2>Reference: full copper layers (same registration as the crops)</h2>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+<figure><img src="view_F_Cu.png"><figcaption>F.Cu</figcaption></figure>
+<figure><img src="view_B_Cu.png"><figcaption>B.Cu (unmirrored, viewed from front)</figcaption></figure>
+<figure><img src="view_In1_Cu.png"><figcaption>In1.Cu — GND plane + signal channels</figcaption></figure>
+<figure><img src="view_In2_Cu.png"><figcaption>In2.Cu — VLED annulus + 3V3 disc + signal channels</figcaption></figure>
+</div>
+<figure><img src="c_bundle.png"><figcaption>Bonus: the hand-routed west corridor with every tenant labeled — the reference shot for items 7/9.</figcaption></figure>
+
+<script>
+for (const img of document.querySelectorAll('img'))
+  img.onclick = () => window.open(img.src, '_blank');
+</script>
+</body></html>

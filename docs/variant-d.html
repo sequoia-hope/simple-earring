@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Variant D: driver off the LEDs</title>
+<style>
+  :root { color-scheme: dark; }
+  body { background:#0d1015; color:#d9dee6; margin:0; padding:1.5rem 16px 4rem;
+         font:15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:860px; margin:0 auto; }
+  a { color:#5b9bff; }
+  h1, h2, h3 { color:#e6eaf0; line-height:1.25; }
+  h1 { font-size:1.6rem; } h2 { font-size:1.2rem; margin-top:2rem;
+       border-bottom:1px solid #262d38; padding-bottom:.3rem; }
+  code { background:#202632; border:1px solid #262d38; border-radius:5px;
+         padding:.05em .3em; font-size:.88em; }
+  pre { background:#161b22; border:1px solid #262d38; border-radius:8px;
+        padding:.7rem .9rem; overflow-x:auto; }
+  pre code { background:none; border:0; padding:0; }
+  table { border-collapse:collapse; font-size:.88rem; display:block; overflow-x:auto; }
+  th, td { border:1px solid #262d38; padding:.35rem .6rem; text-align:left; vertical-align:top; }
+  th { background:#161b22; }
+  .back { font-size:.85rem; color:#8c96a6; }
+</style></head><body><main>
+<p class="back"><a href="../index.html">&larr; Dashboard</a> &middot; <code>design/variant-d.md</code></p>
+<h1>Variant D: variant C with the driver moved off the LED rings</h1>
+<p><strong>Parent:</strong> variant C (<code>design/variant-c.md</code>): AW20198QNR, 45 × XL-1615, 9 SW × 15 CS, 4 layers.
+<strong>Overlay:</strong> <code>design.d.yaml</code> (<code>leds.matrix.spot: tip</code>, <code>arc_triplet</code>). <strong>Board:</strong> <code>hw/earring/d/</code>.
+<strong>Why:</strong> the user's call (2026-11-06). Keep the LEDs, the centred MCU, the button and USB where they are; move the driver
+anywhere, clear of the LEDs. In C it sat on the back directly under LEDs 8–10 and inner LED39.</p>
+<h2>Where the driver can go</h2>
+<p>Each LED is on the front and needs through-vias beside it. So I took every LED courtyard plus a 0.3–0.7 mm margin as a
+keepout on the back too, then scanned a 5.8 mm square courtyard at every 5° rotation. Two other keepouts applied: U1's
+back escape keepout (±5.6 × −6…5) and J1.</p>
+<ul>
+<li><strong>Only one spot fits:</strong> the pocket south of J1 and north of U1, at about (−1.75…1.0, −9.5).</li>
+<li><strong>No room to clear every part off the LEDs.</strong> The back's free area off the LEDs is ~203 mm². The movable back parts'
+  courtyards total ~277 mm².</li>
+<li><strong>Under U1 is out:</strong> on variant A's routed board, the keepout is full of escape vias.</li>
+</ul>
+<h2>Placement (place.py <code>MATRIX_AW_TIP</code>, <code>TIP_MOVED</code>; scan_spot in signal order, LED keepouts on)</h2>
+<ul>
+<li><strong>U11</strong> at (0.00, −9.25), rot 270, back.</li>
+<li>The SW side faces north toward J1 and the free In2 band. CS1–9 face west, CS10–15 face east.</li>
+<li>The control pins face south. EN/SCL/SDA sit ~3 mm from U1 pins 27–29.</li>
+<li><strong>Support parts:</strong></li>
+<li>C81/C80 (PVCC) go on the front, over pin 5, 1.2/2.4 mm away. J1's courtyard leaves no back spot north of the chip.</li>
+<li>C83 is on the back at the SE corner. C82 is on the front.</li>
+<li>R35 (ISET) is on the back at the SW corner.</li>
+<li>R39, R38 and C87 are on the front, between the driver and U1.</li>
+<li>C86 (bulk) is on the front, 3.9 mm away.</li>
+<li><strong>Parts evicted from the pocket:</strong></li>
+<li>U5 (USB ESD) moved to the front at the tip, on the USB_C_DP/DN front joins (no back spot near J1 was left).</li>
+<li>R7/R6 moved to the front by U1's USB pins (they're series terminations at the MCU end).</li>
+<li>C28 went beside the J1 VBUS via. U5's VBUS via, stub and trunk pre-routes are off for this variant (route.py).</li>
+<li>The BOOTSEL timer moved:<ul>
+<li>Q8 to U1's west edge on the back.</li>
+<li>R26 to the front.</li>
+<li>U8 to the front, east of U1.</li>
+<li>C75 and D5 to the back east.</li>
+<li>R28 to the front.</li>
+</ul>
+</li>
+<li><strong>Placed DRC:</strong> 0 errors after route.py's refill. Schematic: 77 nets verified.</li>
+</ul>
+<h2>Routing on 4 layers (ultraroute 99bb7ca, recipe args, <code>--planes In1.Cu</code>, 6 seeds × 900 s, KiCad-judged)</h2>
+<table>
+<thead>
+<tr>
+<th>Trial</th>
+<th>Open</th>
+<th>DRC err</th>
+<th>In1 GND</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C (driver under the ring), for reference</td>
+<td>37–45</td>
+<td>0–2</td>
+<td>610 mm²</td>
+</tr>
+<tr>
+<td>D, driver in the tip pocket</td>
+<td>41–50</td>
+<td>1–4</td>
+<td>~610</td>
+</tr>
+<tr>
+<td>D + <code>arc_triplet [1,2,5,4,3]</code> (each driver side serves its own half of the ring)</td>
+<td>43–50</td>
+<td>1–4</td>
+<td>~610</td>
+</tr>
+<tr>
+<td>D + remap + <code>matrix</code> netclass 0.10 / 0.10 mm for SW?/CS?/CS?? (<code>hw/earring/d/earring.kicad_pro</code>)</td>
+<td><strong>28–37</strong></td>
+<td>1–2</td>
+<td>601–612</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Moving the driver alone changed nothing.</strong> The opens left the driver's pins and spread out. With 0.10 mm matrix
+  rules they are ~12–18 matrix connections (SW and CS about equal) plus ~15–20 other nets. These are mostly MCU
+  signals and power round the board edge: USB, SWD, IMU, BOOTSEL, VSYS/VBATT.</li>
+<li><strong>The board is capacity-bound on 4 layers with In1 kept whole.</strong> The matrix adds 180 LED pins to what variant A
+  routed. The remaining levers:</li>
+<li><strong>6 layers.</strong> B got 8–10 open on 6, with the driver under the ring.</li>
+<li><strong>0.10 / 0.10 mm for every signal class,</strong> not just the matrix. JLC's 4-layer standard is 0.09 mm, and
+     round-pendant's p1-66 routed 100 % on 4 layers this way.</li>
+<li><strong>Unload the back:</strong> fewer or smaller back parts under the LEDs (TP1–TP3 are 2.5 mm pads).</li>
+<li><strong>The 0.1 mm class:</strong> CS lines carry 8.5 mA and SW lines 128 mA pulses. 0.1 mm is ample on 1 oz outer and 0.5 oz
+  inner copper (IPC-2221, ΔT 10 °C: ~0.2 A inner).</li>
+</ul>
+</main></body></html>

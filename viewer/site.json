@@ -1,0 +1,96 @@
+{
+ "title": "simple_earring",
+ "built": "2026-11-06T11:50:18",
+ "pcbview": "0.1 (58db5b3)",
+ "config": "pcbview.toml",
+ "boards": [
+  {
+   "id": "earring-a",
+   "name": "earring, variant A",
+   "page": "earring-a.html",
+   "embed": "out/index.html",
+   "source": {
+    "kind": "file",
+    "pcb": "hw/earring/a/earring.kicad_pcb",
+    "sch": "hw/earring/a/earring.kicad_sch"
+   }
+  },
+  {
+   "id": "earring-b",
+   "name": "earring, variant B (IS31FL3741A matrix, XL-1010 LEDs)",
+   "page": "earring-b.html",
+   "embed": null,
+   "source": {
+    "kind": "file",
+    "pcb": "hw/earring/b/earring.kicad_pcb",
+    "sch": "hw/earring/b/earring.kicad_sch"
+   }
+  },
+  {
+   "id": "earring-c",
+   "name": "earring, variant C (AW20198QNR matrix, XL-1615 LEDs)",
+   "page": "earring-c.html",
+   "embed": null,
+   "source": {
+    "kind": "file",
+    "pcb": "hw/earring/c/earring.kicad_pcb",
+    "sch": "hw/earring/c/earring.kicad_sch"
+   }
+  },
+  {
+   "id": "earring-d",
+   "name": "earring, variant D (C with the driver off the LED rings)",
+   "page": "earring-d.html",
+   "embed": null,
+   "source": {
+    "kind": "file",
+    "pcb": "hw/earring/d/earring.kicad_pcb",
+    "sch": "hw/earring/d/earring.kicad_sch"
+   }
+  },
+  {
+   "id": "earring-e",
+   "name": "earring, variant E (D with the back unloaded, 0.1 mm rules)",
+   "page": "earring-e.html",
+   "embed": null,
+   "source": {
+    "kind": "file",
+    "pcb": "hw/earring/e/earring.kicad_pcb",
+    "sch": "hw/earring/e/earring.kicad_sch"
+   }
+  },
+  {
+   "id": "earring-f",
+   "name": "earring, variant F (E on 6 layers)",
+   "page": "earring-f.html",
+   "embed": null,
+   "source": {
+    "kind": "file",
+    "pcb": "hw/earring/f/earring.kicad_pcb",
+    "sch": "hw/earring/f/earring.kicad_sch"
+   }
+  },
+  {
+   "id": "earring-f-route",
+   "name": "earring, variant F routed (6 layers, seed 3)",
+   "page": "earring-f-route.html",
+   "embed": null,
+   "source": {
+    "kind": "file",
+    "pcb": "route/earring-f/best/earring.kicad_pcb",
+    "sch": "hw/earring/f/earring.kicad_sch"
+   }
+  },
+  {
+   "id": "earring-e-route",
+   "name": "earring, variant E routed (4 layers, seed 6, 110 min)",
+   "page": "earring-e-route.html",
+   "embed": null,
+   "source": {
+    "kind": "file",
+    "pcb": "route/earring-e/best/earring.kicad_pcb",
+    "sch": "hw/earring/e/earring.kicad_sch"
+   }
+  }
+ ]
+}

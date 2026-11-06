@@ -1,0 +1,59 @@
+<!doctype html><meta charset=utf-8>
+<title>simple_earring TPU case</title>
+<style>
+ body{background:#14161a;color:#dfe3ea;font:14px/1.5 system-ui,sans-serif;margin:24px}
+ h1{font-size:18px;font-weight:600;margin:0 0 4px}
+ h2{font-size:14px;font-weight:600;color:#9fb0c8;margin:26px 0 10px}
+ p.sub{color:#8b95a6;margin:0 0 18px}
+ .g{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px}
+ figure{margin:0;background:#1d2027;border-radius:10px;padding:10px}
+ img{width:100%;display:block;border-radius:6px}
+ figcaption{padding-top:8px;color:#97a0b0;font-size:12px}
+ pre{background:#1d2027;border-radius:10px;padding:14px 16px;overflow-x:auto;
+      font:12px/1.6 ui-monospace,monospace;color:#c6d0de}
+ a{color:#79b8ff}
+</style>
+<h1>simple_earring — TPU clip-on case</h1>
+<p class=sub>front = LED diffuser &middot; rear = battery cup &middot; alternating
+ clip stations &middot; STEP + STL in <a href="../">out/case/</a></p>
+<div class=g><figure><img src="front-outer.png" alt="front-outer"><figcaption>front-outer</figcaption></figure>
+<figure><img src="front-inner.png" alt="front-inner"><figcaption>front-inner</figcaption></figure>
+<figure><img src="front-inner-iso.png" alt="front-inner-iso"><figcaption>front-inner-iso</figcaption></figure>
+<figure><img src="rear-outer.png" alt="rear-outer"><figcaption>rear-outer</figcaption></figure>
+<figure><img src="rear-inner.png" alt="rear-inner"><figcaption>rear-inner</figcaption></figure>
+<figure><img src="rear-inner-iso.png" alt="rear-inner-iso"><figcaption>rear-inner-iso</figcaption></figure>
+<figure><img src="assembly-front.png" alt="assembly-front"><figcaption>assembly-front</figcaption></figure>
+<figure><img src="assembly-rear.png" alt="assembly-rear"><figcaption>assembly-rear</figcaption></figure>
+<figure><img src="assembly-iso.png" alt="assembly-iso"><figcaption>assembly-iso</figcaption></figure>
+<figure><img src="assembly-tip-usb.png" alt="assembly-tip-usb"><figcaption>assembly-tip-usb</figcaption></figure>
+<figure><img src="assembly-edge.png" alt="assembly-edge"><figcaption>assembly-edge</figcaption></figure>
+<figure><img src="assembly-edge-sw2.png" alt="assembly-edge-sw2"><figcaption>assembly-edge-sw2</figcaption></figure>
+<figure><img src="assembly-scoop-iso.png" alt="assembly-scoop-iso"><figcaption>assembly-scoop-iso</figcaption></figure>
+<figure><img src="section-y.png" alt="section-y"><figcaption>section-y</figcaption></figure>
+<figure><img src="section-y-iso.png" alt="section-y-iso"><figcaption>section-y-iso</figcaption></figure>
+<figure><img src="section-x.png" alt="section-x"><figcaption>section-x</figcaption></figure>
+<figure><img src="section-x-iso.png" alt="section-x-iso"><figcaption>section-x-iso</figcaption></figure></div>
+<h2>fit &amp; build report</h2><pre>board 43eadc1: 123 footprints; outline R=15.25 tip 9.4x20.5; perimeter 104.1 mm; battery stack 5.30 mm
+clip stations (margins are to courtyards already grown by 0.30 mm, so add ~0.30 mm to reach the part body):
+  station   195  rear  lip 0.80 mm  -> nearest  LED9 on F.Cu  margin +0.14 mm
+  station   240 front  lip 1.00 mm  -> nearest   TP3 on B.Cu  margin +1.27 mm
+  station   300  rear  lip 0.80 mm  -> nearest LED21 on F.Cu  margin +0.25 mm
+  station     0 front  lip 0.65 mm  -> nearest   BT1 on B.Cu  margin +0.12 mm
+  station  topL front  lip 1.00 mm  -> nearest    J1 on B.Cu  margin +0.32 mm
+  station  topR  rear  lip 0.80 mm  -> nearest LED32 on F.Cu  margin +0.19 mm
+  SW2 thumb scoop: 11.5 mm along the rim, y +5.5 to +15.3, z -4.60 to +1.05 (5.65 mm tall)
+  front: solids=1 shells=1 valid=True  into parts 0.000 mm3  into board 0.000 mm3
+  rear: solids=1 shells=1 valid=True  into parts 0.000 mm3  into board 0.000 mm3
+  half-to-half interference: 0.000 mm3
+  mount-plug corridor (14 x 8 mm): front 0.000  rear 0.000 mm3 (want 0)
+  tip aperture: connector face y=+21.68, diffuser flap ends y=+21.00 (+0.68 mm clear); below z=+1.05 the tip is fully open
+  clip engagement: front lips under the back face 17.07 mm3, rear lips over the front face 14.50 mm3
+earring-case-front: 34.14 x 38.19 x 6.58 mm  z[-3.01,+3.57]  2.28 cm3  solids=1
+earring-case-rear: 34.15 x 31.73 x 9.56 mm  z[-8.50,+1.06]  1.97 cm3  solids=1
+assembly: 34.15 x 38.20 x 12.07 mm
+rear cup: inner floor z=-7.25  outer face z=-8.45
+</pre>
+<h2>printability (printed outer-face-down)</h2><pre>front: bed contact 901 mm2, unsupported overhang 18.80 mm2 (worst 0 deg from horizontal, 4.25 mm off the bed)
+        by height off the bed: 5.05 mm: 18.8 mm2, 4.25 mm: 0.0 mm2
+rear: bed contact 805 mm2, unsupported overhang 21.18 mm2 (worst 0 deg from horizontal, 6.85 mm off the bed)
+        by height off the bed: 8.45 mm: 21.1 mm2, 6.85 mm: 0.0 mm2, 7.65 mm: 0.0 mm2</pre>

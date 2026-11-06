@@ -1,0 +1,151 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1420" height="860" viewBox="0 0 1420 860" font-family="ui-sans-serif,system-ui,sans-serif">
+<rect width="1420" height="860" fill="#1a1a1e"/>
+<path d="M 355.5,230.0 L 289.0,129.8 L 211.0,129.8 L 144.5,230.0 A 126.6,126.6 0 1 0 355.5,230.0 Z" fill="#26262e" stroke="#ddd" stroke-width="1.5"/>
+<rect x="196.9" y="198.3" width="8.2" height="15.9" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="163.1" y="355.0" width="20.3" height="22.8" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="209.1" y="119.0" width="81.8" height="69.6" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="182.8" y="177.9" width="8.2" height="15.9" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="229.4" y="198.4" width="8.1" height="15.5" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="149.2" y="346.4" width="8.2" height="15.9" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="161.0" y="196.2" width="34.2" height="35.3" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="335.6" y="247.9" width="24.6" height="31.3" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="159.0" y="222.7" width="15.2" height="17.2" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="263.3" y="205.4" width="15.9" height="8.2" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="307.3" y="364.3" width="8.2" height="15.9" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="315.4" y="356.6" width="20.3" height="22.8" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="139.8" y="247.9" width="24.6" height="31.3" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="186.2" y="217.1" width="15.2" height="17.2" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="279.0" y="193.0" width="15.9" height="8.2" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="333.6" y="347.5" width="24.6" height="31.3" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="146.2" y="363.1" width="15.9" height="8.2" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="193.6" y="181.3" width="8.2" height="15.9" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="293.1" y="175.5" width="62.4" height="75.1" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="263.3" y="195.9" width="15.9" height="8.2" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="237.3" y="195.2" width="25.3" height="20.4" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="207.7" y="198.3" width="8.2" height="15.9" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="143.9" y="329.6" width="8.1" height="15.5" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<polygon points="350.0,236.8 150.0,236.8 150.0,363.2 350.0,363.2" fill="none" stroke="#8f8" stroke-width="1.2" stroke-dasharray="5 4" stroke-opacity=".75"/>
+<polygon points="159.5,281.3 134.6,281.3 134.6,318.7 159.5,318.7" fill="#c87137"/>
+<polygon points="365.4,281.3 340.5,281.3 340.5,318.7 365.4,318.7" fill="#c87137"/>
+<circle cx="226.8" cy="300.0" r="5.0" fill="#8f8"/>
+<circle cx="238.4" cy="320.1" r="5.0" fill="#8f8"/>
+<circle cx="238.4" cy="279.9" r="5.0" fill="#8f8"/>
+<circle cx="250.0" cy="300.0" r="33.2" fill="#c87137" fill-opacity=".30" stroke="#c87137" stroke-width="1" stroke-dasharray="3 2"/>
+<circle cx="261.6" cy="320.1" r="5.0" fill="#8f8"/>
+<circle cx="261.6" cy="279.9" r="5.0" fill="#8f8"/>
+<circle cx="273.2" cy="300.0" r="5.0" fill="#8f8"/>
+<text x="250.0" y="253.5" fill="#777" font-size="9.5" text-anchor="middle" font-weight="400">Ø8 GND pad</text>
+<text x="250.0" y="346.5" fill="#8f8" font-size="8.5" text-anchor="middle" font-weight="400">6 mask-defined bumps</text>
+<path d="M 815.5,230.0 L 749.0,129.8 L 671.0,129.8 L 604.5,230.0 A 126.6,126.6 0 1 0 815.5,230.0 Z" fill="#26262e" stroke="#ddd" stroke-width="1.5"/>
+<rect x="656.9" y="198.3" width="8.2" height="15.9" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="623.1" y="355.0" width="20.3" height="22.8" rx="1" fill="#f88" fill-opacity=".85"/>
+<text x="633.2" y="369.4" fill="#fff" font-size="7.5" text-anchor="middle">Q2</text>
+<rect x="669.1" y="119.0" width="81.8" height="69.6" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="642.8" y="177.9" width="8.2" height="15.9" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="689.4" y="198.4" width="8.1" height="15.5" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="609.2" y="346.4" width="8.2" height="15.9" rx="1" fill="#f88" fill-opacity=".85"/>
+<text x="613.3" y="357.4" fill="#fff" font-size="7.5" text-anchor="middle">R11</text>
+<rect x="621.0" y="196.2" width="34.2" height="35.3" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="795.6" y="247.9" width="24.6" height="31.3" rx="1" fill="#f88" fill-opacity=".85"/>
+<text x="807.9" y="266.6" fill="#fff" font-size="7.5" text-anchor="middle">TP1</text>
+<rect x="619.0" y="222.7" width="15.2" height="17.2" rx="1" fill="#f88" fill-opacity=".85"/>
+<text x="626.6" y="234.3" fill="#fff" font-size="7.5" text-anchor="middle">C23</text>
+<rect x="723.3" y="205.4" width="15.9" height="8.2" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="767.3" y="364.3" width="8.2" height="15.9" rx="1" fill="#f88" fill-opacity=".85"/>
+<text x="771.4" y="375.2" fill="#fff" font-size="7.5" text-anchor="middle">R17</text>
+<rect x="775.4" y="356.6" width="20.3" height="22.8" rx="1" fill="#f88" fill-opacity=".85"/>
+<text x="785.5" y="371.1" fill="#fff" font-size="7.5" text-anchor="middle">D2</text>
+<rect x="599.8" y="247.9" width="24.6" height="31.3" rx="1" fill="#f88" fill-opacity=".85"/>
+<text x="612.1" y="266.6" fill="#fff" font-size="7.5" text-anchor="middle">TP2</text>
+<rect x="646.2" y="217.1" width="15.2" height="17.2" rx="1" fill="#f88" fill-opacity=".85"/>
+<text x="653.8" y="228.7" fill="#fff" font-size="7.5" text-anchor="middle">C24</text>
+<rect x="739.0" y="193.0" width="15.9" height="8.2" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="793.6" y="347.5" width="24.6" height="31.3" rx="1" fill="#f88" fill-opacity=".85"/>
+<text x="805.9" y="366.2" fill="#fff" font-size="7.5" text-anchor="middle">TP3</text>
+<rect x="606.2" y="363.1" width="15.9" height="8.2" rx="1" fill="#f88" fill-opacity=".85"/>
+<text x="614.1" y="370.2" fill="#fff" font-size="7.5" text-anchor="middle">R12</text>
+<rect x="653.6" y="181.3" width="8.2" height="15.9" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="753.1" y="175.5" width="62.4" height="75.1" rx="1" fill="#f88" fill-opacity=".85"/>
+<text x="784.3" y="216.0" fill="#fff" font-size="7.5" text-anchor="middle">SW2</text>
+<rect x="723.3" y="195.9" width="15.9" height="8.2" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="697.3" y="195.2" width="25.3" height="20.4" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="667.7" y="198.3" width="8.2" height="15.9" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="603.9" y="329.6" width="8.1" height="15.5" rx="1" fill="#f88" fill-opacity=".85"/>
+<text x="607.9" y="340.4" fill="#fff" font-size="7.5" text-anchor="middle">C21</text>
+<polygon points="590.5,353.9 602.9,366.4 817.1,366.4 829.5,353.9 829.5,246.1 817.1,233.6 602.9,233.6 590.5,246.1" fill="#f88" fill-opacity=".17" stroke="#f88" stroke-width="1.5"/>
+<polygon points="590.5,329.5 577.6,329.5 577.6,270.5 590.5,270.5" fill="#777" fill-opacity=".55" stroke="#777" stroke-width=".8"/>
+<polygon points="829.5,329.5 842.4,329.5 842.4,270.5 829.5,270.5" fill="#777" fill-opacity=".55" stroke="#777" stroke-width=".8"/>
+<circle cx="710.0" cy="300.0" r="83.8" fill="none" stroke="#f88" stroke-width="1" stroke-dasharray="4 3" stroke-opacity=".6"/>
+<polygon points="590.9,279.2 575.1,279.2 575.1,320.8 590.9,320.8" fill="#fc6" fill-opacity=".95" stroke="#fff" stroke-width=".8"/>
+<polygon points="844.9,279.2 829.1,279.2 829.1,320.8 844.9,320.8" fill="#fc6" fill-opacity=".95" stroke="#fff" stroke-width=".8"/>
+<line x1="583.0" y1="236.0" x2="583.0" y2="276.0" stroke="#f88" stroke-width="1.1"/>
+<text x="583.0" y="230.0" fill="#f88" font-size="10.5" text-anchor="middle" font-weight="600">land 1.19 mm off</text>
+<path d="M 1275.5,230.0 L 1209.0,129.8 L 1131.0,129.8 L 1064.5,230.0 A 126.6,126.6 0 1 0 1275.5,230.0 Z" fill="#26262e" stroke="#ddd" stroke-width="1.5"/>
+<rect x="1116.9" y="198.3" width="8.2" height="15.9" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1083.1" y="355.0" width="20.3" height="22.8" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1129.1" y="119.0" width="81.8" height="69.6" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1102.8" y="177.9" width="8.2" height="15.9" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1149.4" y="198.4" width="8.1" height="15.5" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1069.2" y="346.4" width="8.2" height="15.9" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1081.0" y="196.2" width="34.2" height="35.3" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1255.6" y="247.9" width="24.6" height="31.3" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1079.0" y="222.7" width="15.2" height="17.2" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1183.3" y="205.4" width="15.9" height="8.2" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1227.3" y="364.3" width="8.2" height="15.9" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1235.4" y="356.6" width="20.3" height="22.8" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1059.8" y="247.9" width="24.6" height="31.3" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1106.2" y="217.1" width="15.2" height="17.2" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1199.0" y="193.0" width="15.9" height="8.2" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1253.6" y="347.5" width="24.6" height="31.3" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1066.2" y="363.1" width="15.9" height="8.2" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1113.6" y="181.3" width="8.2" height="15.9" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1213.1" y="175.5" width="62.4" height="75.1" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1183.3" y="195.9" width="15.9" height="8.2" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1157.3" y="195.2" width="25.3" height="20.4" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1127.7" y="198.3" width="8.2" height="15.9" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<rect x="1063.9" y="329.6" width="8.1" height="15.5" rx="1" fill="#4a4a55" fill-opacity=".5"/>
+<polygon points="1210.9,119.0 1129.1,119.0 1129.1,188.6 1210.9,188.6" fill="#f88" fill-opacity=".8" stroke="#fff" stroke-width="1"/>
+<polygon points="1169.9,409.6 1185.5,401.6 1251.7,197.9 1243.7,182.3 1141.1,148.9 1125.4,156.9 1059.2,360.6 1067.2,376.2" fill="#f88" fill-opacity=".17" stroke="#f88" stroke-width="1.5"/>
+<polygon points="1146.6,402.0 1142.6,414.3 1086.5,396.1 1090.5,383.8" fill="#777" fill-opacity=".55" stroke="#777" stroke-width=".8"/>
+<polygon points="1220.4,174.7 1224.4,162.4 1168.4,144.2 1164.4,156.5" fill="#777" fill-opacity=".55" stroke="#777" stroke-width=".8"/>
+<circle cx="1155.5" cy="279.2" r="83.8" fill="none" stroke="#f88" stroke-width="1" stroke-dasharray="4 3" stroke-opacity=".6"/>
+<polygon points="1098.9,386.1 1094.1,401.1 1133.5,413.9 1138.4,398.9" fill="#8f8" fill-opacity=".95" stroke="#fff" stroke-width=".8"/>
+<polygon points="1177.4,144.6 1172.5,159.6 1212.0,172.4 1216.9,157.4" fill="#8f8" fill-opacity=".95" stroke="#fff" stroke-width=".8"/>
+<text x="1170.0" y="155.6" fill="#fff" font-size="9" text-anchor="middle" font-weight="600">J1</text>
+<text x="250" y="50" fill="#8f8" font-size="15" font-weight="600" text-anchor="middle">incumbent — MY-2032-12-R</text>
+<text x="250" y="68" fill="#777" font-size="10.5" text-anchor="middle">C964834 · retainer · 3.6 mm</text>
+<text x="250" y="456.57500000000005" fill="#8f8" font-size="11.5" text-anchor="middle">lands on 2 feet, bridges the rest</text>
+<text x="710" y="50" fill="#f88" font-size="15" font-weight="600" text-anchor="middle">candidate — CR2032-BS-6</text>
+<text x="710" y="68" fill="#777" font-size="10.5" text-anchor="middle">C22363833 · socket · 5.5 mm</text>
+<text x="710" y="456.57500000000005" fill="#f88" font-size="11.5" text-anchor="middle">lands hang 1.19 mm off the edge</text>
+<text x="1170" y="50" fill="#fc6" font-size="15" font-weight="600" text-anchor="middle">…rotated 72°, shifted to the tip</text>
+<text x="1170" y="68" fill="#777" font-size="10.5" text-anchor="middle">the land does fit — 2227 such placements exist</text>
+<text x="1170" y="456.57500000000005" fill="#fc6" font-size="11.5" text-anchor="middle">every one of them sits on J1</text>
+<text x="710.0" y="24" fill="#777" font-size="10.5" text-anchor="middle">back of the board, to scale · board Ø30.5 (R 15.25) · outline is the real chamfered body, not its bounding box · grey = metal solder tabs</text>
+<line x1="60" y1="588" x2="1360" y2="588" stroke="#33333c" stroke-width="1"/>
+<text x="60" y="616" fill="#ddd" font-size="15" font-weight="600">Z height above the PCB</text>
+<rect x="210" y="760" width="300" height="9" fill="#4a7" fill-opacity=".55"/>
+<text x="360.0" y="782" fill="#777" font-size="9" text-anchor="middle">PCB</text>
+<rect x="280" y="706.0" width="160" height="54.0" rx="2" fill="#777" fill-opacity=".65"/>
+<text x="360.0" y="736.0" fill="#fff" font-size="9" text-anchor="middle">cell 3.6</text>
+<path d="M 244,760 L 244,702.0 Q 360.0,690.0 476,702.0 L 476,760" fill="none" stroke="#8f8" stroke-width="2.6" stroke-linejoin="round"/>
+<rect x="231" y="756" width="26" height="5" rx="1" fill="#c87137"/>
+<rect x="463" y="756" width="26" height="5" rx="1" fill="#c87137"/>
+<text x="360.0" y="680.0" fill="#8f8" font-size="9" text-anchor="middle">spring clip, 2 feet</text>
+<line x1="194" y1="760.0" x2="194" y2="706.0" stroke="#8f8" stroke-width="1.2"/>
+<text x="186" y="737.0" fill="#8f8" font-size="13" font-weight="600" text-anchor="end">3.6 mm</text>
+<text x="360.0" y="800" fill="#ddd" font-size="11.5" text-anchor="middle">MY-2032-12-R — cell rests on the board</text>
+<rect x="830" y="760" width="300" height="9" fill="#4a7" fill-opacity=".55"/>
+<text x="980.0" y="782" fill="#777" font-size="9" text-anchor="middle">PCB</text>
+<rect x="870" y="677.5" width="220" height="82.5" rx="3" fill="#f88" fill-opacity=".22" stroke="#f88" stroke-width="1.5"/>
+<rect x="892" y="692.0" width="176" height="54.0" rx="2" fill="#777" fill-opacity=".65"/>
+<text x="980.0" y="725.0" fill="#fff" font-size="9" text-anchor="middle">cell 3.6</text>
+<line x1="1146" y1="760.0" x2="1146" y2="677.5" stroke="#f88" stroke-width="1.2"/>
+<text x="1154" y="722.8" fill="#f88" font-size="13" font-weight="600" text-anchor="start">5.5 mm</text>
+<text x="980.0" y="800" fill="#ddd" font-size="11.5" text-anchor="middle">CR2032-BS-6 — cell rides inside the socket</text>
+<line x1="510" y1="706.0" x2="850" y2="706.0" stroke="#8f8" stroke-width="1" stroke-dasharray="4 4" stroke-opacity=".55"/>
+<line x1="510" y1="677.5" x2="850" y2="677.5" stroke="#f88" stroke-width="1" stroke-dasharray="4 4" stroke-opacity=".55"/>
+<line x1="680" y1="706.0" x2="680" y2="677.5" stroke="#f88" stroke-width="1.6"/>
+<text x="680" y="665.5" fill="#f88" font-size="14" font-weight="600" text-anchor="middle">+1.9 mm — 53% taller</text>
+<text x="710.0" y="832" fill="#777" font-size="10.5" text-anchor="middle">pocket is drawn for a 3.2 mm CR2032; the fitted RJD2032C1 is 3.6 mm — a moulded socket cannot splay the way a spring clip does</text>
+</svg>

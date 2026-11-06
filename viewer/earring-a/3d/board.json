@@ -1,0 +1,44 @@
+{
+ "board": "earring.kicad_pcb",
+ "generated": "2026-11-06",
+ "glb": "board.glb",
+ "bytes": 5868460,
+ "kicad_bytes": 22653704,
+ "parts": 167,
+ "modelled": 164,
+ "no_model": [
+  "TP1",
+  "TP2",
+  "TP3"
+ ],
+ "missing": [],
+ "empty": [],
+ "substituted": [
+  "D2",
+  "D4",
+  "J1",
+  "Q2",
+  "Q3",
+  "Q4",
+  "Q5",
+  "Q6",
+  "Q7",
+  "Q8",
+  "Q9",
+  "Q10",
+  "U6",
+  "U7"
+ ],
+ "resolved": [],
+ "flattened": [],
+ "boxed": [],
+ "why": {},
+ "missing_models": [],
+ "boxes": [],
+ "resolved_how": {
+  "legacy": 0,
+  "found": 0
+ },
+ "triangles": 437679,
+ "primitives": 530
+}

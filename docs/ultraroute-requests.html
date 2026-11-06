@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ultraroute requests</title>
+<style>
+  :root { color-scheme: dark; }
+  body { background:#0d1015; color:#d9dee6; margin:0; padding:1.5rem 16px 4rem;
+         font:15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:860px; margin:0 auto; }
+  a { color:#5b9bff; }
+  h1, h2, h3 { color:#e6eaf0; line-height:1.25; }
+  h1 { font-size:1.6rem; } h2 { font-size:1.2rem; margin-top:2rem;
+       border-bottom:1px solid #262d38; padding-bottom:.3rem; }
+  code { background:#202632; border:1px solid #262d38; border-radius:5px;
+         padding:.05em .3em; font-size:.88em; }
+  pre { background:#161b22; border:1px solid #262d38; border-radius:8px;
+        padding:.7rem .9rem; overflow-x:auto; }
+  pre code { background:none; border:0; padding:0; }
+  table { border-collapse:collapse; font-size:.88rem; display:block; overflow-x:auto; }
+  th, td { border:1px solid #262d38; padding:.35rem .6rem; text-align:left; vertical-align:top; }
+  th { background:#161b22; }
+  .back { font-size:.85rem; color:#8c96a6; }
+</style></head><body><main>
+<p class="back"><a href="../index.html">&larr; Dashboard</a> &middot; <code>design/ultraroute-requests.md</code></p>
+<h1>ultraroute change requests</h1>
+<p>Router problems found on this board, for the ultraroute project to fix. Per the skill's
+LESSONS, the fix belongs in the router, not in a workaround script here.</p>
+<h2>1. Overlap-only track joints (2026-10-31, gate 7)</h2>
+<p><strong>Seen in:</strong> ultraroute 8c691ec (lab), <code>~/Software/ultraroute-lab/experiments/vled-width-1/s0</code>.
+The pinned <code>vendor/ultraroute</code> 0330831 is not yet checked.</p>
+<p><strong>What:</strong> the output has 81 joints where two tracks of a net don't share an endpoint. Their
+ends sit 0.05–0.28 mm apart (often exactly one 0.1 mm grid step diagonally: 0.141 mm), and
+the copper connects only where the round ends overlap. The input board has none:</p>
+<pre><code>tools/route_audit/necks.py …/s0/input.kicad_pcb   -&gt; 0 overlap-only joints
+tools/route_audit/necks.py …/s0/out.kicad_pcb     -&gt; 81 overlap-only joints
+</code></pre>
+<p>KiCad counts these as connected, and the default DRC passes them. With a <code>connection_width
+(min 0.09mm)</code> rule, KiCad reports necks down to 0.051 mm. Two are the only battery path
+(VBATT In2 at (98.68,88.08) and (107.3,108.35)) and one is CHRG's only path (F.Cu at
+(101.33,110.83)).</p>
+<p><strong>Ask:</strong> every track joint the router writes should be a shared endpoint (or a T onto a
+segment's centreline), never an end-cap overlap. A self-check before writing would help:
+no joint narrower than the net's width rule.</p>
+<p><strong>Status (2026-11-01):</strong> still present: the installed board still has 81. Not fixed on
+ultraroute origin/main as of cc6be09 (b5f9f2d's 0.5 µm reach-in rule still accepts these
+joints). Sent to the ultraroute session (ultraroute-e8), along with a second ask: fail the run when
+any joint is narrower than the net's width rule, so this can't be reported as success again.</p>
+<p><strong>Fixed</strong> in ultraroute 0b9016f (2026-11-01) for track-to-track joints. Re-routed here: VBATT
+and CHRG are clean.</p>
+<h2>2. Track-to-pad joints narrower than the fab minimum (2026-11-01, gate 7 re-route)</h2>
+<p><strong>Seen in:</strong> pinned 0b9016f, build route stage. KiCad <code>connection_width (min 0.09mm)</code>:
+- U8.5 3V3 B.Cu: 0.066 mm. The pad's only track ends just outside it at (103.675,93.162).
+- U6.5 3V3 B.Cu: 0.053 mm. A track end at (109.65,88.55), ~0.08 mm off the pad's edge.
+- U6.2 3V3 B.Cu: 0.043 mm, from a 0.02 mm track at (107.84,89.13–89.15).</p>
+<p><strong>Ask:</strong> a track that ends on a pad ends inside the pad's copper, so the joint is at least the
+track's width (or the net's minimum). Report any narrower pad joint, as 0b9016f does for track
+joints. Sent to the ultraroute session 2026-11-01.</p>
+<p><strong>Fixed</strong> in ultraroute 5064384 (2026-11-01). Re-routed here: no pad joint under 0.09 mm.</p>
+<h2>3. Via hole-clearance margin, and touching same-net via pairs (2026-11-02)</h2>
+<p><strong>Seen in:</strong> pinned 5064384, build route stage, with the new <code>.kicad_dru</code> rule "No via hole in
+SMD pad" (<code>physical_hole_clearance (min 0.1mm)</code> between vias and SMD pads). 0 via holes touch
+SMD pads (124 before) and 0 unconnected, but KiCad reports:
+- hole_clearance <strong>0.0995 mm</strong>, 0.5 µm short: the GND via at (94.4,96.28) against Q5.2.
+- connection_width <strong>0.029 mm</strong> (B.Cu and In1.Cu): VLED_C vias at (93.43,108.38) and
+  (93.78,108.58), 0.403 mm apart, whose 0.4 mm lands only just touch.</p>
+<p><strong>Ask:</strong> keep a margin on rule checks (or round toward legal). Same-net vias should either
+clear each other or join at least the net's width, and preferably not be doubled. Sent to the
+ultraroute session 2026-11-02.</p>
+<p><strong>Fixed</strong> on ultraroute main: hole clearance in 4ed8d5d, touching vias in fe903ff. But see #4:
+the fe903ff route has new failures, so we stay pinned to 5064384.</p>
+<h2>4. fe903ff routes this board worse than 5064384 (2026-11-02)</h2>
+<p><strong>Seen in:</strong> fe903ff, with the same recipe and the same route.py input as the 1f12b22 route.
+- At <code>--timeout 240</code>, it hit the deadline in shove/nudge. 4 unconnected: BTN_SENSE (U1-33) and
+  LIGHT (U1-40), plus the gnd sliver islands. Shove pass 1 ran from 51 s to 211 s; on 5064384
+  the whole route took ~150 s.
+- At <code>--timeout 480</code>, it still hit the deadline, with 3 unconnected.
+- New track_width error: a VBUS B.Cu track 0.09 mm wide, 0.667 mm long, into J1-A4B9, where
+  the floor is 0.2 mm ("narrowed ... no way at its own"). On 5064384 this net routed at the
+  full width.
+- negotiated: 235 of 249 connections, against 239 of 248 on 5064384. The router sees one more
+  connection.</p>
+<p>The touching-via and hole-clearance errors are gone on fe903ff.</p>
+<p><strong>Ask:</strong> bisect 5064384..fe903ff on this board. The input is copied to
+<code>~/Software/ultraroute-lab/repro/earring-fe903ff/</code>. Also noted: <code>add_block.py</code> lists the block's
+zones in a different order from run to run. Sent to the ultraroute session 2026-11-02; they are
+bisecting.</p>
+<p><strong>Bisect (ultraroute, 2026-11-02):</strong>
+- The unconnected nets start at 4ed8d5d, which made hole clearance exact. 5064384 had passed
+  1–2 hole_clearance errors on every seed. Seed 0 is unlucky: seeds 1–3 reach 0 unconnected.
+- The 0.09 mm VBUS neck was a router bug. When the write stage mended a pad joint, it applied our
+  board-wide 0.09 connection_width rule in place of the net's 0.2 floor. Fixed on
+  fix/joint-floor 20062d9, not yet merged.
+- With that fix, seed 1 gave 0 errors apart from our gnd sliver.
+- The zone-order variation was in route.py: KiCad UUIDs weren't seeded. Fixed here in eee01cd.
+  Seeded input sent as <code>repro/earring-seeded/</code> for a seed sweep.</p>
+<p><strong>Fixed</strong> in ultraroute 99bb7ca (joint floor) on 2026-11-02. On the seeded input, ultraroute
+swept seeds 0–3; seed 1 was the cleanest. Re-routed here on 99bb7ca with seed 1: 0 unconnected,
+no VBUS neck, 1 DRC error, which is our gnd_front fill sliver.</p>
+</main></body></html>

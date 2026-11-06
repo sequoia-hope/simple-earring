@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gate 7: routing review</title>
+<style>
+  :root { color-scheme: dark; }
+  body { background:#0d1015; color:#d9dee6; margin:0; padding:1.5rem 16px 4rem;
+         font:15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:860px; margin:0 auto; }
+  a { color:#5b9bff; }
+  h1, h2, h3 { color:#e6eaf0; line-height:1.25; }
+  h1 { font-size:1.6rem; } h2 { font-size:1.2rem; margin-top:2rem;
+       border-bottom:1px solid #262d38; padding-bottom:.3rem; }
+  code { background:#202632; border:1px solid #262d38; border-radius:5px;
+         padding:.05em .3em; font-size:.88em; }
+  pre { background:#161b22; border:1px solid #262d38; border-radius:8px;
+        padding:.7rem .9rem; overflow-x:auto; }
+  pre code { background:none; border:0; padding:0; }
+  table { border-collapse:collapse; font-size:.88rem; display:block; overflow-x:auto; }
+  th, td { border:1px solid #262d38; padding:.35rem .6rem; text-align:left; vertical-align:top; }
+  th { background:#161b22; }
+  .back { font-size:.85rem; color:#8c96a6; }
+</style></head><body><main>
+<p class="back"><a href="../index.html">&larr; Dashboard</a> &middot; <code>design/gates/phase7.md</code></p>
+<h1>Gate 7 — routing (rev 3, ultraroute lab vled-width-1 s0)</h1>
+<p><em>2026-10-31. Board: <code>hw/earring/a/earring.kicad_pcb</code> as committed at 3be5391. That is the
+route installed at 7a83b33, with two unused 3V3 vias removed at bcba710. Router: ultraroute
+8c691ec (lab, dirty), recipe <code>route/earring/recipe.json</code>.</em></p>
+<p><strong>Verdict: FAILED.</strong> DRC is clean, but the battery path runs through two copper necks
+below the fab minimum. They are router artefacts that KiCad's default rules don't check
+(B1, B2). Required fixes are listed at the end.</p>
+<h2>Checks</h2>
+<table>
+<thead>
+<tr>
+<th>check</th>
+<th>evidence</th>
+<th>ok</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DRC</td>
+<td><code>kicad-cli pcb drc --schematic-parity --severity-all</code>: <strong>0 errors, 0 unconnected</strong>. 67 warnings: 34 silk_overlap, 23 silk_over_copper, 5 text_height, 3 lib_footprint_mismatch, 2 silk_edge_clearance</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>schematic parity</td>
+<td>28 items, all benign: 24 <code>net_conflict</code> on no-connect pins that carry <code>unconnected-(…)</code> names (U1 spare GPIO 2–5/7/9/10/12–15/23–25, J1 SBU1/2, U3 NC, U6 INT2/NC, LED18/19/45 DO = the three zone chain ends) and 4 BOM-exclusion flags (BT1, TP1–3)</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>copper connection width</td>
+<td>Scratch copy with <code>(constraint connection_width (min 0.09mm))</code> added (0.09 = JLC 4-layer minimum trace). <strong>21 hits.</strong> Real necks: VBATT In2 (98.68,88.08) <strong>0.051 mm</strong>; VBATT In2 (107.3,108.35) <strong>0.077 mm</strong>; CHRG F.Cu (101.33,110.83) <strong>0.051 mm</strong>; 3V3 B.Cu (109.78,88.54) 0.054 mm (on a dead stub); VLED_C In2 pour sliver 0.072 mm. The other 16 are same-net 0.4 mm via lands 0.403 mm apart touching on unconnected layers (benign)</td>
+<td><strong>no</strong></td>
+</tr>
+<tr>
+<td>router joints</td>
+<td><code>tools/route_audit/necks.py</code>: <strong>81 overlap-only joints</strong> (track ends 0.05–0.28 mm apart, joined only where the round ends overlap). ultraroute's input board for this run (<code>ultraroute-lab/experiments/vled-width-1/s0/input.kicad_pcb</code>) has <strong>0</strong> and its <code>out.kicad_pcb</code> has 81, so the router makes them</td>
+<td><strong>no</strong></td>
+</tr>
+<tr>
+<td>current capacity</td>
+<td><code>tools/route_audit/power_paths.py</code> (track cost = whole length, an upper bound; 1 oz outer / 0.5 oz inner). Table below</td>
+<td><strong>no</strong> (VBATT)</td>
+</tr>
+<tr>
+<td>plane integrity</td>
+<td>In1.Cu GND: one piece, 671 mm², no tracks on In1. Its only gaps are two deliberate keepouts under the VREG block (97.4–98.2 × 102.6–105.65, 96.65–99.35 × 105.65–108.0). USB_DM crosses 0.24 mm of one keepout (m1)</td>
+<td>yes, m1</td>
+</tr>
+<tr>
+<td>USB pair</td>
+<td>USB_DP 24.5 mm / USB_DM 24.6 mm, 2 vias each, mostly In2 over In1 GND</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>crystal</td>
+<td>XIN 4.9 mm with 2 vias, XOUT 1.8 mm with 2 vias, both through In2 under Y1, beside USB_DM (M2)</td>
+<td><strong>no</strong></td>
+</tr>
+<tr>
+<td>decoupling vias</td>
+<td>53 of 55 capacitors have a GND via within 1.0 mm of their GND pad. C74 (1.32 mm, F side) and C25 (1.22 mm, B side) also sit in an outer GND pour</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>VLED width rule</td>
+<td>VLED_L/C/R narrowest 0.23 mm (rule min 0.2), 196 mm at 0.3 mm</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>renders</td>
+<td><code>design/renders/</code> (skill <code>render.py</code>, 2026-10-31): F/In1/In2/B.Cu, top, bottom, 3D. Looked at by the author and the reviewer</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h3>Power paths</h3>
+<table>
+<thead>
+<tr>
+<th>path</th>
+<th>R (mΩ)</th>
+<th>track mm</th>
+<th>narrowest</th>
+<th>vias</th>
+<th>copper</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>VBATT BT1.1 → Q2.3</td>
+<td>289</td>
+<td>54.6</td>
+<td>0.127</td>
+<td>8</td>
+<td>In2@0.15 29.6, B@0.15 23.9, In2@0.127 1.1</td>
+</tr>
+<tr>
+<td>VBATT BT1.1 → U2.5</td>
+<td>272</td>
+<td>52.3</td>
+<td>0.127</td>
+<td>8</td>
+<td>In2@0.15 27.9, B@0.15 23.9</td>
+</tr>
+<tr>
+<td>VBUS J1.B4A9 → D3.2</td>
+<td>69</td>
+<td>33.0</td>
+<td>0.4</td>
+<td>6</td>
+<td>In2@0.4 17.5, B@0.4 15.5</td>
+</tr>
+<tr>
+<td>VBUS J1.A4B9 → U2.4</td>
+<td>95</td>
+<td>43.1</td>
+<td>0.15</td>
+<td>11</td>
+<td>mostly 0.4; 2.1 mm F@0.15 is a parallel feed</td>
+</tr>
+<tr>
+<td>VSYS Q2.2 → U9.A2 / U10.A2 / U4.A2 / U3.6</td>
+<td>26 / 41 / 52 / 48</td>
+<td>10–24</td>
+<td>0.23</td>
+<td>5–10</td>
+<td>0.4 trunk, 0.23 at the switch pads</td>
+</tr>
+</tbody>
+</table>
+<p>VBATT is not in the <code>power</code> net class (<code>gen_board.py</code> assigns only VBUS and VSYS), so it
+routed at the 0.15 mm default. BT1 and Q2 are 24 mm apart, but the route goes round the
+left and bottom edges.</p>
+<h3>Warnings explained</h3>
+<ul>
+<li><strong>silk_overlap 34, silk_over_copper 23, text_height 5, silk_edge_clearance 2:</strong> gate 9.
+  The 5 text_height hits are the 0.8 mm art text. The 2 silk_edge_clearance hits are J1's
+  outline over the edge.</li>
+<li><strong>lib_footprint_mismatch C38, LED20:</strong> the board copies store pad orientation 360° where
+  the library has 0°, and the graphics serialise differently. Pads are the same.</li>
+<li><strong>lib_footprint_mismatch J1:</strong> a known board-local edit (shortened pads, PLAN.md). The
+  reviewer also found its pegs differ from a library copy (N2). The board copy matches the
+  ordered rev.</li>
+</ul>
+<h2>Review: independent (stronger model, fresh context), 2026-10-31</h2>
+<p>The reviewer re-derived the numbers with its own pcbnew/shapely scripts and agreed with the
+evidence scripts.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>sev</th>
+<th>finding</th>
+<th>resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>B1</td>
+<td>BLOCKER</td>
+<td>VBATT In2 (98.68,88.08): ends 0.141 mm apart, neck 0.050 mm. With it cut, <strong>BT1 reaches neither Q2 nor U2</strong>: it is the only path for all cell current. Below the 0.09 mm fab minimum; it could etch open (dead battery, nothing visible). At 140 mA, IPC-2221 gives ΔT ≈ 33 °C at the neck</td>
+<td>open: re-route</td>
+</tr>
+<tr>
+<td>B2</td>
+<td>BLOCKER</td>
+<td>VBATT In2 (107.3,108.35): 0.127 mm onto 0.15 mm, ends 0.124 mm apart, neck ~0.06–0.077 mm. Cut, BT1 → Q2 opens: <strong>the board charges but never runs from the cell</strong></td>
+<td>open: re-route</td>
+</tr>
+<tr>
+<td>M1</td>
+<td>MAJOR</td>
+<td>The joint artefacts are systemic (81) and the project DRC can't see them. CHRG F.Cu (101.33,110.83) 0.051 mm is the only path U2.7 → U1 (charge status silently dead). The 3V3 B.Cu neck and the VLED_C sliver are cosmetic or CAM flags</td>
+<td>open: permanent <code>connection_width</code> rule + ultraroute fix (below)</td>
+</tr>
+<tr>
+<td>M2</td>
+<td>MAJOR</td>
+<td>XIN/XOUT on In2 with 2 vias each, under Y1, 0.26 mm from USB_DM for ~1 mm. Y1, C14, C15, R1 and U1 are all on F.Cu within 3 mm: route XIN round Y1 pad 4's east edge on F.Cu, XOUT straight</td>
+<td>open: pre-route on F.Cu, locked (skill routing.md step 4a)</td>
+</tr>
+<tr>
+<td>M3</td>
+<td>MAJOR</td>
+<td>VBATT goes 54.6 mm round the edge for 24 mm direct, at 0.15 mm, Default class. ~0.28 Ω. That is 39 mV at 140 mA: within the requirement, and 0.127 mm inner is good for 0.16 A at ΔT 10 °C. Not a capacity failure, but the ugliest route on the board, ~1 % gauge error, and where B1/B2 live</td>
+<td>open: VBATT → <code>power</code> class, plus a <code>track_width</code> min rule (LESSONS)</td>
+</tr>
+<tr>
+<td>m1</td>
+<td>MINOR</td>
+<td>USB_DM In2 (97.60,101.03)→(98.83,104.73) has 0.24 mm inside the In1 VREG keepout</td>
+<td>with the re-route; see N1</td>
+</tr>
+<tr>
+<td>m2</td>
+<td>MINOR</td>
+<td>VDD_CORE: C6 reaches U1 pin 6 via 3.3 mm of 0.127 mm In2 and 2 vias, though it sits 1.4 mm away. C5 takes ~4.3 mm of F.Cu. VREG_LX itself is good (F.Cu only, 3.2 mm + pour)</td>
+<td>with the re-route</td>
+</tr>
+<tr>
+<td>m3</td>
+<td>MINOR</td>
+<td>On USB with no firmware cap, full white ≈ 565 mA of LEDs + MCU ≈ 0.62 A on VSYS. The 0.4 mm In2 trunk then sees ΔT ≈ 32 °C (0.37 A at 10 °C). VLED copper is fine (0.3 mm: ~6 °C). Fine if the 140 mA firmware cap also applies on USB; otherwise widen the VSYS trunk to 0.5–0.6 mm</td>
+<td>decide with the re-route; D3's ~0.6 W at that current is a separate power question</td>
+</tr>
+<tr>
+<td>m4</td>
+<td>MINOR</td>
+<td>9 dangling stubs: 3V3 F.Cu (97.0,102.29) (103.01,102.22) (97.28,96.49); 3V3 B.Cu (109.6,88.56); BTN_SENSE B.Cu (95.98,91.18); VBUS_SENSE B.Cu (107.73,101.18); LIGHT F.Cu (102.83,106.03); VBATT B.Cu (105.93,84.88); VLED_R In2 (109.58,98.58)</td>
+<td>strip in the route stage</td>
+</tr>
+<tr>
+<td>m5</td>
+<td>MINOR</td>
+<td>USB_C_DP: a needless 0.47 mm In2 hop between vias 0.403 mm apart at (99.93,86.88)/(99.98,87.28)</td>
+<td>with the re-route</td>
+</tr>
+<tr>
+<td>N1</td>
+<td>NOTE</td>
+<td>In1 VREG keepouts: the RP2350 reference keeps solid GND under L1/C11/C12. A third rule area is on <strong>In4.Cu, which this board doesn't have</strong> (generator leftover)</td>
+<td>drop the In4 area; keep or drop the In1 slots with a decisions.md entry</td>
+</tr>
+<tr>
+<td>N2</td>
+<td>NOTE</td>
+<td>Parity items all benign; lib mismatches as explained above</td>
+<td>none needed</td>
+</tr>
+<tr>
+<td>N3</td>
+<td>NOTE</td>
+<td>Silk warnings are gate-9 carry-overs</td>
+<td>gate 9</td>
+</tr>
+<tr>
+<td>N4</td>
+<td>NOTE</td>
+<td>Good: every LED 100 n has its VLED via within 0.3–0.5 mm; 129 GND stitching vias; all 479 vias 0.4/0.2; U2 has 3 GND vias, D3 and U3 one each; In2 pours coherent</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2>To pass</h2>
+<ol>
+<li><code>.kicad_dru</code>: add <code>(constraint connection_width (min 0.09mm))</code>, so a neck fails DRC. Add
+   <code>track_width (min …)</code> for the <code>power</code> class, as LESSONS requires for current-carrying nets.</li>
+<li><code>gen_board.py</code>: add VBATT to the <code>power</code> class.</li>
+<li>Lock XIN/XOUT on F.Cu as pre-routes (route.py). Remove the In4.Cu rule area.</li>
+<li>Ultraroute must stop making overlap-only joints: <code>design/ultraroute-requests.md</code> #1. Until
+   that is fixed, a re-route is judged by the <code>connection_width</code> DRC. If the request isn't
+   met, a snap pass in route.py would be the stopgap, but LESSONS says router fixes go to
+   ultraroute, so that needs the user's call.</li>
+<li>Re-route (build stage <code>route</code>, booked through <code>reserve</code>), then re-run this gate and
+   re-review.</li>
+</ol>
+<h2>Re-route 2026-11-01 (ultraroute 0b9016f, build route stage)</h2>
+<p>Fixes 1–3 and 5 from "To pass" are applied (<code>design/decisions.md</code>, 2026-11-01): VBATT is in
+<code>power</code>, with a 0.2 mm <code>track_width</code> floor for the class. There's a <code>connection_width (min
+0.09mm)</code> rule, with its severity raised to error in <code>.kicad_pro</code> (KiCad's default is warning,
+so the first run still passed). XIN/XOUT/XTAL_R are locked F.Cu pre-routes, and the In4 area
+is gone. For fix 4, ultraroute fixed the track-to-track joints at our request.
+<code>python3 build.py --only route</code> (booked through reserve) gave unconnected 0, 329 vias, and
+"mended 1 joints where round ends only overlapped".</p>
+<table>
+<thead>
+<tr>
+<th>check</th>
+<th>evidence</th>
+<th>ok</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DRC</td>
+<td><code>kicad-cli pcb drc --schematic-parity --severity-all</code>: <strong>4 errors (connection_width), 0 unconnected</strong>, parity 28 (unchanged). Warnings: 34 silk_overlap, 23 silk_over_copper, 5 text_height, 3 lib_footprint_mismatch, 2 silk_edge_clearance, 1 via_dangling (route.py's locked 3V3 via (6.2,2.6), now unused), 1 track_dangling (VLED_C In2 0.07 mm stub at (92.33,102.68))</td>
+<td><strong>no</strong></td>
+</tr>
+<tr>
+<td>connection width</td>
+<td>U8.5 3V3 B.Cu <strong>0.066 mm</strong>: the pad's only track ends 0.03 mm outside it. U6.5 3V3 B.Cu <strong>0.053 mm</strong>: an end ~0.08 mm off the pad edge (the pad also has a west track). U6.2 3V3 B.Cu <strong>0.043 mm</strong>: a 0.02 mm track. gnd_back pour sliver at (112.46,91.73), 0.074 mm. VBATT and CHRG are clean</td>
+<td><strong>no</strong></td>
+</tr>
+<tr>
+<td>router joints</td>
+<td><code>necks.py</code>: 996 hits, but it now overcounts. Its narrowest hits are false: the 3V3 F.Cu one at (97.33,99.28) is inside <code>vreg_3v3_1</code>, and LEDC_D2 ends exactly on LED39 pad 2's edge (<code>HitTest(…, 0)</code> misses it). ultraroute says ~1,100 ends sit inside a neighbouring track, which is full-width copper. KiCad's <code>connection_width</code> is the authority now</td>
+<td>see DRC</td>
+</tr>
+<tr>
+<td>VBATT</td>
+<td>BT1.1 → Q2.3: <strong>98 mΩ</strong> (was 289), 55.3 mm, all 0.4 mm, 6 vias. BT1.1 → U2.5: 97 mΩ, narrowest 0.25 mm for 0.5 mm. It still goes round the edge</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>crystal</td>
+<td>XIN 6.5 mm, XOUT 2.3 mm, XTAL_R 2.2 mm, all F.Cu, <strong>0 vias</strong></td>
+<td>yes</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Still FAILED</strong>, on the three track-to-pad necks: U8.5's is its only feed. They are router
+joints onto pads, not the track-to-track kind 0b9016f fixed. Sent to ultraroute as request #2.
+Not re-reviewed: the independent review runs once DRC is clean.</p>
+<h2>Re-route 2026-11-01 (evening): ultraroute 5064384</h2>
+<p>Pin 0b9016f → <strong>5064384</strong> (ultraroute main, CI passed): their fix for track-to-pad joints,
+request #2. Route log: "mended 14 joints where round ends only overlapped" and "mended 2 pad
+joints where a track's end only reached the pad's edge". Unconnected 0, 372 vias.</p>
+<p>That left two <code>connection_width</code> errors in KiCad's pour fill, not in router copper: gnd_back
+0.056 mm and vled_r_plane 0.074 mm. Shapely erosion of the saved fill found no neck under
+0.09 mm. Raising every zone's minimum width moves the errors around: 0.2 mm clears both, while
+0.25 mm makes new ones on gnd_back. Routing ultraroute over 0.2 mm fills gave a different
+route with 13 same-net via-pair necks. So route.py now routes over the usual 0.15 mm fills and
+sets 0.2 mm (large planes only; the VREG pours stay at 0.15 for the LX finger) just for the
+final refill. The route is the same as the 0.15 run (identical mend counts, seed 0, 1 thread).
+Fill area change: vled_r 170.4 → 155.0 mm², gnd_back 450.9 → 439.6, the rest ≤ 3 %.</p>
+<table>
+<thead>
+<tr>
+<th>check</th>
+<th>evidence</th>
+<th>ok</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DRC</td>
+<td><code>kicad-cli pcb drc --schematic-parity --severity-all</code> (connection_width 0.09 mm as error): <strong>0 errors, 0 unconnected</strong>, parity 28 (as before). Warnings: 34 silk_overlap, 23 silk_over_copper, 5 text_height, 3 lib_footprint_mismatch, 2 silk_edge_clearance (all as before), and 1 via_dangling: route.py's locked 3V3 access via at (6.2,2.6), unused by this route</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>connection width</td>
+<td>0 under 0.09 mm (KiCad)</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>VBATT</td>
+<td>BT1.1 → Q2.3: 112 mΩ, 56.2 mm, all 0.4 mm, 15 vias. BT1.1 → U2.5: 115 mΩ, 0.4 mm. It still goes round the edge</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>VBUS</td>
+<td>J1 → D3: 70 mΩ; J1 → U2: 71 mΩ; narrowest 0.2 mm (the floor), 0.5–2.1 mm at the pads</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>VSYS / VLED</td>
+<td>VSYS narrowest 0.23 mm; VLED_L/R narrowest 0.23, VLED_C 0.3</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>crystal</td>
+<td>XIN 6.5 mm, XOUT 2.3 mm, XTAL_R 2.2 mm: F.Cu only, 0 vias (locked pre-routes)</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>USB pair</td>
+<td>USB_DP 21.0 / USB_DM 21.1 mm, 2 vias each</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>In1 GND plane</td>
+<td>no tracks on In1</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>renders</td>
+<td><code>design/renders/</code> regenerated 2026-11-01 (skill render.py)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<h2>Review: independent (stronger model, fresh context), 2026-11-01, route 5064384</h2>
+<p>The reviewer re-derived everything with its own kicad-cli/pcbnew/shapely scripts (scratch
+plots in the session scratchpad). DRC 0 errors / 0 unconnected, 28 benign parity items, every
+warning explained. No joint below 0.095 mm anywhere. VBATT 112 mΩ at 0.4 mm. Crystal F.Cu
+with 0 vias over solid In1. USB 21.0/21.1 mm. In1 one piece (702 mm²). Every pour piece has
+copper of its net.</p>
+<p>Previous findings: B1, B2, M1, M2, M3, m2, m4 (except the locked via) and N1 are <strong>resolved</strong>.
+m3 is accepted (NOTE-1). m5 is open (MINOR-4).</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>sev</th>
+<th>finding</th>
+<th>resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MAJOR-1</td>
+<td>MAJOR</td>
+<td><strong>Via holes in SMD pads: 124</strong> (17 wholly inside a pad, 107 cutting a pad edge): 42 WS2816C VDD pads, 26 0402 pads, five U1 QFN pins (9/11/31/33/55), the USB-C vias on J1.A7/B7. Mask expansion 0 and the vias are tented, so each hole is open in the pad's aperture: solder wicks, starving LED VDD joints and tombstoning 0402s. 120 are the router's; 4 are route.py's deliberate ones. For comparison, the shipped rev 1 (43eadc1) had 18 (4 inside, 14 edge; author's count)</td>
+<td><strong>open: user's call</strong> (see status.json)</td>
+</tr>
+<tr>
+<td>MINOR-1</td>
+<td>MINOR</td>
+<td>Track-to-pad joints 0.110–0.123 mm, below the board's 0.127 mm minimum: U6 3V3 pads 2/3/5/8, LED8.4 LEDL_D7, LED9.4 LEDL_D8, LED29.2 LEDR_D9, LEDC_D1 at a via. Above JLC's 0.09, mA-level nets</td>
+<td>raise connection_width to 0.127 and send to ultraroute as request #3</td>
+</tr>
+<tr>
+<td>MINOR-2</td>
+<td>MINOR</td>
+<td>gnd_back sliver 0.095 mm at (112.46,91.73) between the IMU_INT1 edge track and the via at (112.25,92.41). No island if it etches away</td>
+<td>small no-pour area or accept</td>
+</tr>
+<tr>
+<td>MINOR-3</td>
+<td>MINOR</td>
+<td>CHRG 3.1 mm, CHRG_DONE 3.1 mm, VBSENSE 1.3 mm, LIGHT 0.44 mm on In2 over the In1 VREG slots, under VREG_LX with no plane between. VBSENSE and LIGHT are ADC inputs</td>
+<td>tracks-only rule area on In2 over the slots, or log acceptance (slow, RC-filtered)</td>
+</tr>
+<tr>
+<td>MINOR-4</td>
+<td>MINOR</td>
+<td>USB_C_DP: 6 vias on 10.6 mm including a 0.52 mm In2 hop, a collinear back-track at (100.42,87.14); USB_C_DN 15° joint at (100.12,87.46). Fine at 12 Mb/s</td>
+<td>cosmetic</td>
+</tr>
+<tr>
+<td>MINOR-5</td>
+<td>MINOR</td>
+<td>Overlapping VLED_L In2 tracks from the via at (94.98,82.33), 1.8° apart; the unused locked 3V3 via (106.2,102.6) with its 1.4 mm In2 stub</td>
+<td>strip in the route stage</td>
+</tr>
+<tr>
+<td>NOTE-1..3</td>
+<td>NOTE</td>
+<td>USB full white: 32 °C rise on the 0.4 mm In2 VBUS/VSYS at 0.62 A; D3's ~0.5 W is the real limit (decisions.md accepts on the 140 mA cap). VREG_LX 1.65 mm at 0.127 mm before the pour is fine. Renders looked at</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Verdict: FAIL</strong> on MAJOR-1 alone. If MAJOR-1 is settled by a decision (filled and capped
+vias), this gate passes without a re-route. If it's settled by a hole-clearance rule, the
+board needs a re-route and this gate re-runs.</p>
+<h2>Re-route 2026-11-02: ultraroute 99bb7ca, seed 1, via-hole rule</h2>
+<p>The board has new inputs since the review above:
+- the <code>.kicad_dru</code> rule "No via hole in SMD pad" (<code>physical_hole_clearance</code> 0.1 mm, via to SMD
+  pad), with route.py's own vias moved off pads (1f12b22);
+- KiCad UUIDs seeded in route.py, so the router's input is byte-identical from run to run
+  (eee01cd);
+- ultraroute pin 5064384 → 99bb7ca, which fixes request #3 (exact hole clearance; touching
+  same-net vias) and the joint-floor bug behind request #4;
+- recipe <code>--seed 0</code> → <code>--seed 1</code> and <code>--timeout 240</code> → <code>480</code>. On this input seed 0 leaves 3
+  unconnected; seeds 1–3 route everything. Ultraroute swept the seeds on
+  <code>ultraroute-lab/repro/earring-seeded</code>.</p>
+<p>The route stage took 219 s and left 0 unconnected.</p>
+<table>
+<thead>
+<tr>
+<th>check</th>
+<th>evidence</th>
+<th>ok</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DRC</td>
+<td><code>kicad-cli pcb drc --schematic-parity --severity-all</code>: <strong>1 error, 0 unconnected</strong>, parity 28 (as before). The error: connection_width 0.077 mm in the gnd_front fill at (112.46,91.73), MINOR-2's sliver (now on F.Cu). Warnings: 34 silk_overlap, 23 silk_over_copper, 5 text_height, 3 lib_footprint_mismatch, 2 silk_edge_clearance (all as before); via_dangling, the unused locked 3V3 via at (106.2,102.6); track_dangling, a 0.21 mm VLED_L F.Cu stub at (93.38,88.58)</td>
+<td><strong>no</strong></td>
+</tr>
+<tr>
+<td>via in pad</td>
+<td>0 hole_clearance errors under the 0.1 mm via-to-SMD-pad rule</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>VBATT</td>
+<td>BT1.1 → Q2.3: <strong>63 mΩ</strong>, 29.5 mm, all 0.4 mm, 4 vias (was 112 mΩ, 56 mm round the edge)</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>VBUS</td>
+<td>J1 → D3: 50 mΩ, 0.4 mm. J1 → U2.4: 63 mΩ, narrowest 0.25 mm. Net minimum 0.20 mm (the floor)</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>VSYS / VLED</td>
+<td>VSYS narrowest 0.23 mm; VLED_L 0.30, VLED_R 0.23, VLED_C 0.23</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>crystal</td>
+<td>XIN 6.5, XOUT 2.3, XTAL_R 2.2 mm: F.Cu only, 0 vias</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>USB pair</td>
+<td>USB_DP / USB_DM 20.7 / 20.7 mm, 2 vias each. USB_C_DP / USB_C_DN 11.9 / 11.0 mm, 4 vias each (was 6 on DP: MINOR-4)</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>In1 GND plane</td>
+<td>no tracks on In1</td>
+<td>yes</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Gate 7 still FAILS</strong>, on the gnd_front fill sliver alone. That needs the user's call: a small
+no-pour area there, or log the sliver as a known fill artefact. No independent re-review yet: it
+runs once DRC is clean.</p>
+<h2>No-pour area at CC1 / VBUS, 2026-11-02</h2>
+<p>The one DRC error was not where KiCad reported it. KiCad 9 reports a zone's connection_width
+error at the zone's origin (112.46,91.73). The pinch was at (97.74,86.39): a 0.077 mm strip of
+gnd_front between CC1's R4.1 and route.py's locked VBUS A4B9 via. <code>tools/route_audit/pinch.py</code>
+found it. Both items are fixed, so route.py now adds an F.Cu no-pour rule area
+(<code>nopour_cc1_vbus</code>, (97.55–98.00, 86.20–86.60)) after routing, before the refill. The route
+stage re-ran on 99bb7ca, seed 1: the copper is identical to 98f7884 (2159 tracks and vias).</p>
+<table>
+<thead>
+<tr>
+<th>check</th>
+<th>evidence</th>
+<th>ok</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DRC</td>
+<td><code>kicad-cli pcb drc --schematic-parity --severity-all</code>: <strong>0 errors, 0 unconnected</strong>, parity 28 (as before). Warnings: 34 silk_overlap, 23 silk_over_copper, 5 text_height, 3 lib_footprint_mismatch, 2 silk_edge_clearance, 1 via_dangling (locked 3V3 via), 1 track_dangling (VLED_L 0.21 mm stub)</td>
+<td>yes</td>
+</tr>
+</tbody>
+</table>
+<h2>Review: independent (stronger model, fresh context), 2026-11-02, route 99bb7ca seed 1</h2>
+<p>DRC 0/0. 0 via holes within 0.1 mm of an SMD pad. No copper neck under 0.111 mm. VBATT 63 mΩ at
+0.4 mm. Crystal on F.Cu with 0 vias. USB pairs matched to 0.01 mm. In1 is one piece, 703 mm².</p>
+<p>Earlier findings:
+- MAJOR-1 (vias in pads), MINOR-2 (sliver), B1/B2/M1/M2/M3/m1/N1: <strong>resolved</strong>.
+- MINOR-1, MINOR-3 and MINOR-5: <strong>open</strong>, now as MINOR-A, MINOR-C and MINOR-B.
+- m2 has <strong>regressed</strong> and is now part of MAJOR-A.
+- m3 is accepted.
+- m5 and MINOR-4 have improved.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>sev</th>
+<th>finding</th>
+<th>resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MAJOR-A</td>
+<td>MAJOR</td>
+<td><strong>VDD_CORE is 5 separate F.Cu pieces</strong>, joined only by router copper. The L1/C12 pour (<code>vreg_vdd_core_6</code>, 3.4 mm²) reaches the under-chip ring (<code>vreg_vdd_core_3</code>, 7.1 mm²) through 14 mm of 0.15 mm In2/B.Cu with 3 vias, ~75 mΩ, for a 2 mm distance. Pin 50's locked track only touches the pour's corner: a 0.118 mm joint. C6 reaches the ring through 7.6 mm of In2 and 2 vias (m2, regressed). The shipped rev 1 had VDD_CORE as one 11.2 mm² F.Cu piece. Author's check: 5 pieces with no erosion, 6 at 0.0635 mm</td>
+<td><strong>open: user's call</strong></td>
+</tr>
+<tr>
+<td>MINOR-A</td>
+<td>MINOR</td>
+<td>Joints under the 0.127 mm board minimum (all above 0.09): USB_DM into U1.51 0.111; pin 50 0.118; IMU_INT1 0.125; 3V3 into U1.1 0.125</td>
+<td>raise connection_width to 0.127, or accept</td>
+</tr>
+<tr>
+<td>MINOR-B</td>
+<td>MINOR</td>
+<td>Router leftovers: a fan of 79 GND B.Cu micro-segments at (94.62,107.27); a staircase at (108.9,90.1); 91 tracks under 0.05 mm; 11 collinear overlaps; 4 back-tracks; the VLED_L stub; the unused locked 3V3 via</td>
+<td>strip in the route stage; send the fan to ultraroute; drop the via from route.py</td>
+</tr>
+<tr>
+<td>MINOR-C</td>
+<td>MINOR</td>
+<td>In2 signals over the In1 VREG slots: CHRG_DONE 3.4, VBSENSE 2.1, VDD_CORE 1.7, CHRG 1.1, LIGHT 0.6 mm</td>
+<td>tracks-only rule area on In2, or log acceptance</td>
+</tr>
+<tr>
+<td>MINOR-D</td>
+<td>MINOR</td>
+<td>7 decouplers with no GND via within 1 mm (C75, C26, C8, C5, C15, C74, C25); 48 of 55 have one</td>
+<td>add pad vias before the next route</td>
+</tr>
+<tr>
+<td>MINOR-E</td>
+<td>MINOR</td>
+<td>No design/nets.csv or stackup.md, and no phase 3 or phase 5 gate files</td>
+<td>write nets.csv and run nets_check before gate 10</td>
+</tr>
+<tr>
+<td>NOTE-A</td>
+<td>NOTE</td>
+<td>U2's exposed pad lost its GND via to the via-hole rule (3 thermal spokes, nearest via 0.37 mm), which contradicts the 10-25 decision. Fine at ≤130 mW. U1's EP keeps its 9 PTH pads</td>
+<td>log, or exempt EPs from the rule</td>
+</tr>
+<tr>
+<td>NOTE-B</td>
+<td>NOTE</td>
+<td>Bookkeeping for this round</td>
+<td>done in this commit</td>
+</tr>
+<tr>
+<td>NOTE-C..E</td>
+<td>NOTE</td>
+<td>USB geometry is cosmetic. Full-white current is accepted (11-01). In2 pours are all joined</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p>The reviewer also flagged that <code>pinch.py</code>'s same-ring exclusion (3 × the minimum along the
+outline) can miss small-track joints; use erosion for those.</p>
+<p><strong>Verdict: FAIL</strong> on MAJOR-A. The gate passes if MAJOR-A is fixed in route.py's VREG block
+(locked F.Cu spokes from pin 50 and from C6/C13 into the ring, and a ≥ 0.15 mm pin-50 joint)
+and re-routed, or if it is accepted in decisions.md with the physics.</p>
+<h2>Re-route 2026-11-03: VDD_CORE spokes, parts off the silk art, ultraroute 99bb7ca seed 2</h2>
+<p><strong>Changes</strong> (route.py, place.py and silk_art.py):
+- <strong>VDD_CORE.</strong> Locked, as on the official board: a via in the switcher pour's lobe, 3.65 mm of 0.6 mm B.Cu and a via into the under-chip square. C6 and C13 each get a via beside the pad plus 0.4 mm B.Cu to a square via. The pin-50 (FB) leg runs into the pour's body. C5 is turned (rot 270) so its VDD_CORE pad faces pin 39, and the router joins them. A locked C5 link cost a neighbouring pin its fanout escape, so it was dropped.
+- <strong>Silk art</strong> (user request: "move those things off my name"):
+  - D2, R17 and Q2 moved off the back URL, by <code>tools/scan_spot.py --art</code>. The new flag makes the board's own silk art an obstacle.
+  - The URL letters are now spaced by glyph width, with a 0.2 mm gap at the glyph tops; the inner arc moved to r 11.6.
+  - Q3/R23 could not leave the name: every spot clear of it left U1 signals unrouted on every seed (west flank, then the back under U1). With the user's OK, the name moved instead, to the open front area west of U1, at 60 deg like "Be Gay".
+- <strong>Recipe.</strong> Seed 2, the best of a sweep of seeds 1, 2 and 4–7 on the route stage's own input (seeds 2, 5 and 7 clean). Ultraroute found the route depends on the file's item order. gen_board/place don't seed KiCad UUIDs yet, so the same seed only holds until the board is regenerated.</p>
+<table>
+<thead>
+<tr>
+<th>check</th>
+<th>evidence</th>
+<th>ok</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DRC</td>
+<td><code>kicad-cli pcb drc --schematic-parity --severity-all</code>: <strong>0 errors, 0 unconnected</strong>, parity 28 (as before). Silk: 13 silk_overlap and 19 silk_over_copper, all footprint-to-footprint or pin-1 dots, none involving art text (was 34 + 23, 21 of them on art). 1 track_dangling (VLED_L 0.21 mm stub). The via_dangling is gone</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>VDD_CORE</td>
+<td>L1.1 to any DVDD pin ~10 mΩ through locked copper. C5 to pin 39: 1.38 mm, 0 vias. C6: 9.9 mΩ. C13: 10.7 mΩ. No neck under 0.127 mm (DRC rerun with connection_width 0.127)</td>
+<td>yes</td>
+</tr>
+<tr>
+<td>art clearance</td>
+<td>no part, pad or silk on the name, the URL or other art; URL letter gaps ≥ 0.15 mm</td>
+<td>yes</td>
+</tr>
+</tbody>
+</table>
+<h2>Review: independent (stronger model, fresh context), 2026-11-03, route 99bb7ca seed 2</h2>
+<p><strong>Verdict: PASS</strong> for gate 7, and for gate 6 as it covers the moved parts. <strong>Resolved:</strong> MAJOR-A, MAJOR-B (C5), MINOR-A (no joint under 0.127 mm); also MINOR-D, except 3 caps. The other earlier findings are unchanged.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>sev</th>
+<th>finding</th>
+<th>resolution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MINOR-1</td>
+<td>MINOR</td>
+<td>VBATT got longer with Q2's move: BT1.1 → Q2.3 107 mΩ, 49 mm, 11 vias (was 63 mΩ, 29.5 mm). That's 15 mV at 140 mA, within spec</td>
+<td>accepted (decisions.md 2026-11-03); a locked VBATT trunk is the fix if wanted</td>
+</tr>
+<tr>
+<td>MINOR-2</td>
+<td>MINOR</td>
+<td>The heart touches Q1's outline and mask aperture (pre-existing)</td>
+<td>gate 9</td>
+</tr>
+<tr>
+<td>MINOR-3</td>
+<td>MINOR</td>
+<td>"Be Gay" and "Love Everyone" sit inside cap courtyards, clear of silk and pads (pre-existing)</td>
+<td>gate 9</td>
+</tr>
+<tr>
+<td>MINOR-4</td>
+<td>MINOR</td>
+<td>Router leftovers: 57 GND micro-segments at U3, 123 tracks under 0.05 mm, the VLED_L stub</td>
+<td>strip in the route stage; ask ultraroute</td>
+</tr>
+<tr>
+<td>MINOR-5</td>
+<td>MINOR</td>
+<td>In2 over the In1 VREG slots: CHRG_DONE 2.1, LIGHT 1.7, VBATT 3.3 mm</td>
+<td>rule area or log</td>
+</tr>
+<tr>
+<td>MINOR-6</td>
+<td>MINOR</td>
+<td>C15, C27 and C75 have no GND via within 1 mm</td>
+<td>pad vias, or accept</td>
+</tr>
+<tr>
+<td>NOTE-1..3</td>
+<td>NOTE</td>
+<td>PATH_GATE is 28 mm (a static node). The moved parts sit under the cell within the 1.1 mm cap, in sensible spots. The silk counts above</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+</main></body></html>

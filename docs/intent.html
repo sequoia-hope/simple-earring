@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design intent</title>
+<style>
+  :root { color-scheme: dark; }
+  body { background:#0d1015; color:#d9dee6; margin:0; padding:1.5rem 16px 4rem;
+         font:15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:860px; margin:0 auto; }
+  a { color:#5b9bff; }
+  h1, h2, h3 { color:#e6eaf0; line-height:1.25; }
+  h1 { font-size:1.6rem; } h2 { font-size:1.2rem; margin-top:2rem;
+       border-bottom:1px solid #262d38; padding-bottom:.3rem; }
+  code { background:#202632; border:1px solid #262d38; border-radius:5px;
+         padding:.05em .3em; font-size:.88em; }
+  pre { background:#161b22; border:1px solid #262d38; border-radius:8px;
+        padding:.7rem .9rem; overflow-x:auto; }
+  pre code { background:none; border:0; padding:0; }
+  table { border-collapse:collapse; font-size:.88rem; display:block; overflow-x:auto; }
+  th, td { border:1px solid #262d38; padding:.35rem .6rem; text-align:left; vertical-align:top; }
+  th { background:#161b22; }
+  .back { font-size:.85rem; color:#8c96a6; }
+</style></head><body><main>
+<p class="back"><a href="../index.html">&larr; Dashboard</a> &middot; <code>design/intent.md</code></p>
+<h1>Design intent — LiPo power source (replaces the coin cell on rev 2)</h1>
+<p><em>Phase 0. Drafted 2026-10-22. </em><em>Signed off by the user 2026-10-22</em><em>, with R8 = 18k (50 mA) chosen.</em></p>
+<p>This is a delta on rev 2 as described in <code>docs/PLAN.md</code> (commit <code>4538da2</code>). Everything not named here — MCU, flash,
+LED ring, IMU, light sensor, USB, the VBUS/VSYS/VBATT power path, 4-layer
+stackup, outline — is unchanged and keeps its existing intent.</p>
+<h2>Purpose</h2>
+<p>Replace the RJD2032C1 coin cell and its MY-2032-12-R retainer (BT1) with a
+round lithium-polymer pouch cell taped to the back of the board and wired to
+two solder pads. Goals, in order:</p>
+<ol>
+<li><strong>More capacity.</strong> 140 mAh against 85 mAh. <em>Correction 2026-10-22:</em> this line
+   first said "in less height, against a 5.3 mm stack". 5.3 is <code>gen_case.py</code>'s
+   unmeasured default, sized for the old QIJEY clip model. The rev-2 coin stack is
+   ~3.8 mm (a 3.6 mm RJD2032C1 resting on the board inside a 3.70 mm
+   MY-2032-12-R). The LiPo stack is <strong>~4.4 mm</strong> (see Mechanical), so this is a
+   capacity win at a ~0.6 mm height cost, not a height win.</li>
+<li><strong>Retire the BT1 copper.</strong> The Ø8 centre GND pad and its six mask-defined
+   solder bumps go away, and the back centre becomes ordinary routable area. That
+   pad causes rev 2's 5 unconnected nets (see PLAN.md); removing it should fix
+   them.</li>
+<li>Keep the change on main. The coin-cell rev 2 survives only in git history
+   (user decision 2026-10-22).</li>
+</ol>
+<p>Open source, personal board. Same as before.</p>
+<h2>The cell — LiPol Battery LPR302823 (hand-fitted, not in the JLC BOM)</h2>
+<p>From <code>design/datasheets/LPR302823.pdf</code> (LiPol dwg FD_6110_20, 2020-08-17):</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>outline</td>
+<td>round Ø28 ±1.0, one flat; flat-to-far-edge 23 ±1.0 (the flat chord sits 9 mm from centre)</td>
+</tr>
+<tr>
+<td>thickness</td>
+<td><strong>3.0 nominal (part name) / 3.2 (vendor product page)</strong>. The drawing's side-view dimension reads "28 ±0.5", which is a drawing error. <strong>Design for 3.2 and measure the real cell.</strong></td>
+</tr>
+<tr>
+<td>leads</td>
+<td>wires out of the flat, 50 ±3 mm, through the PCM (PCM sits inside the flat end)</td>
+</tr>
+<tr>
+<td>capacity</td>
+<td>140 mAh min / 145 typ</td>
+</tr>
+<tr>
+<td>chemistry</td>
+<td><strong>3.8 V "high-voltage" LiPo</strong>: operating 2.75–4.35 V, max charge 4.35 V</td>
+</tr>
+<tr>
+<td>max charge current</td>
+<td><strong>70 mA</strong></td>
+</tr>
+<tr>
+<td>max continuous discharge</td>
+<td>140 mA</td>
+</tr>
+<tr>
+<td>internal impedance</td>
+<td>&lt; 200 mΩ</td>
+</tr>
+<tr>
+<td>PCM</td>
+<td>overcharge 4.355 V, overdischarge <strong>2.75 V</strong>, overcurrent 2–4.5 A</td>
+</tr>
+<tr>
+<td>charge temp</td>
+<td>0 to +45 °C</td>
+</tr>
+<tr>
+<td>mass</td>
+<td>~3.0 g</td>
+</tr>
+<tr>
+<td>source</td>
+<td>lipobattery.us, MOQ 5, not on LCSC</td>
+</tr>
+</tbody>
+</table>
+<h2>Requirements</h2>
+<h3>Power</h3>
+<ul>
+<li><strong>Cell connection:</strong> two solder pads on the back, <code>+</code> and <code>−</code>, labelled in
+  copper/silk and placed where the wires leave the cell's flat. No connector.</li>
+<li><strong>Orientation:</strong> the flat faces the USB tip. That is the only orientation
+  where a Ø28 outline clears both J1 and the board edge. With the flat at 9 mm
+  toward the tip, the outline stays ~3.9 mm short of J1's body.</li>
+<li><strong>Charge voltage stays at 4.2 V</strong> (the LGS4056H's fixed CV point). This is
+  safe for a 4.35 V cell and costs some capacity. The datasheet gives no 4.2 V
+  capacity figure; the rough HV-LiPo rule of thumb is ~85–90%, so about 120 mAh
+  usable. <strong>Unverified</strong>, to be measured on the bench.</li>
+<li><strong>Charge current: 50 mA, with R_PROG (R8) going from 22k to 18k</strong> (user
+  decision). 900/18k = 50 mA (0.36C), which leaves 29% headroom under the
+  cell's 70 mA maximum. See <code>parts/r8-rprog.md</code>.</li>
+<li><strong>Discharge:</strong> the firmware averages ~20 mA (GLOBAL_BRIGHTNESS 8). Any
+  sustained LED pattern must stay ≤ 140 mA total, and that becomes a firmware
+  constraint to document. The PCM's 2 A trip never matters here.</li>
+<li><strong>Low-voltage floor:</strong> the PCM disconnects at 2.75 V. The 3V3 LDO needs VSYS
+  ≳ 3.4 V to regulate, so the firmware still decides when to shut down, and the
+  gauge window moves from 3.0–4.2 V to the LiPo curve. That is firmware work,
+  listed below, with no hardware change.</li>
+<li><strong>(Superseded 2026-10-24, see the addendum below.) The SK6805 3.7 V floor is unchanged.</strong> On battery the ring is only within
+  spec above ~3.7 V, the same as before. USB-powered operation still fixes it.
+  <em>(2026-10-24, user decision: the ring is now WS2816C-1313/4P, 16-bit, with a
+  3.3 V floor, in three switched zones (left / right / centre). Idle current
+  rises to 0.7–1.0 mA per LED, and only powered zones pay it. Operating
+  temperature is limited to 65 °C. See decisions.md.)</em></li>
+<li><strong>The power path (D3/Q2, VBATT/VSYS split, R19/R20 load-bearing for Q2) is
+  unchanged.</strong> VBATT is still "the cell node only".</li>
+<li><strong>Power control: momentary button + CPU-held latch</strong> (user decision
+  2026-10-22, replacing the SW2 slide switch, which the cell covers at every
+  legal angle). A press wakes the CPU, the CPU latches power on, and a long
+  press turns it off, with power dropping when the button is released.
+  Off-state drain is ~0 by construction. Circuit and leakage budget are in
+  <code>decisions.md</code>.</li>
+<li><strong>Button location:</strong> a side-push tact on the tip's straight edge, beside J1
+  (the SW2 side), actuated from the edge.</li>
+</ul>
+<h3>Mechanical</h3>
+<ul>
+<li>Cell sits on the back over the round body, attached with double-sided foam
+  tape. Target stack from the back copper to the cell's top (cell
+  3.2 + 1.5 tape = <strong>4.7</strong>, against ~3.8 for the rev-2 coin cell + clip).
+  <em>Revised after gate-4 review:</em> the tape is 3M VHB 4956, 1.5 mm, because
+  foam compresses 30–50% at fitting and 1.2 mm left no real margin over
+  1.1 mm parts. That puts the target at ≤ 4.8 mm.</li>
+<li><strong>Parts under the cell outline must be flat.</strong> No part taller than the
+  foam-tape thickness may sit under the cell, and nothing with a sharp edge may
+  press into the pouch. The exact height cap and tape product get decided in
+  the phase-4 brief. Today the IMU (0.86 mm), the SOT-323s Q2/D2 (1.1 mm max) and
+  SW2 (1.4 mm) all sit under where the cell will go, so the back placement
+  changes.</li>
+<li>The power button's actuator is reachable at the tip edge. J1 stays where
+  it is.</li>
+<li>The TPU case (<code>gen_case.py</code>) needs a new rear cup for the shorter, wider-flat
+  stack. That is a follow-on task, not in this change.</li>
+</ul>
+<h3>Manufacturing</h3>
+<ul>
+<li>JLCPCB 4-layer, two-sided SMT, as before. BT1 leaves the JLC BOM. The cell is
+  hand-soldered to the pads and taped down after assembly.</li>
+<li><strong>Hand-assembly step added:</strong> solder the two wires, then tape the cell down.
+  The wires are 50 mm long and get trimmed to length.</li>
+</ul>
+<h3>Firmware follow-ons (not part of this hardware change, tracked here)</h3>
+<ul>
+<li>
+<p><strong>Power latch (new, required for the board to stay on):</strong> drive GPIO20
+  PWR_HOLD high as the <strong>first line of setup()</strong> (users hold the button
+  ≥250 ms). Read GPIO21 BTN_SENSE (pull-up, low = pressed, ~0.6 V through
+  the BAV70W). Debounce, and ignore the power-on press until it's
+  released. Long press → drop PWR_HOLD. <strong>Enable the watchdog:</strong> any reset
+  drops GPIO20, so a hang powers the board off instead of draining the
+  cell. Auto-off at ≥3.0 V (NCP730 is in dropout below ~3 V).</p>
+</li>
+<li>
+<p><code>chargePct</code> / gauge: LiPo discharge curve, 4.2 V full, IR correction ≤ 200 mΩ
+  × charge current (≈ 10 mV).</p>
+</li>
+<li>Shutdown threshold above the LDO dropout and the 2.75 V PCM cut.</li>
+<li>Power-budget comment at the top of <code>main.cpp</code>: about 120 mAh usable.</li>
+</ul>
+<h2>Explicit "don't care"</h2>
+<ul>
+<li>Cell swap without soldering. Not required, which is why there's no connector.</li>
+<li>NTC / thermal charge qualification. The cell has none, and the LGS4056H's
+  TEMP pin stays tied to GND as today.</li>
+</ul>
+<h2>Known risks / open questions</h2>
+<ol>
+<li><strong>Cell thickness 3.0 vs 3.2</strong>: measure on arrival.</li>
+<li><strong>4.2 V capacity of a 4.35 V cell</strong>: measure on the bench.</li>
+<li><strong>Placement churn</strong>: moving the back-side parts out from under the cell, or
+   capping their height, re-opens placement and routing. That means a full
+   re-place and re-route (the last route took ~2.5 h per attempt).</li>
+<li><strong>Wire strain relief</strong>: no through-hole is possible (the front is fully
+   populated). The wires rely on tape or kapton over the pads.</li>
+</ol>
+</main></body></html>

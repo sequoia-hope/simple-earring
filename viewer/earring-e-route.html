@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="generator" content="pcbview 0.1 (58db5b3)">
+<title>simple_earring &mdash; earring, variant E routed (4 layers, seed 6, 110 min)</title>
+<link rel="stylesheet" href="assets/viewer.css">
+<link rel="stylesheet" href="assets/pcbview.css">
+<script src="assets/app.js" defer></script>
+<script src="assets/parts.js" defer></script>
+<script src="assets/gesture.js" defer></script>
+<script src="assets/viewer.js" defer></script>
+<script src="assets/copper.js" defer></script>
+<script src="assets/sch.js" defer></script>
+<script type="importmap">{"imports": {"three": "./assets/vendor/three.module.js"}}</script>
+<script type="module" src="assets/board3d.js"></script>
+</head>
+<body>
+<header class="a3-top">
+  <button class="a3-menu" aria-label="project tree"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
+  <a class="a3-back" href="../index.html" title="Dashboard" aria-label="Dashboard"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+  <a class="a3-proj" href="index.html"><svg viewBox="0 0 34 34" aria-hidden="true"><path d="M12 2h11l7 7v20H12z" fill="#e3edf6"/><path d="M23 2v7h7" fill="#b7c8d6"/><rect x="3" y="12.5" width="18.5" height="14" rx="1.5" fill="#1fb182"/><rect x="11.2" y="15.3" width="7.4" height="7.4" fill="#fff"/><rect x="12.9" y="17" width="4" height="4" fill="#1fb182"/><path d="M5.4 16h3.4M5.4 19.2h3.4M5.4 22.4h3.4M12.6 23.6v3M15 23.6v3M17.4 23.6v3" stroke="#fff" stroke-width="1.4"/></svg><span><small>RP2350A LED earring: variant A (WS2816C zones) and the matrix-driver study, B-F</small><b>simple_earring</b></span></a>
+  <div class="a3-sp"></div>
+  
+</header>
+<nav class="a3-side" aria-label="project">
+  <div class="a3-label">Project</div>
+  <div class="a3-tree"><ul>
+<li><div class="a3-row" style="--d:0" title="Boards"><button class="a3-tw" aria-expanded="true" tabindex="0" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 3.5h4.6l1.5 1.6H15v8.4H1z" fill="#fff"/></svg><span class="t">Boards</span></div><ul>
+<li><div class="a3-row page" style="--d:1" title="earring, variant A"><button class="a3-tw" aria-expanded="false" tabindex="0" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".8" fill="#1fb182"/><rect x="8.3" y="5.2" width="4.6" height="4.6" fill="#fff"/><path d="M3 5.8h3M3 8.2h3M3 10.6h3M9.2 11.8v-2M11.9 11.8v-2" stroke="#fff" stroke-width="1.1"/></svg><a class="t" href="earring-a.html">earring, variant A</a></div><ul hidden>
+<li><div class="a3-row" style="--d:2" title="Overview"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.2v4.2M8 4.6v.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><a class="t" href="earring-a.html#overview">Overview</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="Schematic"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".6" fill="#e5c987"/><path d="M9.5 9.8H15M9.5 9.8v3.7M12 9.8v3.7" stroke="#9a8450" stroke-width=".8"/></svg><a class="t" href="earring-a.html#schematic">Schematic</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="PCB"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".8" fill="#1fb182"/><rect x="8.3" y="5.2" width="4.6" height="4.6" fill="#fff"/><path d="M3 5.8h3M3 8.2h3M3 10.6h3M9.2 11.8v-2M11.9 11.8v-2" stroke="#fff" stroke-width="1.1"/></svg><a class="t" href="earring-a.html#copper">PCB</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="3D"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6 14 5v6.2l-6 3.3-6-3.3V5zM2 5l6 3.3L14 5M8 8.3v6.2" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/></svg><a class="t" href="earring-a.html#board3d">3D</a></div>
+</li>
+</ul></li>
+<li><div class="a3-row page" style="--d:1" title="earring, variant B (IS31FL3741A matrix, XL-1010 LEDs)"><button class="a3-tw" aria-expanded="false" tabindex="0" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".8" fill="#1fb182"/><rect x="8.3" y="5.2" width="4.6" height="4.6" fill="#fff"/><path d="M3 5.8h3M3 8.2h3M3 10.6h3M9.2 11.8v-2M11.9 11.8v-2" stroke="#fff" stroke-width="1.1"/></svg><a class="t" href="earring-b.html">earring, variant B (IS31FL3741A matrix, XL-1010 LEDs)</a></div><ul hidden>
+<li><div class="a3-row" style="--d:2" title="Overview"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.2v4.2M8 4.6v.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><a class="t" href="earring-b.html#overview">Overview</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="Schematic"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".6" fill="#e5c987"/><path d="M9.5 9.8H15M9.5 9.8v3.7M12 9.8v3.7" stroke="#9a8450" stroke-width=".8"/></svg><a class="t" href="earring-b.html#schematic">Schematic</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="PCB"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".8" fill="#1fb182"/><rect x="8.3" y="5.2" width="4.6" height="4.6" fill="#fff"/><path d="M3 5.8h3M3 8.2h3M3 10.6h3M9.2 11.8v-2M11.9 11.8v-2" stroke="#fff" stroke-width="1.1"/></svg><a class="t" href="earring-b.html#copper">PCB</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="3D"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6 14 5v6.2l-6 3.3-6-3.3V5zM2 5l6 3.3L14 5M8 8.3v6.2" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/></svg><a class="t" href="earring-b.html#board3d">3D</a></div>
+</li>
+</ul></li>
+<li><div class="a3-row page" style="--d:1" title="earring, variant C (AW20198QNR matrix, XL-1615 LEDs)"><button class="a3-tw" aria-expanded="false" tabindex="0" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".8" fill="#1fb182"/><rect x="8.3" y="5.2" width="4.6" height="4.6" fill="#fff"/><path d="M3 5.8h3M3 8.2h3M3 10.6h3M9.2 11.8v-2M11.9 11.8v-2" stroke="#fff" stroke-width="1.1"/></svg><a class="t" href="earring-c.html">earring, variant C (AW20198QNR matrix, XL-1615 LEDs)</a></div><ul hidden>
+<li><div class="a3-row" style="--d:2" title="Overview"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.2v4.2M8 4.6v.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><a class="t" href="earring-c.html#overview">Overview</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="Schematic"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".6" fill="#e5c987"/><path d="M9.5 9.8H15M9.5 9.8v3.7M12 9.8v3.7" stroke="#9a8450" stroke-width=".8"/></svg><a class="t" href="earring-c.html#schematic">Schematic</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="PCB"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".8" fill="#1fb182"/><rect x="8.3" y="5.2" width="4.6" height="4.6" fill="#fff"/><path d="M3 5.8h3M3 8.2h3M3 10.6h3M9.2 11.8v-2M11.9 11.8v-2" stroke="#fff" stroke-width="1.1"/></svg><a class="t" href="earring-c.html#copper">PCB</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="3D"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6 14 5v6.2l-6 3.3-6-3.3V5zM2 5l6 3.3L14 5M8 8.3v6.2" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/></svg><a class="t" href="earring-c.html#board3d">3D</a></div>
+</li>
+</ul></li>
+<li><div class="a3-row page" style="--d:1" title="earring, variant D (C with the driver off the LED rings)"><button class="a3-tw" aria-expanded="false" tabindex="0" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".8" fill="#1fb182"/><rect x="8.3" y="5.2" width="4.6" height="4.6" fill="#fff"/><path d="M3 5.8h3M3 8.2h3M3 10.6h3M9.2 11.8v-2M11.9 11.8v-2" stroke="#fff" stroke-width="1.1"/></svg><a class="t" href="earring-d.html">earring, variant D (C with the driver off the LED rings)</a></div><ul hidden>
+<li><div class="a3-row" style="--d:2" title="Overview"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.2v4.2M8 4.6v.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><a class="t" href="earring-d.html#overview">Overview</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="Schematic"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".6" fill="#e5c987"/><path d="M9.5 9.8H15M9.5 9.8v3.7M12 9.8v3.7" stroke="#9a8450" stroke-width=".8"/></svg><a class="t" href="earring-d.html#schematic">Schematic</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="PCB"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".8" fill="#1fb182"/><rect x="8.3" y="5.2" width="4.6" height="4.6" fill="#fff"/><path d="M3 5.8h3M3 8.2h3M3 10.6h3M9.2 11.8v-2M11.9 11.8v-2" stroke="#fff" stroke-width="1.1"/></svg><a class="t" href="earring-d.html#copper">PCB</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="3D"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6 14 5v6.2l-6 3.3-6-3.3V5zM2 5l6 3.3L14 5M8 8.3v6.2" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/></svg><a class="t" href="earring-d.html#board3d">3D</a></div>
+</li>
+</ul></li>
+<li><div class="a3-row page" style="--d:1" title="earring, variant E (D with the back unloaded, 0.1 mm rules)"><button class="a3-tw" aria-expanded="false" tabindex="0" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".8" fill="#1fb182"/><rect x="8.3" y="5.2" width="4.6" height="4.6" fill="#fff"/><path d="M3 5.8h3M3 8.2h3M3 10.6h3M9.2 11.8v-2M11.9 11.8v-2" stroke="#fff" stroke-width="1.1"/></svg><a class="t" href="earring-e.html">earring, variant E (D with the back unloaded, 0.1 mm rules)</a></div><ul hidden>
+<li><div class="a3-row" style="--d:2" title="Overview"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.2v4.2M8 4.6v.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><a class="t" href="earring-e.html#overview">Overview</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="Schematic"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".6" fill="#e5c987"/><path d="M9.5 9.8H15M9.5 9.8v3.7M12 9.8v3.7" stroke="#9a8450" stroke-width=".8"/></svg><a class="t" href="earring-e.html#schematic">Schematic</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="PCB"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".8" fill="#1fb182"/><rect x="8.3" y="5.2" width="4.6" height="4.6" fill="#fff"/><path d="M3 5.8h3M3 8.2h3M3 10.6h3M9.2 11.8v-2M11.9 11.8v-2" stroke="#fff" stroke-width="1.1"/></svg><a class="t" href="earring-e.html#copper">PCB</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="3D"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6 14 5v6.2l-6 3.3-6-3.3V5zM2 5l6 3.3L14 5M8 8.3v6.2" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/></svg><a class="t" href="earring-e.html#board3d">3D</a></div>
+</li>
+</ul></li>
+<li><div class="a3-row page" style="--d:1" title="earring, variant F (E on 6 layers)"><button class="a3-tw" aria-expanded="false" tabindex="0" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".8" fill="#1fb182"/><rect x="8.3" y="5.2" width="4.6" height="4.6" fill="#fff"/><path d="M3 5.8h3M3 8.2h3M3 10.6h3M9.2 11.8v-2M11.9 11.8v-2" stroke="#fff" stroke-width="1.1"/></svg><a class="t" href="earring-f.html">earring, variant F (E on 6 layers)</a></div><ul hidden>
+<li><div class="a3-row" style="--d:2" title="Overview"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.2v4.2M8 4.6v.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><a class="t" href="earring-f.html#overview">Overview</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="Schematic"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".6" fill="#e5c987"/><path d="M9.5 9.8H15M9.5 9.8v3.7M12 9.8v3.7" stroke="#9a8450" stroke-width=".8"/></svg><a class="t" href="earring-f.html#schematic">Schematic</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="PCB"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".8" fill="#1fb182"/><rect x="8.3" y="5.2" width="4.6" height="4.6" fill="#fff"/><path d="M3 5.8h3M3 8.2h3M3 10.6h3M9.2 11.8v-2M11.9 11.8v-2" stroke="#fff" stroke-width="1.1"/></svg><a class="t" href="earring-f.html#copper">PCB</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="3D"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6 14 5v6.2l-6 3.3-6-3.3V5zM2 5l6 3.3L14 5M8 8.3v6.2" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/></svg><a class="t" href="earring-f.html#board3d">3D</a></div>
+</li>
+</ul></li>
+<li><div class="a3-row page" style="--d:1" title="earring, variant F routed (6 layers, seed 3)"><button class="a3-tw" aria-expanded="false" tabindex="0" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".8" fill="#1fb182"/><rect x="8.3" y="5.2" width="4.6" height="4.6" fill="#fff"/><path d="M3 5.8h3M3 8.2h3M3 10.6h3M9.2 11.8v-2M11.9 11.8v-2" stroke="#fff" stroke-width="1.1"/></svg><a class="t" href="earring-f-route.html">earring, variant F routed (6 layers, seed 3)</a></div><ul hidden>
+<li><div class="a3-row" style="--d:2" title="Overview"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.2v4.2M8 4.6v.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><a class="t" href="earring-f-route.html#overview">Overview</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="Schematic"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".6" fill="#e5c987"/><path d="M9.5 9.8H15M9.5 9.8v3.7M12 9.8v3.7" stroke="#9a8450" stroke-width=".8"/></svg><a class="t" href="earring-f-route.html#schematic">Schematic</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="PCB"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".8" fill="#1fb182"/><rect x="8.3" y="5.2" width="4.6" height="4.6" fill="#fff"/><path d="M3 5.8h3M3 8.2h3M3 10.6h3M9.2 11.8v-2M11.9 11.8v-2" stroke="#fff" stroke-width="1.1"/></svg><a class="t" href="earring-f-route.html#copper">PCB</a></div>
+</li>
+<li><div class="a3-row" style="--d:2" title="3D"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6 14 5v6.2l-6 3.3-6-3.3V5zM2 5l6 3.3L14 5M8 8.3v6.2" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/></svg><a class="t" href="earring-f-route.html#board3d">3D</a></div>
+</li>
+</ul></li>
+<li><div class="a3-row page" style="--d:1" title="earring, variant E routed (4 layers, seed 6, 110 min)"><button class="a3-tw" aria-expanded="true" tabindex="0" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".8" fill="#1fb182"/><rect x="8.3" y="5.2" width="4.6" height="4.6" fill="#fff"/><path d="M3 5.8h3M3 8.2h3M3 10.6h3M9.2 11.8v-2M11.9 11.8v-2" stroke="#fff" stroke-width="1.1"/></svg><a class="t" href="earring-e-route.html">earring, variant E routed (4 layers, seed 6, 110 min)</a></div><ul>
+<li><div data-view="overview" class="a3-row" style="--d:2" title="Overview"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.2v4.2M8 4.6v.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><a class="t" href="earring-e-route.html#overview">Overview</a></div>
+</li>
+<li><div data-view="schematic" class="a3-row" style="--d:2" title="Schematic"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".6" fill="#e5c987"/><path d="M9.5 9.8H15M9.5 9.8v3.7M12 9.8v3.7" stroke="#9a8450" stroke-width=".8"/></svg><a class="t" href="earring-e-route.html#schematic">Schematic</a></div>
+</li>
+<li><div data-view="copper" class="a3-row" style="--d:2" title="PCB"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".8" fill="#1fb182"/><rect x="8.3" y="5.2" width="4.6" height="4.6" fill="#fff"/><path d="M3 5.8h3M3 8.2h3M3 10.6h3M9.2 11.8v-2M11.9 11.8v-2" stroke="#fff" stroke-width="1.1"/></svg><a class="t" href="earring-e-route.html#copper">PCB</a></div>
+</li>
+<li><div data-view="board3d" class="a3-row" style="--d:2" title="3D"><button class="a3-tw leaf" aria-expanded="false" tabindex="-1" aria-label="expand or collapse"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.6 14 5v6.2l-6 3.3-6-3.3V5zM2 5l6 3.3L14 5M8 8.3v6.2" fill="none" stroke="currentColor" stroke-width="1.15" stroke-linejoin="round"/></svg><a class="t" href="earring-e-route.html#board3d">3D</a></div>
+</li>
+</ul></li>
+</ul></li></ul></div>
+  <div class="a3-foot"><a class="a3-btn" href="../index.html"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Dashboard</span></a></div>
+</nav>
+<div class="a3-bar">
+  <span class="a3-crumb"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="3" width="14" height="10.5" rx=".8" fill="#1fb182"/><rect x="8.3" y="5.2" width="4.6" height="4.6" fill="#fff"/><path d="M3 5.8h3M3 8.2h3M3 10.6h3M9.2 11.8v-2M11.9 11.8v-2" stroke="#fff" stroke-width="1.1"/></svg><b>earring, variant E routed (4 layers, seed 6, 110 min)</b><span class="sep">/</span><span id="pv-view">PCB</span></span>
+  <span class="a3-sp"></span>
+  <span class="a3-page"><code>earring.kicad_pcb</code></span>
+</div>
+<main class="pv-main">
+<section class="vw" aria-label="earring, variant E routed (4 layers, seed 6, 110 min): schematic, PCB and 3D">
+  <div class="vw-bar">
+    <div class="vw-left"><button data-vw="layers" aria-pressed="true"
+      title="show or hide the side panel"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8 14.2 5 8 8.2 1.8 5z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M1.8 8 8 11.2 14.2 8M1.8 11 8 14.2 14.2 11" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg><span>Panel</span></button></div>
+    <div class="vw-tabs" role="tablist" aria-label="view"><button role="tab" data-tab="schematic" aria-controls="schematic" aria-selected="false">SCH</button><button role="tab" data-tab="copper" aria-controls="copper" aria-selected="true">PCB</button><button role="tab" data-tab="board3d" aria-controls="board3d" aria-selected="false">3D</button></div>
+    <div class="vw-tools">
+      <button data-vw="info" title="about this board" aria-label="about this board"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.2v4.2M8 4.6v.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+      <button data-vw="full" title="full screen" aria-label="full screen"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 2h4.5v4.5M14 2 9 7M6.5 14H2V9.5M2 14l5-5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
+  </div>
+  
+  <div class="vw-panel" id="schematic" data-dir="earring-e-route/sch/" role="tabpanel" hidden>
+    <div class="cu sch">
+      <div class="cu-panel">
+        <p class="cu-head">Sheets</p>
+        <div id="sch-sheets"></div>
+        <div class="cu-row">
+          <button data-sch="out" title="zoom out">&minus;</button>
+          <button data-sch="fit" title="the whole sheet">fit</button>
+          <button data-sch="in" title="zoom in">+</button>
+          <span class="sub" id="sch-zoom">1.0&times;</span>
+        </div>
+        <div class="cu-row"><a class="a3-btn" id="sch-pdf" download hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8v8.4M4.4 6.8 8 10.4l3.6-3.6M2 12v2.2h12V12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>PDF, every sheet</span></a></div>
+        <p class="sub cu-note" id="sch-cap"></p>
+        <p class="cu-hint">Keys: <b>+</b> and <b>&minus;</b> zoom, <b>0</b> fit.
+        Drag to pan; scroll or double-click to zoom.</p>
+      </div>
+      <div class="cu-canvas">
+        <div class="sch-plate" id="sch-plate">
+          <div class="sch-pan" id="sch-pan"><img id="sch-img" alt="" draggable="false"></div>
+          <p class="b3-msg" id="sch-msg" hidden></p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="vw-panel" id="copper" data-dir="earring-e-route/layers/" data-parts="earring-e-route/3d/parts.json" role="tabpanel">
+    <div class="cu">
+      <div class="cu-panel">
+        <div id="cu-layers"></div>
+        <p class="cu-hint" style="margin-top:.3rem">The dot puts a layer on top at full
+        opacity; the box says whether it is drawn at all.</p>
+        <div class="cu-row">
+          <button data-act="all" title="show every layer">all</button>
+          <button data-act="none" title="show only the selected layer">none</button>
+          <button data-act="solo" title="the selected layer and the outline only">solo</button>
+          <button data-act="grid" title="the copper layers side by side">grid</button>
+        </div>
+        <label class="cu-ctl">opacity of the unselected copper
+          <input type="range" id="cu-dim" min="0" max="60" value="16"></label>
+        <label class="cu-ctl"><input type="checkbox" id="cu-mirror">
+          view from the back (mirrored)</label>
+        <div class="cu-row">
+          <button data-act="out" title="zoom out">&minus;</button>
+          <button data-act="fit" title="fit the board">fit</button>
+          <button data-act="in" title="zoom in">+</button>
+          <span class="sub" id="cu-zoom">1.0&times;</span>
+        </div>
+        <p class="cu-note" id="cu-note"></p>
+        <p class="cu-read" id="cu-read"></p>
+        <p class="cu-hint">Keys: <b>1</b>&ndash;<b>9</b> pick a layer, <b>s</b> solo,
+        <b>a</b> all, <b>m</b> mirror, <b>0</b> fit. Click a part for its pane;
+        coordinates are pcbnew&rsquo;s, in millimetres.</p>
+        <p class="cu-hint" id="cu-stats"></p>
+      </div>
+      <div class="cu-canvas">
+        <div class="cu-plate" id="cu-plate">
+          <div class="cu-pan" id="cu-pan"><div class="cu-flip" id="cu-flip"></div></div>
+          <div class="cu-scale"><i id="cu-bar"></i><span id="cu-barlab"></span></div>
+          <div class="cu-back" id="cu-back"></div>
+          <p class="b3-msg" id="cu-fallback" hidden></p>
+        </div>
+        <div class="cu-grid" id="cu-gridbox" hidden></div>
+      </div>
+      <aside class="b3-info pv-pane" id="cu-info" aria-label="the selected part" hidden>
+        <div class="b3-ih"><b class="pv-iref"></b><button class="b3-x" title="close"
+          aria-label="close the part pane">&times;</button></div>
+        <div class="b3-ib pv-ib"></div>
+      </aside>
+    </div>
+  </div>
+  
+  <div class="vw-panel" id="board3d" data-dir="earring-e-route/3d/" role="tabpanel" hidden>
+    <div class="b3">
+      <div class="b3-bar">
+        <div class="cu-row" role="group" aria-label="view">
+          <button data-view="front" title="the front face, as pcbnew draws it">front</button>
+          <button data-view="back" title="the back face, turned over left to right">back</button>
+          <button data-view="tilt" title="from the front, tilted towards you">tilted</button>
+          <button data-view="edge" title="edge on: how tall each face stands">edge</button>
+        </div>
+        <div class="b3-layers" id="b3-layers"></div>
+        <label class="b3-find">find <input id="b3-find" list="b3-refs" placeholder="U1"
+          disabled spellcheck="false" autocomplete="off" title="a reference, e.g. U1"></label>
+        <datalist id="b3-refs"></datalist>
+      </div>
+      <div class="b3-body">
+        <div class="b3-stage" id="b3-stage">
+          <p class="b3-msg" id="b3-msg">The model loads when this tab is open.</p>
+          <div class="b3-tag" id="b3-tag" hidden></div>
+        </div>
+        <aside class="b3-info pv-pane" id="b3-info" aria-label="the selected part" hidden>
+          <div class="b3-ih"><b class="pv-iref"></b><button class="b3-x" title="close"
+            aria-label="close the part pane">&times;</button></div>
+          <div class="b3-ib pv-ib"></div>
+        </aside>
+      </div>
+      <p class="b3-facts" id="b3-facts"></p>
+    </div>
+  </div>
+  
+  <div class="vw-panel pv-over" id="overview" role="tabpanel" hidden>
+    <div class="pv-card">
+      <h1>earring, variant E routed (4 layers, seed 6, 110 min)</h1>
+      <p class="pv-lede">Variant E routed by ultraroute 99bb7ca (route/earring-e/recipe.json, seed 6, 6600 s): 4 unconnected (CS14, CS6, USB_C_DP, VSYS), 2 connection_width necks (SW3, SW7 vias), In1 GND plane whole. The best 4-layer result (2026-11-06).</p>
+      <dl class="pv-facts"><dt>Source</dt><dd><code>route/earring-e/best/earring.kicad_pcb</code><br><code>hw/earring/e/earring.kicad_sch</code></dd><dt>Board</dt><dd>30.505 &times; 35.748 mm<small>4 copper layers, 1.6 mm thick</small></dd><dt>Parts</dt><dd>139 footprints<small>93 on the front, 46 on the back</small></dd><dt>Copper</dt><dd>77 nets, 2,658 track segments, 450 vias<small>2,313 mm of routed track</small></dd><dt>Schematic</dt><dd>1 sheet<small>User</small></dd><dt>3D</dt><dd>90 of 139 parts drawn from a model<small>D2, D4, J1, Q2, Q4&ndash;Q8, U6, U7 with a stand-in from the project file</small><small>49 name no model (LED1&ndash;LED45, TP1&ndash;TP3, U11)</small></dd></dl>
+      <p class="cu-hint">Built 2026-11-06 11:50 by pcbview from the KiCad files above:
+      <code>python3 -m pcbview build pcbview.toml</code>. Nothing here is drawn by hand &mdash; the layer plots, the model and the
+      sheets are KiCad&rsquo;s own exports.</p>
+    </div>
+  </div>
+</section>
+</main>
+</body>
+</html>

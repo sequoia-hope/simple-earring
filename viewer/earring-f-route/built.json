@@ -1,0 +1,268 @@
+{
+ "sch": {
+  "schematic": "earring.kicad_sch",
+  "pdf": "earring.pdf",
+  "sheets": [
+   {
+    "sheet": "root",
+    "title": "earring",
+    "desc": "139 symbols",
+    "file": "earring.svg",
+    "source": "earring.kicad_sch",
+    "paper": "User",
+    "page": "1",
+    "symbols": 139,
+    "size_mm": [
+     899.9982,
+     609.981
+    ]
+   }
+  ]
+ },
+ "layers": {
+  "board": "earring.kicad_pcb",
+  "generated": "2026-11-06",
+  "view_mm": [
+   83.998,
+   78.75,
+   32.005,
+   37.248
+  ],
+  "size_mm": [
+   30.505,
+   35.748
+  ],
+  "round": null,
+  "polar": null,
+  "thickness": 1.6,
+  "plate": "#c8c8c8",
+  "body": "body.svg",
+  "vias": 384,
+  "nets": 77,
+  "footprints": 139,
+  "front": 93,
+  "back": 46,
+  "tracks": 2265,
+  "length_mm": 2478.0,
+  "layers": [
+   {
+    "name": "F.Cu",
+    "slug": "f",
+    "kind": "copper",
+    "file": "f.svg",
+    "color": "#C83434",
+    "note": "Top copper.",
+    "tracks": 807,
+    "length_mm": 459.3,
+    "pads": 368,
+    "zones": [
+     "3V3",
+     "VDD_CORE",
+     "VREG_LX",
+     "GND"
+    ]
+   },
+   {
+    "name": "In1.Cu",
+    "slug": "in1",
+    "kind": "copper",
+    "file": "in1.svg",
+    "color": "#7FC87F",
+    "note": "Inner layer 1 of 4.",
+    "tracks": 0,
+    "length_mm": 0.0,
+    "pads": 15,
+    "zones": [
+     "GND"
+    ]
+   },
+   {
+    "name": "In2.Cu",
+    "slug": "in2",
+    "kind": "copper",
+    "file": "in2.svg",
+    "color": "#CE7D2C",
+    "note": "Inner layer 2 of 4.",
+    "tracks": 343,
+    "length_mm": 526.2,
+    "pads": 15,
+    "zones": [
+     "3V3"
+    ]
+   },
+   {
+    "name": "In3.Cu",
+    "slug": "in3",
+    "kind": "copper",
+    "file": "in3.svg",
+    "color": "#4FCBCB",
+    "note": "Inner layer 3 of 4.",
+    "tracks": 345,
+    "length_mm": 589.9,
+    "pads": 15,
+    "zones": [
+     "3V3"
+    ]
+   },
+   {
+    "name": "In4.Cu",
+    "slug": "in4",
+    "kind": "copper",
+    "file": "in4.svg",
+    "color": "#DB628B",
+    "note": "Inner layer 4 of 4.",
+    "tracks": 285,
+    "length_mm": 491.4,
+    "pads": 15,
+    "zones": []
+   },
+   {
+    "name": "B.Cu",
+    "slug": "b",
+    "kind": "copper",
+    "file": "b.svg",
+    "color": "#4D7FC4",
+    "note": "Bottom copper.",
+    "tracks": 485,
+    "length_mm": 411.1,
+    "pads": 184,
+    "zones": [
+     "GND"
+    ]
+   },
+   {
+    "name": "Edge.Cuts",
+    "slug": "edge",
+    "kind": "outline",
+    "file": "edge.svg",
+    "color": "#D0D2CD",
+    "note": "The outline and every cut-out in it."
+   },
+   {
+    "name": "F.Silkscreen",
+    "slug": "silk_f",
+    "kind": "silk",
+    "file": "silk_f.svg",
+    "color": "#F2EDA1",
+    "note": "Silkscreen, front: reference designators and markings as printed."
+   },
+   {
+    "name": "B.Silkscreen",
+    "slug": "silk_b",
+    "kind": "silk",
+    "file": "silk_b.svg",
+    "color": "#E8B2A7",
+    "note": "Silkscreen, back, seen through the board (mirror the view to read it)."
+   },
+   {
+    "name": "F.Fab",
+    "slug": "fab_f",
+    "kind": "fab",
+    "file": "fab_f.svg",
+    "color": "#DDE1E8",
+    "note": "Part bodies and reference designators, front: what each piece of copper belongs to."
+   },
+   {
+    "name": "B.Fab",
+    "slug": "fab_b",
+    "kind": "fab",
+    "file": "fab_b.svg",
+    "color": "#96A2CE",
+    "note": "Part bodies and reference designators, back."
+   }
+  ]
+ },
+ "3d": {
+  "board": "earring.kicad_pcb",
+  "generated": "2026-11-06",
+  "glb": "board.glb",
+  "bytes": 4385792,
+  "kicad_bytes": 21017404,
+  "parts": 139,
+  "modelled": 90,
+  "no_model": [
+   "LED1",
+   "LED2",
+   "LED3",
+   "LED4",
+   "LED5",
+   "LED6",
+   "LED7",
+   "LED8",
+   "LED9",
+   "LED10",
+   "LED11",
+   "LED12",
+   "LED13",
+   "LED14",
+   "LED15",
+   "LED16",
+   "LED17",
+   "LED18",
+   "LED19",
+   "LED20",
+   "LED21",
+   "LED22",
+   "LED23",
+   "LED24",
+   "LED25",
+   "LED26",
+   "LED27",
+   "LED28",
+   "LED29",
+   "LED30",
+   "LED31",
+   "LED32",
+   "LED33",
+   "LED34",
+   "LED35",
+   "LED36",
+   "LED37",
+   "LED38",
+   "LED39",
+   "LED40",
+   "LED41",
+   "LED42",
+   "LED43",
+   "LED44",
+   "LED45",
+   "TP1",
+   "TP2",
+   "TP3",
+   "U11"
+  ],
+  "missing": [],
+  "empty": [],
+  "substituted": [
+   "D2",
+   "D4",
+   "J1",
+   "Q2",
+   "Q4",
+   "Q5",
+   "Q6",
+   "Q7",
+   "Q8",
+   "U6",
+   "U7"
+  ],
+  "resolved": [],
+  "flattened": [],
+  "boxed": [],
+  "why": {},
+  "missing_models": [],
+  "boxes": [],
+  "resolved_how": {
+   "legacy": 0,
+   "found": 0
+  },
+  "triangles": 385277,
+  "primitives": 241
+ },
+ "when": "2026-11-06 09:47",
+ "source": {
+  "kind": "file",
+  "pcb": "route/earring-f/best/earring.kicad_pcb",
+  "sch": "hw/earring/f/earring.kicad_sch"
+ }
+}

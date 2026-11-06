@@ -1,0 +1,20 @@
+{
+ "schematic": "earring.kicad_sch",
+ "pdf": "earring.pdf",
+ "sheets": [
+  {
+   "sheet": "root",
+   "title": "earring",
+   "desc": "143 symbols",
+   "file": "earring.svg",
+   "source": "earring.kicad_sch",
+   "paper": "User",
+   "page": "1",
+   "symbols": 143,
+   "size_mm": [
+    899.9982,
+    609.981
+   ]
+  }
+ ]
+}

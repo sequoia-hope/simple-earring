@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Variant B: matrix study</title>
+<style>
+  :root { color-scheme: dark; }
+  body { background:#0d1015; color:#d9dee6; margin:0; padding:1.5rem 16px 4rem;
+         font:15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:860px; margin:0 auto; }
+  a { color:#5b9bff; }
+  h1, h2, h3 { color:#e6eaf0; line-height:1.25; }
+  h1 { font-size:1.6rem; } h2 { font-size:1.2rem; margin-top:2rem;
+       border-bottom:1px solid #262d38; padding-bottom:.3rem; }
+  code { background:#202632; border:1px solid #262d38; border-radius:5px;
+         padding:.05em .3em; font-size:.88em; }
+  pre { background:#161b22; border:1px solid #262d38; border-radius:8px;
+        padding:.7rem .9rem; overflow-x:auto; }
+  pre code { background:none; border:0; padding:0; }
+  table { border-collapse:collapse; font-size:.88rem; display:block; overflow-x:auto; }
+  th, td { border:1px solid #262d38; padding:.35rem .6rem; text-align:left; vertical-align:top; }
+  th { background:#161b22; }
+  .back { font-size:.85rem; color:#8c96a6; }
+</style></head><body><main>
+<p class="back"><a href="../index.html">&larr; Dashboard</a> &middot; <code>design/variant-b-matrix.md</code></p>
+<h1>Variant B: matrix-driven RGB LEDs (study, 2026-11-03)</h1>
+<p>User request: an alternate earring that drives plain RGB LEDs from a matrix driver, as
+round-pendant does, in place of 45 WS2816C pixels. Same LED count for now, room to add more
+later. Drivers on the back, the MCU and small parts on the front. This note covers the
+architecture, the fit, the cost and the battery life. No board yet.</p>
+<h2>Architecture</h2>
+<p>The design follows round-pendant (<code>~/pcb/round-pendant/design/architecture.md</code>,
+<code>parts/drivers.md</code>, <code>parts/leds.md</code>).</p>
+<ul>
+<li><strong>Driver:</strong> one Lumissil IS31FL3741A (C2940604), a 9 SW × 39 CS matrix, I²C to 1 MHz, QFN-60
+  7 × 7 × 0.80 mm max. It is powered from VSYS, as the ring is today.</li>
+<li>With 45 LEDs it scans only SW1–SW5 (SWS = 0100, 1/5 duty, ds p.14), using 27 of 39 CS.</li>
+<li>Growth with no hardware change: 9 SW gives 81 RGB; all 39 CS gives 117.</li>
+<li><strong>LEDs:</strong> XINGLIGHT XL-1010RGB-YG (C965834), 1 × 1 mm, common anode. They are round-pendant's
+  audited part, and smaller than the WS2816C's 1.3 mm.</li>
+<li><strong>Dimming:</strong> 8-bit PWM per LED × 8-bit scaling per LED × 8-bit global current (GCC).</li>
+<li>Setting GCC for the earring's dim range puts all 256 PWM steps across the levels actually
+    used, so the fine low-brightness steps the WS2816C was chosen for (decisions.md 2026-10-24)
+    carry over.</li>
+<li>Per-LED scaling handles colour balance without spending PWM resolution.</li>
+<li>PWM runs at 29 kHz, so no visible flicker.</li>
+<li><strong>What goes:</strong></li>
+<li>the three zone switches U4/U9/U10 (TPS22913, WCSP), with R10/R33/R34 and C20/C78/C79;</li>
+<li>the three level shifters Q3/Q9/Q10, with R23/R31/R32;</li>
+<li>the 23 LED bypass caps;</li>
+<li>the VLED_L/R/C nets and their In2 pours.</li>
+</ul>
+<p>The zones existed only because each idle WS2816C draws ~0.7 mA. With a driver, a dark LED
+  draws nothing and the whole matrix shuts down to 0.5 µA through SDB.
+- <strong>What comes:</strong>
+  - <strong>Driver support:</strong> PVCC 2 × (1 µF + 100 nF) + 22 µF bulk; AVCC 1 µF + 100 nF; RISET.
+  - <strong>SDB:</strong> 100 kΩ + 100 nF.
+  - <strong>INTB:</strong> a 100 kΩ pull-up.
+  - <strong>I²C:</strong> a pull-up pair on its own bus (I²C0, 1 MHz with 1 kΩ).</p>
+<p>Net: about 38 parts out and 10 in.
+- <strong>GPIO:</strong> this frees LED_DATA_L/R/C and LED_EN_L/R/C (six pins) and uses SDA, SCL, SDB and
+  INTB, so two pins come free.</p>
+<h2>Fit</h2>
+<p>Checked against the current placement with the 38 parts removed
+(<code>scratchpad/variantb/fit.kicad_pcb</code>, <code>scan_spot.py --art 0.15 --cy-margin 0.1</code>).</p>
+<ul>
+<li><strong>The driver does not drop in.</strong> There is no legal 7 × 7 spot on either side as the other
+  parts stand.</li>
+<li>The only free square big enough for its 8.2 mm courtyard is 8.75 mm, directly behind U1.
+    U1's nine exposed-pad thermal vias, and the VDD_CORE square vias, come through to the back
+    there. Those vias would land in the driver's GND pad, and the VDD_CORE ones would short.</li>
+<li><strong>A back re-pack looks feasible on area.</strong></li>
+<li>Back courtyards cover 275 mm² of ~767 mm² usable, before removals.</li>
+<li>The driver plus its passives add ~75 mm².</li>
+<li>That means re-placing the back's small parts (power path, latch, sense dividers) around a
+    driver spot, likely at the south or north of the cell area.</li>
+<li>The front loses 23 bypass caps and gets smaller LEDs, so it decongests.</li>
+<li><strong>Height.</strong> The QFN is 0.80 mm max, under the LiPo's 1.1 mm cap.</li>
+<li><strong>Routing is the real risk.</strong></li>
+<li>Every LED has its anode on a SW line and three cathodes on CS lines.</li>
+<li><strong>Planned mapping:</strong> 9 SW arcs of 5 adjacent LEDs, so the SW nets stay local, and 15 CS
+    lines running as a bus round the ring. That is 1/9 duty, still well inside the LED and
+    driver limits at the earring's currents.<ul>
+<li>The bus is 15 lines at 0.254 mm pitch, ~3.8 mm wide.</li>
+<li>Split over In2 and B.Cu, it is ~1.9 mm per layer.</li>
+<li>In2 is free, because the VLED pours go.</li>
+</ul>
+</li>
+<li><strong>Alternative:</strong> 5 SW × 27 CS, which halves the peak current but makes a 27-line bus.</li>
+</ul>
+<h2>Cost (LCSC unit prices at 10 boards, 2026-11-03)</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>per board</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Removed:</strong> 45 × WS2816C ($0.0714)</td>
+<td>−$3.21</td>
+</tr>
+<tr>
+<td>3 × TPS22913 ($0.41)</td>
+<td>−$1.22</td>
+</tr>
+<tr>
+<td>3 × BSS138W, 6 resistors, 3 × 10 µF, 23 × 100 nF</td>
+<td>−$0.25</td>
+</tr>
+<tr>
+<td><strong>Added:</strong> IS31FL3741A ($3.31 at 10+)</td>
+<td>+$3.31</td>
+</tr>
+<tr>
+<td>45 × XL-1010RGB ($0.0307 at 100+)</td>
+<td>+$1.38</td>
+</tr>
+<tr>
+<td>~10 passives</td>
+<td>+$0.08</td>
+</tr>
+<tr>
+<td><strong>Net, parts</strong></td>
+<td><strong>≈ +$0.09</strong></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>The number of extended parts is about the same: WS2816C and TPS22913 go, the IS31FL3741A and
+  XL-1010 come. So JLC's per-order setup fees don't change much.</li>
+<li>Assembly gets easier: three 0.4 mm-pitch WCSP switches go, one QFN-60 comes.</li>
+<li>The PCB is unchanged: same 4-layer outline.</li>
+<li><strong>Cheaper alternative: IS31FL3733</strong> (C506251, QFN-48 6 × 6, 2370 in stock, $1.53).</li>
+<li>Saves ~$1.80 per board.</li>
+<li>Lower draw: 2 mA typ quiescent against 3.6.</li>
+<li>Smaller, so easier to fit.</li>
+<li>But it has no per-LED scaling register, always scans all 12 SW (1/12 duty), and tops out at
+    60 RGB.</li>
+</ul>
+<h2>Battery life (140 mAh LPR302823, ~130 mAh usable; estimates, not measured)</h2>
+<p>Assumptions:
+- MCU + flash + LDO awake at 50 MHz: ~10 mA.
+- IMU: ~0.5 mA.
+- LED drive at the firmware's dim levels: ~2 mA average, which is the same either way.
+- WS2816C idle: 0.7 mA typ (1.0 max) per powered LED, so 31.5 mA for 45.
+- IS31FL3741A: 3.6 mA typ while on, 0.5 µA in shutdown.
+- Show duty: from the Aug 25 wear log, the share of time the LEDs are on is 25 % standing,
+  49 % walking and 82 % dancing. Today's naps exist to cut LED idle current.</p>
+<table>
+<thead>
+<tr>
+<th>mode</th>
+<th>current board (WS2816C)</th>
+<th>variant B, same naps</th>
+<th>variant B, no naps (always showing)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>standing</td>
+<td>18.9 mA → <strong>6.9 h</strong></td>
+<td>11.9 mA → <strong>10.9 h</strong></td>
+<td>16.1 mA → <strong>8.1 h</strong></td>
+</tr>
+<tr>
+<td>walking</td>
+<td>26.9 mA → <strong>4.8 h</strong></td>
+<td>13.2 mA → <strong>9.8 h</strong></td>
+<td>16.1 mA → <strong>8.1 h</strong></td>
+</tr>
+<tr>
+<td>dancing</td>
+<td>38 mA → <strong>3.4 h</strong></td>
+<td>15.1 mA → <strong>8.6 h</strong></td>
+<td>16.1 mA → <strong>8.1 h</strong></td>
+</tr>
+<tr>
+<td>always on, no naps</td>
+<td>44 mA → <strong>3.0 h</strong></td>
+<td>—</td>
+<td>16.1 mA → <strong>8.1 h</strong></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Variant B is 1.6× to 2.7× longer</strong> at the same duty. With the IS31FL3733 (2 mA), the
+  always-on case is 14.5 mA → 9.0 h.</li>
+<li><strong>Off is unchanged.</strong> The soft latch takes everything to zero load either way.</li>
+<li><strong>The next lever is the MCU,</strong> at ~10 mA, now the largest load. Both LED types hold their
+  last frame, so the MCU could sleep between frames on either board. With the matrix,
+  always-on could reach roughly 15 h. Firmware, unmeasured.</li>
+<li><strong>Brightness per mA</strong> is similar but not equal. The WS2816C gives 90/190/25 mcd at its fixed
+  ~3.5 mA per channel. The XL-1010's green is roughly 22–40 mcd/mA from its p.6 curve. LED
+  drive is the small term here, so this moves the totals by well under 1 mA.</li>
+</ul>
+<h2>Next steps</h2>
+<ol>
+<li>Variant plumbing: hw/earring/b, a <code>[[boards]]</code> entry in pcbview.toml, VARIANT selection in
+   paths.py, and a variant branch in circuit.py and design.yaml.</li>
+<li>Phase 1: audits for the IS31FL3741A and XL-1010, adapted from round-pendant's, plus the
+   matrix map.</li>
+<li>Phase 2: schematic.</li>
+<li>Phase 6: back re-pack around the driver.</li>
+<li>Phase 7: routing.</li>
+<li>Gates from phase 1 on, for variant B only. Variant A is untouched.</li>
+</ol>
+<h2>Phase 1 audit results (variant B)</h2>
+<p>Audited 2026-11-03: <code>design/parts/is31fl3741a.md</code> and <code>design/parts/xl-1010rgb.md</code>. The datasheets are in
+<code>design/datasheets/</code>, listed in <code>sources.csv</code>. Both parts pass sourcing: extended, normal lifecycle, JLC stock 463 and
+12,478. The independent review is still to do.</p>
+<p><strong>Matrix: keep 9 SW × 15 CS at 1/9 duty.</strong>
+- <strong>Supply peak is the same either way.</strong> It is 135 × 1.125 × ILED (~121 mA at the hardware maximum) for any shape:
+  5 × 27 halves only the per-die peak, which is already far under the LED's 20 mA continuous rating.
+- <strong>9 × 15 routes better:</strong> a 15-line bus instead of 27, all matrix pins on two sides of the QFN (SW1–9, CS1–15), and
+  room to grow to 117 LEDs.
+- <strong>Ghosting is a wash</strong> between the two shapes.
+- <strong>What 5 × 27 would buy:</strong> only ~0.1 V of headroom, and only at full scale.</p>
+<p><strong>RISET = 47 kΩ 1 %</strong> (C25792, basic).
+- <strong>Current:</strong> IOUT 8.09 mA, average 0.80 mA per die at full scale.
+- <strong>Hard cap:</strong> full white is 108 mA (116 at +8 %), or 123–131 mA with the rest of the system, so even a firmware bug
+  stays inside the cell's 140 mA rating.
+- <strong>PWM use:</strong> the brightest level the firmware needs (charge-indicator red, lowest bin) lands at PWM ≈ 227 with
+  GCC = 255. The drip show runs at GCC ≈ 100.
+- <strong>Thermal:</strong> the driver dissipates ~75 mW at the firmware's realistic maximum and 0.31 W at the hardware maximum on
+  USB, about +31 °C worst case.</p>
+<p><strong>Support parts:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Value</th>
+<th>Change from this note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PVCC (pins 15, 25), AVCC (pin 14)</td>
+<td>3 × (1 µF C52923 + 100 nF C1525)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Bulk on PVCC</td>
+<td>10 µF 0603 C19702</td>
+<td>was 22 µF: no practical cap holds a 36 µs slot; the bulk only keeps edges local</td>
+</tr>
+<tr>
+<td>SDB</td>
+<td>100 kΩ to GND + 100 nF; GPIO18 drives it</td>
+<td>— (the pull-down is mandatory here, see below)</td>
+</tr>
+<tr>
+<td>INTB</td>
+<td>RP2350 internal pull-up on GPIO1, or 100 kΩ to 3V3</td>
+<td>external part optional</td>
+</tr>
+<tr>
+<td>I²C0 (GPIO16/17)</td>
+<td>4.7 kΩ to 3V3 (C105871, already on the BOM), 400 kHz, LGC = 0, 8–12 mA pad drive</td>
+<td>was 1 kΩ at 1 MHz</td>
+</tr>
+<tr>
+<td>ADDR</td>
+<td>GND → 0x30</td>
+<td>—</td>
+</tr>
+<tr>
+<td>CS series resistors</td>
+<td>none</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Thermal pad</td>
+<td>GND, 5–16 through vias in the paste lanes</td>
+<td>via-in-pad: user call (gate 7 item)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Footprints.</strong> The QFN-60's exposed pad was round-pendant's 16-tile split, cut round its own vias with 14 % paste. It is
+now a solid 5.40 mm pad with a 3 × 3 paste grid, edited in place in <code>library/parts.pretty</code>. The LED footprint was
+correct as copied.</p>
+<p><strong>Corrections to this note:</strong>
+- <strong>LED drive is not the same either way.</strong> XL-1010 red gives 5–10 mcd/mA against the WS2816C's 26, so the firmware's
+  purple costs 1.8–2.9× the LED current (the green-only comparison above hid this). Taking variant A's 2 mA LED term as
+  3.6–5.8 mA, plus 3.65 mA for the driver (ICC + SDB pull-down):</p>
+<table>
+<thead>
+<tr>
+<th>mode</th>
+<th>variant B, same naps</th>
+<th>variant B, no naps</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>standing</td>
+<td>12.3–12.9 mA → <strong>10.1–10.6 h</strong></td>
+<td>17.8–19.9 mA → <strong>6.5–7.3 h</strong></td>
+</tr>
+<tr>
+<td>walking</td>
+<td>14.1–15.1 mA → <strong>8.6–9.3 h</strong></td>
+<td>(same)</td>
+</tr>
+<tr>
+<td>dancing</td>
+<td>16.4–18.2 mA → <strong>7.1–7.9 h</strong></td>
+<td>(same)</td>
+</tr>
+</tbody>
+</table>
+<p>Variant B is still 1.5–2.3× the current board at the same duty, and 2.2–2.4× with no naps against 3.0 h.
+- <strong>Off is not zero load.</strong> The driver sits on VSYS, which the soft latch does not cut. With SDB held low it draws 0.5 µA
+  typ and 1 µA max, more than 15 years from 140 mAh. Negligible, but it makes the SDB pull-down mandatory: a floating SDB
+  would cost 3.6 mA with the earring off.
+- <strong>Naps:</strong> SSD = 0 or SDB low gives 0.5 µA with registers kept, so naps cost the driver nothing.
+- <strong>Cost:</strong> about 12 passives come in (13 with an INTB resistor), not ~10. That is still ≈ +$0.03, so the net stays at
+  ≈ +$0.1 per board.
+- <strong>Reverse voltage:</strong> off LEDs see up to VSYS during the 2 µs de-ghost blanking, 4.95 V on USB against the LED's 5 V
+  VR. That is inside the rating but thin, and current-limited to ≤ 77 µA.</p>
+<p><strong>Open questions:</strong>
+- IOUT accuracy at 47 kΩ: only 10 kΩ is characterised.
+- Red efficiency below 10 mA: the datasheet curve is unusable there.
+- The driver's SDA VOL is unspecified.
+- How many EP vias to fit.
+- The reel Vf/Iv bins.</p>
+<h2>Routing attempts (2026-11-03)</h2>
+<p>Ultraroute 99bb7ca, with variant A's recipe args. A seed sweep on B's own input, each route judged by KiCad after a refill.</p>
+<ul>
+<li><strong>CS bus:</strong> 15 CS lines round the ring, 5-LED SW arcs, timeout 480 s.</li>
+<li>Every seed (1–6) left <strong>78–84 connections open</strong>, about 47 of them CS and 11 SW.</li>
+<li>Fanout: 79 of 85 escaped. Negotiation: 231 of 320 connections.</li>
+<li><strong>SW bus:</strong> 9 SW lines round the ring, 9-LED CS arcs (<code>bus: sw</code>), timeout 900 s.</li>
+<li>Every seed left <strong>48–55 open</strong>, about 13 CS and 19 SW, plus scattered other nets.</li>
+<li>The map change helped, but it's nowhere near routable.</li>
+</ul>
+<p><strong>Conclusion:</strong> placement fits, but a 4-layer board with the driver on the back-west doesn't route with the free router. The matrix needs either structure (a pre-routed ring bus) or more layers.
+- <strong>Locked In2 ring bus</strong> (9 concentric SW rings, <code>bus_rings</code>), 4 layers, timeout 900 s:
+  - Every seed left <strong>71–82 open</strong>, which is worse.
+  - The 3.4 mm band blocks every other net's vias, and fanout failures went from 6 to 15.
+  - Switched off.
+- <strong>6 layers</strong> (<code>board.layers: 6</code>, no ring bus), timeout 900 s:
+  - Every seed left <strong>8–10 open</strong>: CS 2–5, SW 1–4, the rest scattered.
+  - Negotiation got 293 of 315 connections. Fanout: 81 of 85 escaped.
+  - That's the range variant A was in before its seeds and pre-routes were tuned.
+- <strong>Conclusion:</strong> variant B is a 6-layer board, unless every LED stub and via is laid out by hand
+  on 4 layers.</p>
+</main></body></html>

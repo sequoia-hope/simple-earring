@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Variants E and F</title>
+<style>
+  :root { color-scheme: dark; }
+  body { background:#0d1015; color:#d9dee6; margin:0; padding:1.5rem 16px 4rem;
+         font:15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:860px; margin:0 auto; }
+  a { color:#5b9bff; }
+  h1, h2, h3 { color:#e6eaf0; line-height:1.25; }
+  h1 { font-size:1.6rem; } h2 { font-size:1.2rem; margin-top:2rem;
+       border-bottom:1px solid #262d38; padding-bottom:.3rem; }
+  code { background:#202632; border:1px solid #262d38; border-radius:5px;
+         padding:.05em .3em; font-size:.88em; }
+  pre { background:#161b22; border:1px solid #262d38; border-radius:8px;
+        padding:.7rem .9rem; overflow-x:auto; }
+  pre code { background:none; border:0; padding:0; }
+  table { border-collapse:collapse; font-size:.88rem; display:block; overflow-x:auto; }
+  th, td { border:1px solid #262d38; padding:.35rem .6rem; text-align:left; vertical-align:top; }
+  th { background:#161b22; }
+  .back { font-size:.85rem; color:#8c96a6; }
+</style></head><body><main>
+<p class="back"><a href="../index.html">&larr; Dashboard</a> &middot; <code>design/variant-e.md</code></p>
+<h1>Variants E and F: the back unloaded, 0.1 mm rules, and 6 layers</h1>
+<p>You asked for these steps in order on 2026-11-06: (3) unload the back, (1) 0.10 mm rules board-wide, (2) 6 layers.
+They are cumulative, on top of variant D (<code>design/variant-d.md</code>: the driver in the LED-free tip pocket).
+- <strong>Variant E</strong> (<code>design.e.yaml</code>, <code>hw/earring/e/</code>) is D with steps 3 and 1. It stays 4 layers.
+- <strong>Variant F</strong> (<code>design.f.yaml</code>, <code>hw/earring/f/</code>) is E on 6 layers (step 2).</p>
+<h2>Step 3: unload the back (place.py <code>UNLOAD</code>, <code>design.e.yaml</code> <code>unload_back: true</code>)</h2>
+<p><strong>What was wrong in D.</strong> 44 parts overlapped the LED zones (each LED courtyard + 0.3 mm), 133 mm² in all. scan_spot
+works one side at a time, so it never saw the front LEDs when placing back parts.</p>
+<p><strong>What moved.</strong> 23 parts were parked, then re-scanned in signal order, each next to the pads it serves. Every LED
+courtyard + 0.9 mm counted as a keepout, along with U1's back keepout and the silk art.
+- <strong>Test pads:</strong> TP1–TP3 are now 1.0 mm round (<code>testpoint_1mm</code>, KiCad <code>TestPoint_Pad_D1.0mm</code>; were 1.5 mm square). They
+  sit beside U1's west and east edges on the back.
+- <strong>IMU cluster:</strong> U6 is on the back east of U1, at (8.5, −5.0), off LEDs 29–31. C23 and C24 are at its supply pins.
+- <strong>Flash:</strong> U7 + R3 are on the back south of U1, at (1.5, 5.25). Q7 is at (0, 8.75).
+- <strong>Charger:</strong> U2 + C17 moved to the <strong>front</strong>, east of U1, at (6.25, 4.5). That is the only spot off the LEDs near
+  VBUS, PROG and VBATT. It is 0.75 mm tall, in the art-free area.
+- <strong>LDO and soft latch:</strong>
+  - U3 is on the back, west.
+  - The soft-latch parts (Q4, Q5, D4, D2, R24, R17) sit west and south-west.
+  - Of those, R24 and R17 are on the front.
+- <strong>Dividers:</strong> R11, R12 and C21 sit by U3. R20 is on the front east. C77 is on the front by U8.</p>
+<p><strong>Result.</strong> 30 parts overlap the LED zones, 57 mm² in all. Of that, 38 mm² is J1 and SW2, which are fixed. The back of
+the outer ring is clear from LED5 round to LED33. Placed DRC: 0 errors.</p>
+<h2>Step 1: 0.10 mm rules board-wide (<code>hw/earring/e/earring.kicad_pro</code>)</h2>
+<ul>
+<li><strong>Default and matrix classes:</strong> 0.10 mm track, 0.10 mm clearance. Board minimums are 0.10 mm track and 0.10 mm
+  clearance.</li>
+<li><strong>Other classes:</strong> power keeps 0.4 mm track (0.2 mm floor), USB keeps 0.15 mm, and their clearance is 0.10 mm.</li>
+<li><strong>Vias:</strong> unchanged at 0.4 / 0.2 mm, so no JLC extra charge.</li>
+<li><strong>Fab check:</strong> JLC's 4-layer standard is 0.09 / 0.09 mm, and JLC's 0.15 mm SMD pad-to-pad rule stays in the <code>.dru</code>.</li>
+<li><strong>Currents:</strong> the highest current on a 0.10 mm net is 128 mA pulses on the SW lines. That is inside IPC-2221 for
+  0.5 oz inner copper at ΔT 10 °C (~0.2 A).</li>
+</ul>
+<h2>Routing results (ultraroute 99bb7ca, recipe args, <code>--planes In1.Cu</code>, 6 seeds × 900 s, judged by KiCad DRC after refill)</h2>
+<table>
+<thead>
+<tr>
+<th>Trial</th>
+<th>Layers</th>
+<th>Open</th>
+<th>DRC err</th>
+<th>In1 GND</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>D + 0.1 mm matrix class (baseline)</td>
+<td>4</td>
+<td>28–37</td>
+<td>1–2</td>
+<td>~610 mm²</td>
+</tr>
+<tr>
+<td><strong>E, step 3</strong> (back unloaded)</td>
+<td>4</td>
+<td>27–37</td>
+<td>1–6</td>
+<td>587–604</td>
+</tr>
+<tr>
+<td><strong>E, step 3 + 1</strong> (0.1 mm board-wide)</td>
+<td>4</td>
+<td><strong>15–19</strong></td>
+<td>0–3</td>
+<td>574–586</td>
+</tr>
+<tr>
+<td>E, same, 2700 s (seeds 3, 4)</td>
+<td>4</td>
+<td><strong>9, 7</strong></td>
+<td>0</td>
+<td>572–577</td>
+</tr>
+<tr>
+<td>E, same, 6600 s (seeds 1–6)</td>
+<td>4</td>
+<td><strong>4–10</strong> (seed 6: 4, seed 3: 5)</td>
+<td>0–2</td>
+<td>564–584</td>
+</tr>
+<tr>
+<td><strong>F, step 3 + 1 + 2</strong> (6 layers)</td>
+<td>6</td>
+<td><strong>0 on every seed</strong></td>
+<td>2–7 (connection_width only)</td>
+<td>591–612</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Step 3 alone</strong> cut the matrix opens: SW+CS went from 12–18 to 9–15. But GND opens rose to 4–9, as relocated back
+  parts' GND pads found less room to reach the plane. Net gain is small.</li>
+<li><strong>Step 1</strong> was the big 4-layer lever. With it, all 6 seeds still hit the 900 s deadline while improving.</li>
+<li><strong>Long runs (2700 s):</strong> seed 4 reached <strong>7 open</strong>, seed 3 reached 9. Both had 0 DRC errors, with In1 at
+    572–577 mm², and both still hit the deadline while improving.</li>
+<li>Seed 4's 7 opens: 4 GND pads that didn't reach the plane, 1 CS, USB_C_DP and VBATT. 4 layers is close but not
+    done; the GND opens might take hand-placed stitching vias.</li>
+<li><strong>6600 s runs (2026-11-06), all six seeds:</strong> 8, 9, <strong>5</strong>, 10, 6, <strong>4</strong> open.<ul>
+<li>Best: seed 6, 4 open (CS14, CS6, USB_C_DP, VSYS) and 2 <code>connection_width</code> necks (SW3, SW7 vias). Seed 3, 5
+  open (CS10, CS9, RUN_KICK, SW4, USB_C_DP) and 0 DRC errors. Saved as <code>route/earring-e/best/</code> (seed 6).</li>
+<li>Seed 4 did worse than its 2700 s run (10 vs 7): the stages are wall-clock bounded, so the same seed lands
+  differently under different machine load.</li>
+<li>Diminishing returns: seed 6 went 6 → 5 → 4 open at ~3640 s and ~4760 s, then 20+ minutes without a gain;
+  seed 3 dropped one open about every 15–20 min to 5. Both still hit the deadline mid-shove.</li>
+<li>USB_C_DP (R6 on F.Cu to J1 B6 on B.Cu) is open on 4 of 6 seeds and every long run: a fixed blocker at the tip,
+  worth a hand route or a small R6 move rather than more router time.</li>
+<li>No GND opens on the two best seeds (they were 4 of seed 4's 7 at 2700 s).</li>
+</ul>
+</li>
+<li><strong>Step 2 routes.</strong> F reached 0 open on all 6 seeds.</li>
+<li>The first F sweep had one R14 via-in-pad error on every seed: variant A's 6-layer workaround now fails our "no via
+    hole in SMD pad" rule. route.py skips that via on the matrix variants.</li>
+<li>Remaining errors on seeds 1 and 3 (2 each): one <code>connection_width</code> neck where U1.15's IMU_SCL escape meets its via,
+    on both seeds, plus a CS9 via neck (seed 1) or an In2 3V3-disc sliver (seed 3).</li>
+<li>These are gate-7 cleanup items, not opens.</li>
+</ul>
+<h2>Not done yet</h2>
+<ul>
+<li>Installing a routed F (the build.py route stage, with recipe seed 1 or 3) and gate-7 cleanup of the necks.</li>
+<li>A gate 6 review of the E/F placement, including the charger moving to the front.</li>
+<li>6-layer cost: JLC 6-layer vs 4-layer for this 30 × 36 mm board.</li>
+</ul>
+</main></body></html>

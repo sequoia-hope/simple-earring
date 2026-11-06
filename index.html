@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>simple_earring</title>
+<style>
+  /* round-pendant's dark palette; the page is dark-only (the feed's colours
+     assume it). viewer.css reads --card, --accent, --canvas and the rest. */
+  :root { color-scheme:dark;
+    --bg:#0d1015; --card:#161b22; --canvas:#090c10; --line:#262d38; --fg:#e6eaf0;
+    --muted:#8c96a6; --accent:#5b9bff; --up:#35c07d; --warn:#dfa543;
+    --chip:#202632; --btn-bg:#212733; --btn-hover:#2b3342; }
+  * { box-sizing:border-box; }
+  body { background:var(--bg); color:#d9dee6; margin:0 auto; max-width:1240px;
+         padding:0 20px 4rem;
+         font:15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         -webkit-font-smoothing:antialiased; }
+  @media (max-width:600px) { body { padding:0 16px 3rem; } }
+  a { color:var(--accent); }
+  body > h2 { font-size:1.05rem; font-weight:650; color:var(--fg); margin:2.2rem 0 .7rem;
+       border-bottom:1px solid var(--line); padding-bottom:.35rem; }
+  #ts { color:var(--muted); font-size:.8rem; font-weight:400; letter-spacing:0; }
+
+  /* ---- hero ---- */
+  header.hero { padding:2rem 0 1.3rem; border-bottom:1px solid var(--line); margin-bottom:1.8rem; }
+  .hero-top { display:flex; justify-content:space-between; align-items:flex-start;
+              gap:1rem; flex-wrap:wrap; }
+  .eyebrow { font-size:.75rem; font-weight:650; text-transform:uppercase; letter-spacing:.09em;
+             color:var(--muted); margin:0 0 .35rem; }
+  header.hero h1 { font-size:clamp(1.5rem, 2.8vw, 2rem); margin:0; letter-spacing:-.02em;
+                   line-height:1.2; color:var(--fg); }
+  .hero-lede { color:var(--muted); max-width:80ch; margin:.7rem 0 0; font-size:.96rem; }
+  .toolbar { display:flex; align-items:center; gap:.55rem; flex-wrap:wrap; margin-top:.2rem; }
+  .seg { display:inline-flex; background:var(--chip); border:1px solid var(--line);
+         border-radius:8px; padding:2px; gap:2px; }
+  .seg button { font:inherit; font-size:.8rem; font-weight:600; color:var(--muted);
+                background:transparent; border:0; border-radius:6px; padding:.32rem .7rem;
+                cursor:pointer; }
+  .seg button[aria-pressed="true"] { background:var(--card); color:var(--fg);
+                                     box-shadow:0 1px 2px rgba(0,0,0,.4); }
+  .btn { display:inline-flex; align-items:center; font-size:.82rem; font-weight:600;
+         padding:.42rem .8rem; border-radius:8px; border:1px solid var(--line);
+         background:var(--card); color:var(--fg); text-decoration:none; white-space:nowrap; }
+  .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .btn:hover { filter:brightness(1.1); }
+  .doing { color:#c4cad4; font-size:.88rem; max-width:100ch; margin:1rem 0 0; }
+  .doing b, .callout b { color:var(--fg); margin-right:.35rem; }
+  .callout { margin-top:.8rem; border:1px solid color-mix(in srgb, var(--warn) 45%, var(--line));
+             background:color-mix(in srgb, var(--warn) 9%, var(--card)); border-radius:10px;
+             padding:.6rem .9rem; font-size:.88rem; color:#e9dcc4; }
+  .callout ul { margin:.3rem 0 0; padding-left:1.1rem; }
+
+  /* ---- families and cards ---- */
+  section.fam { margin-bottom:2.3rem; }
+  .sec-head { display:flex; justify-content:space-between; align-items:baseline;
+              gap:.8rem; flex-wrap:wrap; margin-bottom:.95rem; }
+  .sec-head h2 { font-size:1.15rem; margin:0; letter-spacing:-.01em; color:var(--fg); }
+  .sec-sub { color:var(--muted); font-size:.88rem; margin:.2rem 0 0; max-width:86ch; }
+  .sec-tag { font-size:.75rem; font-weight:600; color:var(--muted); background:var(--chip);
+             border:1px solid var(--line); border-radius:999px; padding:.18rem .65rem;
+             white-space:nowrap; }
+  .grid { display:grid; gap:1rem; grid-template-columns:repeat(auto-fill, minmax(290px, 1fr)); }
+  .vcard { display:flex; flex-direction:column; background:var(--card);
+           border:1px solid var(--line); border-radius:12px; overflow:hidden;
+           transition:border-color .15s; }
+  .vcard:hover { border-color:color-mix(in srgb, var(--accent) 65%, var(--line)); }
+  .thumb { position:relative; aspect-ratio:1 / 1; background:var(--canvas);
+           border-bottom:1px solid var(--line); display:block; overflow:hidden; }
+  .thumb img { position:absolute; inset:5%; width:90%; height:90%; object-fit:contain;
+               transition:opacity .15s; }
+  .thumb .unbuilt { position:absolute; inset:0; display:grid; place-items:center;
+                    padding:1rem; text-align:center; color:var(--muted); font-size:.8rem; }
+  body[data-face="front"] .thumb img.back-layer { opacity:0; }
+  body[data-face="back"] .thumb img.front-layer { opacity:0; }
+  .face-pill { position:absolute; bottom:8px; right:9px; font-size:.68rem; font-weight:600;
+               letter-spacing:.04em; text-transform:uppercase; padding:.12rem .45rem;
+               border-radius:5px; background:rgba(15,19,25,.78); color:#cbd5e1;
+               border:1px solid rgba(255,255,255,.12); }
+  .vbody { padding:.9rem 1rem 1rem; display:flex; flex-direction:column; gap:.45rem; flex:1; }
+  .vtop { display:flex; justify-content:space-between; align-items:flex-start; gap:.5rem; }
+  .vtitle { font-size:.98rem; font-weight:650; margin:0; line-height:1.3; }
+  .vtitle a { color:var(--fg); text-decoration:none; }
+  .vtitle a:hover { color:var(--accent); }
+  .badge { flex:none; font-size:.7rem; font-weight:650; padding:.14rem .5rem;
+           border-radius:999px; border:1px solid var(--line); background:var(--chip);
+           color:var(--muted); white-space:nowrap; }
+  .badge.ok { background:color-mix(in srgb, var(--up) 15%, var(--card)); color:var(--up);
+              border-color:color-mix(in srgb, var(--up) 38%, var(--line)); }
+  .badge.probe { background:color-mix(in srgb, var(--warn) 15%, var(--card)); color:var(--warn);
+                 border-color:color-mix(in srgb, var(--warn) 38%, var(--line)); }
+  .vspecs { font-size:.79rem; color:var(--muted); font-variant-numeric:tabular-nums;
+            display:flex; flex-wrap:wrap; gap:.25rem .55rem; }
+  .vspecs span::after { content:"·"; margin-left:.55rem; opacity:.55; }
+  .vspecs span:last-child::after { content:""; margin:0; }
+  .vdesc { font-size:.85rem; color:var(--muted); margin:0; flex:1; line-height:1.5; }
+  .vlinks { display:flex; gap:.4rem; margin-top:.35rem; flex-wrap:wrap; }
+  .vlinks a { font-size:.76rem; font-weight:600; padding:.26rem .6rem; border-radius:6px;
+              background:var(--btn-bg); color:var(--fg); border:1px solid var(--line);
+              text-decoration:none; }
+  .vlinks a:hover { background:var(--accent); border-color:var(--accent); color:#fff; }
+
+  /* ---- comparison and docs ---- */
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
+          padding:1rem 1.2rem; }
+  .card h3 { font-size:.78rem; margin:0 0 .75rem; text-transform:uppercase;
+             letter-spacing:.08em; color:var(--muted); font-weight:650; }
+  .table-wrap { overflow-x:auto; }
+  .card table { width:100%; border-collapse:collapse; font-size:.85rem;
+                font-variant-numeric:tabular-nums; }
+  .card th, .card td { text-align:left; padding:.5rem .65rem; border-bottom:1px solid var(--line);
+                       white-space:nowrap; }
+  .card th { color:var(--muted); font-weight:600; font-size:.74rem; text-transform:uppercase;
+             letter-spacing:.05em; }
+  .card tr:last-child td { border-bottom:0; }
+  .card td a { color:var(--fg); text-decoration:none; }
+  .card td a:hover { color:var(--accent); }
+  .cols { display:grid; gap:1rem; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));
+          margin-top:1rem; }
+  .doc-list { list-style:none; padding:0; margin:0; display:grid; gap:.45rem; font-size:.88rem; }
+  .doc-list li { display:flex; justify-content:space-between; gap:.75rem; align-items:baseline; }
+  .doc-list a { text-decoration:none; }
+  .doc-list small { color:var(--muted); font-size:.78rem; text-align:right; }
+
+  .row { display:flex; flex-wrap:wrap; gap:1rem; }
+  .row figure { margin:0; }
+  .row figcaption { text-align:center; padding:.3rem; color:#aaa; font-size:.85rem;
+               max-width:min(46vw,900px); }
+  .row img { max-width:min(46vw,900px); height:auto; border-radius:8px;
+        background:var(--card); }
+  .status { background:var(--card); border:1px solid var(--line);
+            border-radius:10px; padding:.6rem .9rem; font-size:.85rem;
+            color:#bbb; margin-bottom:.6rem; }
+  .status .good { color:#8f8; } .status .bad { color:#f88; }
+  .status .dim { color:#777; }
+
+  /* ---- feed ---- */
+  .entry h4 { font-size:.85rem; color:#cfcfd6; margin:1rem 0 .35rem; }
+  ol.feed { list-style:none; margin:0; padding:0; }
+  .entry { border-left:2px solid var(--line); padding:0 0 0 .9rem;
+           margin:0 0 .1rem; position:relative; }
+  .entry::before { content:""; position:absolute; left:-5px; top:.75rem;
+                   width:8px; height:8px; border-radius:50%;
+                   background:#4a4a56; }
+  .entry:first-child::before { background:#8f8; }
+  .entry summary { cursor:pointer; list-style:none; padding:.5rem 0;
+                   display:flex; gap:.7rem; align-items:baseline; }
+  .entry summary::-webkit-details-marker { display:none; }
+  .entry summary:hover .title { color:#fff; }
+  .when { color:#777; font-size:.78rem; white-space:nowrap; min-width:3.6rem;
+          font-variant-numeric:tabular-nums; padding-top:.1rem; }
+  .head { display:flex; flex-wrap:wrap; gap:.35rem .5rem; align-items:baseline; }
+  .title { font-size:.95rem; font-weight:600; color:#e2e2e8; }
+  .tag { font-size:.68rem; text-transform:uppercase; letter-spacing:.04em;
+         border:1px solid; border-radius:999px; padding:.02rem .4rem; }
+  .sha { font-size:.7rem; color:#777; background:#222228; border-radius:4px;
+         padding:.05rem .3rem; }
+  .sha.nosha { font-style:italic; background:none; }
+  .lede { flex-basis:100%; color:#9a9aa4; font-size:.85rem; line-height:1.45; }
+  details[open] .lede { color:#b6b6c0; }
+  /* 4.3rem = .when's 3.6rem column + summary's .7rem gap, so the body
+     lines up under the title rather than under the date. The 78ch measure
+     goes on the text children, not on .body itself, so a media row can
+     still lay two renders out side by side. */
+  .entry .body { font-size:.88rem; line-height:1.6; color:#c4c4cc;
+                 padding:.1rem 0 1.4rem 4.3rem; }
+  .entry .body > p, .entry .body > ul, .entry .body > h4,
+  .entry .body > pre, .entry .body > div:not(.row) { max-width:78ch; }
+  .entry .body p { margin:.55rem 0; }
+  .entry .body ul { margin:.5rem 0; padding-left:1.1rem; }
+  .entry .body li { margin:.4rem 0; }
+  /* narrower than the standalone renders below: the feed body is already
+     indented 4.3rem, and at the shared min(46vw,900px) a pair overflows
+     that column by ~20px and wraps to one per line */
+  .entry .body .row { margin-top:.9rem; }
+  .entry .body img, .entry .body figcaption { max-width:min(38vw,620px); }
+  .entry .body code { background:#222228; border-radius:3px; padding:0 .2rem;
+                      font-size:.9em; }
+  pre.art { background:#202026; border:1px solid var(--line); border-radius:6px;
+            padding:.6rem .8rem; font-size:.78rem; line-height:1.45;
+            color:#a9c8a9; overflow-x:auto; }
+  .entry .warn { background:#2a2119; border-left:3px solid #d9a441; border-radius:4px;
+          padding:.5rem .7rem; }
+  .entry .note { background:#1e2429; border-left:3px solid #5a8fb5; border-radius:4px;
+          padding:.5rem .7rem; }
+
+  .hint { color:#888; font-size:.75rem; margin-top:10px; }
+  /* the pcbview viewer (section.vw) is embedded below: page rules for bare
+     elements and shared class names (h1, h4, img, .warn) are scoped to the
+     page's own parts so they don't leak into it */
+  section.vw { margin-bottom:1rem; }
+</style></head><body data-face="front">
+
+
+<header class="hero">
+  <div class="hero-top">
+    <div>
+      <p class="eyebrow">RP2350A LED earring · Ø30.5 mm teardrop</p>
+      <h1>simple_earring <span id="ts"></span></h1>
+      <p class="hero-lede">A 30.5 mm teardrop earring with 45 RGB LEDs on two rings round an RP2350A, a LiPo cell on the
+back and one button. Variant A (45 WS2816C pixels in three switched zones) is routed and DRC-clean.
+Variants B&ndash;F study driving plain RGB LEDs from a matrix driver instead, as round-pendant does:
+cheaper LEDs and about $3 less per board, but 180 more LED pins to route in the same space.</p>
+    </div>
+    <div class="toolbar">
+      <div class="seg" role="group" aria-label="Board preview face">
+        <button type="button" data-set-face="front" aria-pressed="true">Front (LEDs)</button>
+        <button type="button" data-set-face="back" aria-pressed="false">Back (parts)</button>
+      </div>
+      <a class="btn primary" href="viewer/">All boards in the viewer &rarr;</a>
+    </div>
+  </div>
+  <p class="doing"><b>Now</b> 2026-11-06: matrix variants. E (4L: driver off the LEDs, back unloaded, 0.10 mm rules) routes to 4 open + 2 necks (seed 6) or 5 open + 0 errors (seed 3) with 6600 s; gains had slowed to ~1 open per 20 min. F (E on 6 layers) routes 0 open on every seed, 2 neck errors on the best. Neither installed. Variant A stays the gate-7-passed board.</p>
+  <div class="callout"><b>Needs you</b><ul><li>Matrix earring: 6 layers (variant F, 0 open, 2 necks to fix) or 4 layers (variant E, 4-5 open after 110 min: CS lines, USB D+ at the tip, VSYS; would need hand routing)? Then install that route and clean up gate 7.</li></ul></div>
+</header>
+
+<section class="fam" aria-labelledby="fam-pixels">
+  <div class="sec-head">
+    <div>
+      <h2 id="fam-pixels">Pixel chain: WS2816C</h2>
+      <p class="sec-sub">The board of record. 45 WS2816C-1313 addressable pixels on a daisy chain, split into three zones
+(left, right, centre), each with its own load switch, level shifter and In2 supply pour.</p>
+    </div>
+    <span class="sec-tag">4 layers · 45 WS2816C · routed</span>
+  </div>
+  <div class="grid">
+    <article class="vcard">
+      <a class="thumb" href="viewer/earring-a.html" aria-label="Open A: WS2816C zones in the viewer">
+        <img src="viewer/earring-a/layers/body.svg" alt="" loading="lazy"><img class="front-layer" src="viewer/earring-a/layers/f.svg" alt="" loading="lazy"><img class="front-layer" src="viewer/earring-a/layers/silk_f.svg" alt="" loading="lazy"><img class="back-layer" src="viewer/earring-a/layers/b.svg" alt="" loading="lazy"><img class="back-layer" src="viewer/earring-a/layers/silk_b.svg" alt="" loading="lazy"><img src="viewer/earring-a/layers/edge.svg" alt="" loading="lazy"><span class="face-pill" data-face-label>Front</span>
+      </a>
+      <div class="vbody">
+        <div class="vtop">
+          <h3 class="vtitle"><a href="viewer/earring-a.html">A: WS2816C zones</a></h3>
+          <span class="badge ok">Routed · 0 DRC</span>
+        </div>
+        <div class="vspecs"><span>4 layers</span><span>45× WS2816C-1313</span><span>3 switched zones</span><span>381 vias</span></div>
+        <p class="vdesc">The gate-7-passed board: 0 DRC errors, 0 unconnected (ultraroute seed 2, 2026-11-03). RP2350A and
+LEDs on the front, flash, charger, LDO and power path on the back under the cell.</p>
+        <div class="vlinks"><a href="viewer/earring-a.html#copper">PCB</a><a href="viewer/earring-a.html#board3d">3D</a><a href="viewer/earring-a.html#schematic">Schematic</a><a href="docs/phase7.html">Gate 7</a></div>
+      </div>
+    </article></div>
+</section>
+
+<section class="fam" aria-labelledby="fam-matrix">
+  <div class="sec-head">
+    <div>
+      <h2 id="fam-matrix">Matrix driver: plain RGB LEDs</h2>
+      <p class="sec-sub">The same 45 LEDs as a 9 SW &times; 15 CS matrix. B uses round-pendant's IS31FL3741A and the 1 mm
+XL-1010. C swaps in the cheaper AW20198QNR and the 1.6 &times; 1.5 mm XL-1615. D, E and F keep the
+LEDs, the centred MCU, the button and USB fixed, and move everything else to make room for routing.</p>
+    </div>
+    <span class="sec-tag">AW20198QNR / IS31FL3741A · 9 × 15 matrix · placed</span>
+  </div>
+  <div class="grid">
+    <article class="vcard">
+      <a class="thumb" href="viewer/earring-b.html" aria-label="Open B: IS31FL3741A + XL-1010 in the viewer">
+        <img src="viewer/earring-b/layers/body.svg" alt="" loading="lazy"><img class="front-layer" src="viewer/earring-b/layers/f.svg" alt="" loading="lazy"><img class="front-layer" src="viewer/earring-b/layers/silk_f.svg" alt="" loading="lazy"><img class="back-layer" src="viewer/earring-b/layers/b.svg" alt="" loading="lazy"><img class="back-layer" src="viewer/earring-b/layers/silk_b.svg" alt="" loading="lazy"><img src="viewer/earring-b/layers/edge.svg" alt="" loading="lazy"><span class="face-pill" data-face-label>Front</span>
+      </a>
+      <div class="vbody">
+        <div class="vtop">
+          <h3 class="vtitle"><a href="viewer/earring-b.html">B: IS31FL3741A + XL-1010</a></h3>
+          <span class="badge probe">Not routable yet</span>
+        </div>
+        <div class="vspecs"><span>6 layers (trial)</span><span>45× XL-1010</span><span>QFN-60 7×7</span><span>+$0.1 vs A</span></div>
+        <p class="vdesc">The first matrix board, after round-pendant: one IS31FL3741A on the back and 1 mm LEDs at 45° to
+the ring. 48&ndash;55 open on 4 layers and 8&ndash;10 on 6, so the driver and LED were swapped for C.</p>
+        <div class="vlinks"><a href="viewer/earring-b.html#copper">PCB</a><a href="viewer/earring-b.html#board3d">3D</a><a href="viewer/earring-b.html#schematic">Schematic</a><a href="docs/variant-b-matrix.html">Notes</a></div>
+      </div>
+    </article>
+    <article class="vcard">
+      <a class="thumb" href="viewer/earring-c.html" aria-label="Open C: AW20198QNR + XL-1615 in the viewer">
+        <img src="viewer/earring-c/layers/body.svg" alt="" loading="lazy"><img class="front-layer" src="viewer/earring-c/layers/f.svg" alt="" loading="lazy"><img class="front-layer" src="viewer/earring-c/layers/silk_f.svg" alt="" loading="lazy"><img class="back-layer" src="viewer/earring-c/layers/b.svg" alt="" loading="lazy"><img class="back-layer" src="viewer/earring-c/layers/silk_b.svg" alt="" loading="lazy"><img src="viewer/earring-c/layers/edge.svg" alt="" loading="lazy"><span class="face-pill" data-face-label>Front</span>
+      </a>
+      <div class="vbody">
+        <div class="vtop">
+          <h3 class="vtitle"><a href="viewer/earring-c.html">C: AW20198QNR + XL-1615</a></h3>
+          <span class="badge probe">37–45 open on 4L</span>
+        </div>
+        <div class="vspecs"><span>4 layers</span><span>45× XL-1615</span><span>QFN-40 5×5</span><span>−$3.0 vs A</span></div>
+        <p class="vdesc">Round-pendant's low-density parts: the AW20198QNR (half the quiescent current) and the larger,
+cheaper XL-1615 set square to the ring. The driver sits under LEDs 8&ndash;10; 37&ndash;45 open with the
+GND plane kept.</p>
+        <div class="vlinks"><a href="viewer/earring-c.html#copper">PCB</a><a href="viewer/earring-c.html#board3d">3D</a><a href="viewer/earring-c.html#schematic">Schematic</a><a href="docs/variant-c.html">Notes</a></div>
+      </div>
+    </article>
+    <article class="vcard">
+      <a class="thumb" href="viewer/earring-d.html" aria-label="Open D: driver off the LEDs in the viewer">
+        <img src="viewer/earring-d/layers/body.svg" alt="" loading="lazy"><img class="front-layer" src="viewer/earring-d/layers/f.svg" alt="" loading="lazy"><img class="front-layer" src="viewer/earring-d/layers/silk_f.svg" alt="" loading="lazy"><img class="back-layer" src="viewer/earring-d/layers/b.svg" alt="" loading="lazy"><img class="back-layer" src="viewer/earring-d/layers/silk_b.svg" alt="" loading="lazy"><img src="viewer/earring-d/layers/edge.svg" alt="" loading="lazy"><span class="face-pill" data-face-label>Front</span>
+      </a>
+      <div class="vbody">
+        <div class="vtop">
+          <h3 class="vtitle"><a href="viewer/earring-d.html">D: driver off the LEDs</a></h3>
+          <span class="badge probe">28–37 open on 4L</span>
+        </div>
+        <div class="vspecs"><span>4 layers</span><span>45× XL-1615</span><span>driver at the tip</span><span>−$3.0 vs A</span></div>
+        <p class="vdesc">C with the driver moved to the only back pocket clear of every LED, south of USB-C; the USB ESD
+chip, series resistors and BOOTSEL timer moved to make room. 28&ndash;37 open with a 0.1 mm matrix class.</p>
+        <div class="vlinks"><a href="viewer/earring-d.html#copper">PCB</a><a href="viewer/earring-d.html#board3d">3D</a><a href="viewer/earring-d.html#schematic">Schematic</a><a href="docs/variant-d.html">Notes</a></div>
+      </div>
+    </article>
+    <article class="vcard">
+      <a class="thumb" href="viewer/earring-e.html" aria-label="Open E: back unloaded, 0.1 mm in the viewer">
+        <img src="viewer/earring-e/layers/body.svg" alt="" loading="lazy"><img class="front-layer" src="viewer/earring-e/layers/f.svg" alt="" loading="lazy"><img class="front-layer" src="viewer/earring-e/layers/silk_f.svg" alt="" loading="lazy"><img class="back-layer" src="viewer/earring-e/layers/b.svg" alt="" loading="lazy"><img class="back-layer" src="viewer/earring-e/layers/silk_b.svg" alt="" loading="lazy"><img src="viewer/earring-e/layers/edge.svg" alt="" loading="lazy"><span class="face-pill" data-face-label>Front</span>
+      </a>
+      <div class="vbody">
+        <div class="vtop">
+          <h3 class="vtitle"><a href="viewer/earring-e.html">E: back unloaded, 0.1 mm</a></h3>
+          <span class="badge probe">4 open at 110 min</span>
+        </div>
+        <div class="vspecs"><span>4 layers</span><span>0.10 mm rules</span><span>23 parts moved</span><span>−$3.0 vs A</span></div>
+        <p class="vdesc">D with 23 back parts moved off the LEDs' via room (the charger to the front), 1 mm test pads and
+0.10 mm rules board-wide. 15&ndash;19 open in 15 minutes, 7 in 45, 4&ndash;5 in 110 (see the route card).</p>
+        <div class="vlinks"><a href="viewer/earring-e.html#copper">PCB</a><a href="viewer/earring-e.html#board3d">3D</a><a href="viewer/earring-e.html#schematic">Schematic</a><a href="docs/variant-e.html">Notes</a></div>
+      </div>
+    </article>
+    <article class="vcard">
+      <a class="thumb" href="viewer/earring-f.html" aria-label="Open F: E on 6 layers in the viewer">
+        <img src="viewer/earring-f/layers/body.svg" alt="" loading="lazy"><img class="front-layer" src="viewer/earring-f/layers/f.svg" alt="" loading="lazy"><img class="front-layer" src="viewer/earring-f/layers/silk_f.svg" alt="" loading="lazy"><img class="back-layer" src="viewer/earring-f/layers/b.svg" alt="" loading="lazy"><img class="back-layer" src="viewer/earring-f/layers/silk_b.svg" alt="" loading="lazy"><img src="viewer/earring-f/layers/edge.svg" alt="" loading="lazy"><span class="face-pill" data-face-label>Front</span>
+      </a>
+      <div class="vbody">
+        <div class="vtop">
+          <h3 class="vtitle"><a href="viewer/earring-f.html">F: E on 6 layers</a></h3>
+          <span class="badge ok">0 open on every seed</span>
+        </div>
+        <div class="vspecs"><span>6 layers</span><span>0.10 mm rules</span><span>same placement as E</span><span>−$3.0 vs A + 6L</span></div>
+        <p class="vdesc">Variant E with two more signal layers. Routes to 0 open on all six seeds in 15 minutes; the best
+seeds leave two narrow-neck DRC errors to clean up. The placed board; the route is on the card below.</p>
+        <div class="vlinks"><a href="viewer/earring-f.html#copper">PCB</a><a href="viewer/earring-f.html#board3d">3D</a><a href="viewer/earring-f.html#schematic">Schematic</a><a href="docs/variant-e.html">Notes</a></div>
+      </div>
+    </article></div>
+</section>
+
+<section class="fam" aria-labelledby="fam-routes">
+  <div class="sec-head">
+    <div>
+      <h2 id="fam-routes">Best routes so far</h2>
+      <p class="sec-sub">Router trials of the matrix boards (ultraroute 99bb7ca, the recipe in route/earring-*/recipe.json),
+judged by KiCad 9 DRC after a refill, with the In1 GND plane kept whole. Not installed in hw/: the
+6-or-4-layer decision is still open.</p>
+    </div>
+    <span class="sec-tag">ultraroute · KiCad 9 DRC</span>
+  </div>
+  <div class="grid">
+    <article class="vcard">
+      <a class="thumb" href="viewer/earring-f-route.html" aria-label="Open F routed: seed 3, 6 layers in the viewer">
+        <img src="viewer/earring-f-route/layers/body.svg" alt="" loading="lazy"><img class="front-layer" src="viewer/earring-f-route/layers/f.svg" alt="" loading="lazy"><img class="front-layer" src="viewer/earring-f-route/layers/silk_f.svg" alt="" loading="lazy"><img class="back-layer" src="viewer/earring-f-route/layers/b.svg" alt="" loading="lazy"><img class="back-layer" src="viewer/earring-f-route/layers/silk_b.svg" alt="" loading="lazy"><img src="viewer/earring-f-route/layers/edge.svg" alt="" loading="lazy"><span class="face-pill" data-face-label>Front</span>
+      </a>
+      <div class="vbody">
+        <div class="vtop">
+          <h3 class="vtitle"><a href="viewer/earring-f-route.html">F routed: seed 3, 6 layers</a></h3>
+          <span class="badge ok">0 open · 2 DRC</span>
+        </div>
+        <div class="vspecs"><span>6 layers</span><span>384 vias</span><span>2,265 tracks</span><span>15 min</span></div>
+        <p class="vdesc">Every connection made, GND plane whole. Two DRC errors left, both necks: where U1 pin 15's IMU_SCL
+escape meets its via, and a sliver of the In2 3V3 disc. Small hand fixes before a gate-7 review.</p>
+        <div class="vlinks"><a href="viewer/earring-f-route.html#copper">PCB</a><a href="viewer/earring-f-route.html#board3d">3D</a><a href="viewer/earring-f-route.html#schematic">Schematic</a><a href="docs/variant-e.html">Notes</a></div>
+      </div>
+    </article>
+    <article class="vcard">
+      <a class="thumb" href="viewer/earring-e-route.html" aria-label="Open E routed: seed 6, 4 layers in the viewer">
+        <img src="viewer/earring-e-route/layers/body.svg" alt="" loading="lazy"><img class="front-layer" src="viewer/earring-e-route/layers/f.svg" alt="" loading="lazy"><img class="front-layer" src="viewer/earring-e-route/layers/silk_f.svg" alt="" loading="lazy"><img class="back-layer" src="viewer/earring-e-route/layers/b.svg" alt="" loading="lazy"><img class="back-layer" src="viewer/earring-e-route/layers/silk_b.svg" alt="" loading="lazy"><img src="viewer/earring-e-route/layers/edge.svg" alt="" loading="lazy"><span class="face-pill" data-face-label>Front</span>
+      </a>
+      <div class="vbody">
+        <div class="vtop">
+          <h3 class="vtitle"><a href="viewer/earring-e-route.html">E routed: seed 6, 4 layers</a></h3>
+          <span class="badge probe">4 open · 2 DRC</span>
+        </div>
+        <div class="vspecs"><span>4 layers</span><span>450 vias</span><span>2,658 tracks</span><span>110 min</span></div>
+        <p class="vdesc">The closest 4-layer result, from a 6,600 s run, with the GND plane whole. Open: CS14, CS6, USB D+ and
+VSYS; 2 neck errors at SW3/SW7 vias. Seed 3 reached 5 open with 0 errors. Gains had slowed to about one open
+per 20 minutes. USB D+ is open on 4 of 6 seeds, which points to a hand fix at the tip rather than more time.</p>
+        <div class="vlinks"><a href="viewer/earring-e-route.html#copper">PCB</a><a href="viewer/earring-e-route.html#board3d">3D</a><a href="viewer/earring-e-route.html#schematic">Schematic</a><a href="docs/variant-e.html">Notes</a></div>
+      </div>
+    </article></div>
+</section>
+
+<section class="fam" aria-labelledby="sec-compare">
+  <div class="card">
+    <h3 id="sec-compare">Comparison</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Variant</th><th>Layers</th><th>LEDs</th><th>Driver</th>
+        <th>Best route</th><th>Parts vs A</th></tr></thead>
+      <tbody><tr><td><a href="viewer/earring-a.html"><b>A: WS2816C zones</b></a></td><td>4L</td><td>45× WS2816C</td><td>built into each pixel</td><td>0 open · 0 DRC</td><td>—</td></tr><tr><td><a href="viewer/earring-b.html"><b>B: IS31FL3741A + XL-1010</b></a></td><td>6L trial</td><td>45× XL-1010RGB</td><td>IS31FL3741A (QFN-60)</td><td>8–10 open (6L)</td><td>+$0.1</td></tr><tr><td><a href="viewer/earring-c.html"><b>C: AW20198QNR + XL-1615</b></a></td><td>4L</td><td>45× XL-1615RGBC</td><td>AW20198QNR (QFN-40)</td><td>37–45 open</td><td>−$3.0</td></tr><tr><td><a href="viewer/earring-d.html"><b>D: driver off the LEDs</b></a></td><td>4L</td><td>45× XL-1615RGBC</td><td>AW20198QNR, tip pocket</td><td>28–37 open</td><td>−$3.0</td></tr><tr><td><a href="viewer/earring-e.html"><b>E: back unloaded, 0.1 mm</b></a></td><td>4L</td><td>45× XL-1615RGBC</td><td>AW20198QNR, tip pocket</td><td>4 open at 110 min (5 with 0 DRC)</td><td>−$3.0</td></tr><tr><td><a href="viewer/earring-f.html"><b>F: E on 6 layers</b></a></td><td>6L</td><td>45× XL-1615RGBC</td><td>AW20198QNR, tip pocket</td><td>0 open · 2 necks</td><td>−$3.0 + 6L</td></tr></tbody>
+    </table></div>
+  </div>
+  <div class="cols">
+    <div class="card"><h3>Design notes</h3><ul class="doc-list"><li><a href="docs/variant-b-matrix.html">Variant B: matrix study</a><small>IS31FL3741A, cost, battery</small></li><li><a href="docs/variant-c.html">Variant C: AW20198QNR + XL-1615</a><small>parts swap, 4-layer sweeps</small></li><li><a href="docs/variant-d.html">Variant D: driver off the LEDs</a><small>the tip pocket</small></li><li><a href="docs/variant-e.html">Variants E and F</a><small>unloaded back, 0.1 mm, 6 layers</small></li><li><a href="docs/decisions.html">Decision log</a><small>every non-obvious call</small></li><li><a href="docs/intent.html">Design intent</a><small>phase 0</small></li><li><a href="docs/phase7.html">Gate 7: routing review</a><small>variant A</small></li><li><a href="docs/ultraroute-requests.html">ultraroute requests</a><small>router bugs and asks</small></li><li><a href="docs/PLAN.html">Plan of record</a><small>firmware and hardware plan</small></li></ul></div>
+    <div class="card"><h3>Pages</h3><ul class="doc-list"><li><a href="viewer/">Board viewer</a><small>every board: SCH, PCB, 3D</small></li><li><a href="case/preview/">TPU case</a><small>fits the ordered rev</small></li><li><a href="probe/">Probe map</a><small>bring-up test points</small></li><li><a href="review/">Layout review</a><small>Aug 6</small></li><li><a href="review/fixes.html">Fix pass</a><small>Aug 6</small></li><li><a href="rework/">R8 rework</a><small>retired</small></li><li><a href="earring-schematic.pdf">Schematic PDF</a><small>variant A</small></li></ul></div>
+  </div>
+</section>
+
+<h2 id="board">Variant A in the viewer</h2>
+<!-- pcbview:begin -->
+<!-- written by pcbview (python3 -m pcbview build pcbview.toml): change the config, not this -->
+<link rel="stylesheet" href="viewer/assets/viewer.css">
+<section class="vw" data-pv-embed aria-label="earring, variant A: schematic, PCB and 3D">
+  <div class="vw-bar">
+    <div class="vw-left"><button data-vw="layers" aria-pressed="true"
+      title="show or hide the side panel"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8 14.2 5 8 8.2 1.8 5z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M1.8 8 8 11.2 14.2 8M1.8 11 8 14.2 14.2 11" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg><span>Panel</span></button></div>
+    <div class="vw-tabs" role="tablist" aria-label="view"><button role="tab" data-tab="schematic" aria-controls="schematic" aria-selected="false">SCH</button><button role="tab" data-tab="copper" aria-controls="copper" aria-selected="true">PCB</button><button role="tab" data-tab="board3d" aria-controls="board3d" aria-selected="false">3D</button></div>
+    <div class="vw-tools">
+      <button data-vw="info" title="about this board" aria-label="about this board"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.2v4.2M8 4.6v.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+      <button data-vw="full" title="full screen" aria-label="full screen"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 2h4.5v4.5M14 2 9 7M6.5 14H2V9.5M2 14l5-5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
+  </div>
+  
+  <div class="vw-panel" id="schematic" data-dir="viewer/earring-a/sch/" role="tabpanel" hidden>
+    <div class="cu sch">
+      <div class="cu-panel">
+        <p class="cu-head">Sheets</p>
+        <div id="sch-sheets"></div>
+        <div class="cu-row">
+          <button data-sch="out" title="zoom out">&minus;</button>
+          <button data-sch="fit" title="the whole sheet">fit</button>
+          <button data-sch="in" title="zoom in">+</button>
+          <span class="sub" id="sch-zoom">1.0&times;</span>
+        </div>
+        <div class="cu-row"><a class="a3-btn" id="sch-pdf" download hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8v8.4M4.4 6.8 8 10.4l3.6-3.6M2 12v2.2h12V12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>PDF, every sheet</span></a></div>
+        <p class="sub cu-note" id="sch-cap"></p>
+        <p class="cu-hint">Keys: <b>+</b> and <b>&minus;</b> zoom, <b>0</b> fit.
+        Drag to pan; scroll or double-click to zoom.</p>
+      </div>
+      <div class="cu-canvas">
+        <div class="sch-plate" id="sch-plate">
+          <div class="sch-pan" id="sch-pan"><img id="sch-img" alt="" draggable="false"></div>
+          <p class="b3-msg" id="sch-msg" hidden></p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="vw-panel" id="copper" data-dir="viewer/earring-a/layers/" data-parts="viewer/earring-a/3d/parts.json" role="tabpanel">
+    <div class="cu">
+      <div class="cu-panel">
+        <div id="cu-layers"></div>
+        <p class="cu-hint" style="margin-top:.3rem">The dot puts a layer on top at full
+        opacity; the box says whether it is drawn at all.</p>
+        <div class="cu-row">
+          <button data-act="all" title="show every layer">all</button>
+          <button data-act="none" title="show only the selected layer">none</button>
+          <button data-act="solo" title="the selected layer and the outline only">solo</button>
+          <button data-act="grid" title="the copper layers side by side">grid</button>
+        </div>
+        <label class="cu-ctl">opacity of the unselected copper
+          <input type="range" id="cu-dim" min="0" max="60" value="16"></label>
+        <label class="cu-ctl"><input type="checkbox" id="cu-mirror">
+          view from the back (mirrored)</label>
+        <div class="cu-row">
+          <button data-act="out" title="zoom out">&minus;</button>
+          <button data-act="fit" title="fit the board">fit</button>
+          <button data-act="in" title="zoom in">+</button>
+          <span class="sub" id="cu-zoom">1.0&times;</span>
+        </div>
+        <p class="cu-note" id="cu-note"></p>
+        <p class="cu-read" id="cu-read"></p>
+        <p class="cu-hint">Keys: <b>1</b>&ndash;<b>9</b> pick a layer, <b>s</b> solo,
+        <b>a</b> all, <b>m</b> mirror, <b>0</b> fit. Click a part for its pane;
+        coordinates are pcbnew&rsquo;s, in millimetres.</p>
+        <p class="cu-hint" id="cu-stats"></p>
+      </div>
+      <div class="cu-canvas">
+        <div class="cu-plate" id="cu-plate">
+          <div class="cu-pan" id="cu-pan"><div class="cu-flip" id="cu-flip"></div></div>
+          <div class="cu-scale"><i id="cu-bar"></i><span id="cu-barlab"></span></div>
+          <div class="cu-back" id="cu-back"></div>
+          <p class="b3-msg" id="cu-fallback" hidden></p>
+        </div>
+        <div class="cu-grid" id="cu-gridbox" hidden></div>
+      </div>
+      <aside class="b3-info pv-pane" id="cu-info" aria-label="the selected part" hidden>
+        <div class="b3-ih"><b class="pv-iref"></b><button class="b3-x" title="close"
+          aria-label="close the part pane">&times;</button></div>
+        <div class="b3-ib pv-ib"></div>
+      </aside>
+    </div>
+  </div>
+  
+  <div class="vw-panel" id="board3d" data-dir="viewer/earring-a/3d/" role="tabpanel" hidden>
+    <div class="b3">
+      <div class="b3-bar">
+        <div class="cu-row" role="group" aria-label="view">
+          <button data-view="front" title="the front face, as pcbnew draws it">front</button>
+          <button data-view="back" title="the back face, turned over left to right">back</button>
+          <button data-view="tilt" title="from the front, tilted towards you">tilted</button>
+          <button data-view="edge" title="edge on: how tall each face stands">edge</button>
+        </div>
+        <div class="b3-layers" id="b3-layers"></div>
+        <label class="b3-find">find <input id="b3-find" list="b3-refs" placeholder="U1"
+          disabled spellcheck="false" autocomplete="off" title="a reference, e.g. U1"></label>
+        <datalist id="b3-refs"></datalist>
+      </div>
+      <div class="b3-body">
+        <div class="b3-stage" id="b3-stage">
+          <p class="b3-msg" id="b3-msg">The model loads when this tab is open.</p>
+          <div class="b3-tag" id="b3-tag" hidden></div>
+        </div>
+        <aside class="b3-info pv-pane" id="b3-info" aria-label="the selected part" hidden>
+          <div class="b3-ih"><b class="pv-iref"></b><button class="b3-x" title="close"
+            aria-label="close the part pane">&times;</button></div>
+          <div class="b3-ib pv-ib"></div>
+        </aside>
+      </div>
+      <p class="b3-facts" id="b3-facts"></p>
+    </div>
+  </div>
+  
+  <div class="vw-panel pv-over" id="overview" role="tabpanel" hidden>
+    <div class="pv-card">
+      <h1>earring, variant A</h1>
+      <p class="pv-lede">Ø30.5 mm teardrop, 4-layer, 45 WS2816C-1313 in three switched zones; routed with ultraroute 99bb7ca (seed 2), DRC 0 errors / 0 unconnected (2026-11-03).</p>
+      <dl class="pv-facts"><dt>Source</dt><dd><code>hw/earring/a/earring.kicad_pcb</code><br><code>hw/earring/a/earring.kicad_sch</code></dd><dt>Board</dt><dd>30.505 &times; 35.748 mm<small>4 copper layers, 1.6 mm thick</small></dd><dt>Parts</dt><dd>167 footprints<small>97 on the front, 70 on the back</small></dd><dt>Copper</dt><dd>103 nets, 1,734 track segments, 381 vias<small>1,419 mm of routed track</small></dd><dt>Schematic</dt><dd>1 sheet<small>User</small></dd><dt>3D</dt><dd>164 of 167 parts drawn from a model<small>D2, D4, J1, Q2&ndash;Q10, U6, U7 with a stand-in from the project file</small><small>3 name no model (TP1&ndash;TP3)</small></dd></dl>
+      <p class="cu-hint">Built 2026-11-06 09:46 by pcbview from the KiCad files above:
+      <code>python3 -m pcbview build pcbview.toml</code>. Nothing here is drawn by hand &mdash; the layer plots, the model and the
+      sheets are KiCad&rsquo;s own exports.</p>
+    </div>
+  </div>
+</section>
+<script src="viewer/assets/parts.js" defer></script>
+<script src="viewer/assets/gesture.js" defer></script>
+<script src="viewer/assets/viewer.js" defer></script>
+<script src="viewer/assets/copper.js" defer></script>
+<script src="viewer/assets/sch.js" defer></script>
+<script type="importmap">{"imports": {"three": "./viewer/assets/vendor/three.module.js"}}</script>
+<script type="module" src="viewer/assets/board3d.js"></script>
+<!-- pcbview:end -->
+<div class="hint" style="margin:-.4rem 0 1.2rem">
+  board viewer by pcbview from the board on disk
+  (<code>scripts/view.sh build pcbview.toml</code>, pinned at
+  <code>vendor/pcbview</code>) &middot; built Nov 6 09:46 &middot;
+  <a href="viewer/">open full page</a></div>
+
+<h2 id="status">Status</h2>
+<div class="status"><b>HEAD</b> <code>95f4bd3</code> Publish the dashboard to GitHub Pages (scripts/publish_pages.py); link it in the README &nbsp;·&nbsp; <b>board</b> written Nov 3 15:30 &nbsp;·&nbsp; <b>DRC</b> <span class="bad">0 errors, 0 unconnected — STALE, board is newer</span> <span class="dim">(69 total, Nov 2 13:36)</span></div>
+
+<h2 id="feed">Updates</h2>
+<ol class="feed">
+<li class="entry"><details open><summary><span class="when">Nov&nbsp;3</span><span class="head"><span class="title">Gate 7 passes: parts off the silk art, core supply fixed, new viewer</span><span class="tag" style="color:#9cf;border-color:#9cf44">layout</span><span class="sha nosha">bench</span><span class="lede">Nothing sits on the name or the GitHub URL any more. The name moved to the open area west of the MCU, because the LED data shifter only routes where it is. The RP2350's core supply now follows the official layout. DRC is 0 errors and 0 unconnected, and the independent review passed. The page now embeds the pcbview viewer, with the LiPo cell in 3D.</span></span></summary><div class="body">
+<p><b>Back:</b> D2, R17 and Q2 moved off the URL, and its letters are spaced by their real
+widths, so none of them touch. <b>Front:</b> Q3 and R23 were tried in every spot clear of
+the name, and each one left MCU signals unrouted, so the name moved instead, at 60&deg; like
+"Be Gay".</p>
+<p><b>Core supply:</b> the switcher pour reaches the chip's core ring through a via, 3.65&nbsp;mm
+of 0.6&nbsp;mm back copper and a via (~10&nbsp;m&Omega;), as on the official board. C5, C6 and
+C13 each have a short path to their pins. Open, all minor: VBATT got longer (107&nbsp;m&Omega;,
+within budget), router leftovers, and signals over the VREG plane slots.</p>
+</div></details></li>
+<li class="entry"><details><summary><span class="when">Nov&nbsp;2</span><span class="head"><span class="title">DRC clean; the routing review finds the core supply in pieces</span><span class="tag" style="color:#9cf;border-color:#9cf44">layout</span><span class="sha nosha">bench</span><span class="lede">A small no-pour area removed the last DRC error, a 0.077 mm strip of ground pour between a USB-C resistor and a VBUS via. KiCad had reported it at the wrong place. DRC is now 0 errors and 0 unconnected. The independent review still fails gate 7: the RP2350's 1.1 V core supply is five separate copper pieces on the top layer.</span></span></summary><div class="body">
+<p><b>Review:</b> the switcher's output pour reaches the chip's core-supply ring only
+through 14&nbsp;mm of thin inner-layer track and 3 vias (~75&nbsp;m&Omega;), for a 2&nbsp;mm
+distance; the shipped rev&nbsp;1 had it as one piece. Fix: locked top-layer spokes from pin 50
+and from C6/C13 into the ring, then re-route. Also open, all minor: pad joints between 0.11 and
+0.127&nbsp;mm, router leftovers, ADC lines over the VREG plane slots, seven decouplers
+without a nearby ground via.</p>
+</div></details></li>
+<li class="entry"><details><summary><span class="when">Nov&nbsp;2</span><span class="head"><span class="title">Re-routed with no vias in pads: one pour sliver left</span><span class="tag" style="color:#9cf;border-color:#9cf44">layout</span><span class="sha nosha">bench</span><span class="lede">A new design rule keeps via holes 0.1 mm off every SMD pad (there were 124 in pads). On ultraroute 99bb7ca, seed 1, everything routes, and the battery path is 63 mOhm, down from 112. DRC has one error left: a 0.077 mm sliver in the front ground pour.</span></span></summary><div class="body">
+<p><b>Changes:</b> a <code>physical_hole_clearance</code> rule from vias to SMD pads, and
+route.py's own vias moved off their pads. route.py now seeds KiCad's UUIDs, so the router's
+input is identical from run to run. Ultraroute is pinned to 99bb7ca (exact hole clearance,
+touching vias mended, joint floors), and the recipe uses seed 1.</p>
+<p><b>Result:</b> 0 unconnected, 0 via holes in pads. VBATT 63&nbsp;m&Omega; at 0.4&nbsp;mm;
+VBUS 50&nbsp;m&Omega;. The crystal is on the top layer with no vias. DRC: 1 error, a fill
+sliver at (112.46,&nbsp;91.73), waiting on a call: a small no-pour area, or log it.</p>
+</div></details></li>
+<li class="entry"><details><summary><span class="when">Nov&nbsp;1</span><span class="head"><span class="title">Re-routed with ultraroute's joint fix: battery path fixed, 3 pad joints left</span><span class="tag" style="color:#9cf;border-color:#9cf44">layout</span><span class="sha nosha">bench</span><span class="lede">ultraroute 0b9016f no longer leaves track ends joined only by their round caps, and VBATT is in the power class now. The battery path is 0.4 mm and 98 mOhm (was 0.15 mm, 289 mOhm), and the crystal stays on the top layer. DRC now checks copper joint width, and it fails on three router joints onto 3V3 pads.</span></span></summary><div class="body">
+<p><b>Changes:</b> VBATT joined VBUS and VSYS in the 0.4&nbsp;mm power
+class, with a 0.2&nbsp;mm floor. DRC enforces a 0.09&nbsp;mm minimum on
+every copper joint, as an error. XIN, XOUT and XTAL_R are locked
+top-layer pre-routes with no vias. The leftover In4 rule area is gone.
+ultraroute is pinned at 0b9016f.</p>
+
+<p><b>Result:</b> 0 unconnected. VBATT and CHRG have no necks.
+<code>connection_width</code> reports 4 errors, all on 3V3 or GND:</p>
+<ul>
+<li>U8 pad 5, 0.066&nbsp;mm: the only feed to the Schmitt inverter.</li>
+<li>U6 pad 5, 0.053&nbsp;mm (the IMU, which has a second track).</li>
+<li>U6 pad 2, from a 0.02&nbsp;mm track.</li>
+<li>A 0.074&nbsp;mm sliver in the back GND pour.</li>
+</ul>
+<p>These are ultraroute's track-to-pad joints, sent to the ultraroute
+project. Gate 7 stays open.</p>
+</div></details></li>
+<li class="entry"><details><summary><span class="when">Oct&nbsp;31</span><span class="head"><span class="title">Gate 7 routing review: failed on copper necks in the battery path</span><span class="tag" style="color:#9cf;border-color:#9cf44">layout</span><span class="tag" style="color:#aaa;border-color:#aaa44">review</span><span class="sha nosha">bench</span><span class="lede">DRC is clean, but ultraroute left 81 track joints where the ends don't meet and copper connects only where the round ends overlap. Two are VBATT's only path, 0.05 and 0.077 mm wide, below JLC's 0.09 mm. A re-route is needed.</span></span></summary><div class="body">
+<p><b>Blockers:</b> VBATT on In2 at (98.68,&nbsp;88.08) has a 0.05&nbsp;mm
+neck that is the cell's only path to Q2 and the charger. At
+(107.3,&nbsp;108.35) a 0.077&nbsp;mm neck is its only path to Q2. Either
+one etching open would give a board that never runs from its battery.
+CHRG has a 0.05&nbsp;mm neck too. KiCad's default rules don't check copper
+connection width, so the project DRC passed them.</p>
+
+<p><b>Cause:</b> ultraroute's input for this run has none of these joints;
+its output has 81. Filed in <code>design/ultraroute-requests.md</code>.</p>
+
+<p><b>Also:</b></p>
+<ul>
+<li>VBATT is not in the power class. It runs 54.6&nbsp;mm round the edge at
+0.15&nbsp;mm (~0.29&nbsp;&Omega;) for a 24&nbsp;mm distance.</li>
+<li>XIN/XOUT go through In2 with two vias each, next to USB_DM.</li>
+<li>Smaller items: VDD_CORE decoupling detours, 9 dangling stubs, a stray
+In4.Cu rule area.</li>
+</ul>
+
+<p><b>Fine:</b> 0 errors, 0 unconnected, parity benign. The GND plane is one
+piece. The USB pair is matched (24.5/24.6&nbsp;mm). VLED copper keeps its
+0.2&nbsp;mm floor.</p>
+
+<p>Full gate: <code>design/gates/phase7.md</code>.</p>
+</div></details></li>
+<li class="entry"><details><summary><span class="when">Oct&nbsp;27</span><span class="head"><span class="title">LED supply tracks widened to 0.3 mm and re-routed</span><span class="tag" style="color:#9cf;border-color:#9cf44">layout</span><span class="sha nosha">bench</span><span class="lede">VLED_L/C/R now have their own net class: 0.3 mm tracks, narrowed to no less than 0.2 mm at the LED pads. They were 0.15 mm. The re-route is complete. KiCad: 0 errors, 0 unconnected, 0 dangling.</span></span></summary><div class="body">
+<p><b>Rules:</b> a new <code>vled</code> net class (0.3&nbsp;mm) takes
+<code>VLED_*</code>, and a rule in <code>earring.kicad_dru</code> sets its
+minimum at 0.2&nbsp;mm. The largest zone, VLED_R, feeds 19 LEDs.</p>
+
+<p><b>Route:</b> lab experiment <code>vled-width-1</code>, run
+<code>s0</code>. Same recipe as the pour-aware route
+(<code>--planes In1.Cu --pour-cost 3</code>), seed 0, on ultraroute
+8c691ec. Seeds 0 and 3 routed completely; seeds 1 and 2 left 3 and 2 nets
+open.</p>
+
+<p><b>Against the pour-aware route:</b></p>
+<ul>
+<li>VLED tracks: 196&nbsp;mm at 0.3&nbsp;mm and 3.5&nbsp;mm necked to
+0.23&nbsp;mm. None are narrower.</li>
+<li>In2 LED supply pours: 335&nbsp;mm&sup2; (was 326). VLED_C 55 in 4
+pieces, VLED_L 132, VLED_R 148.</li>
+<li>3V3: 106&nbsp;mm&sup2;. GND plane: one piece, 670&nbsp;mm&sup2;.</li>
+<li>Vias: 479 (was 495).</li>
+<li>USB pair: 24.6 / 24.5&nbsp;mm (was 23.8 / 24.2).</li>
+<li>No part moved.</li>
+</ul>
+
+<p>This seed reached the 3V3 disc without two of the locked 3V3 access vias
+from <code>route.py</code>. They connected on one layer only, so they were
+removed after routing.</p>
+
+<p><b>Still to review:</b> the USB pair still runs partly uncoupled; that
+fix is queued in ultraroute.</p>
+<div class="row"><figure><img class="rf" src="layout_top.png"><figcaption>front copper, routed</figcaption></figure><figure><img class="rf" src="layout_bottom.png"><figcaption>back copper, routed</figcaption></figure><figure><img class="rf" src="layout_layers.png"><figcaption>all four copper layers</figcaption></figure></div></div></details></li>
+<li class="entry"><details><summary><span class="when">Oct&nbsp;27</span><span class="head"><span class="title">Pour-aware route: In2's LED supply pours a third bigger (superseded 10-27)</span><span class="tag" style="color:#9cf;border-color:#9cf44">layout</span><span class="sha nosha">bench</span><span class="lede">ultraroute's new pour cost keeps signals from carving up In2's VLED and 3V3 pours. In2 copper is up from 320 to 426 mm², and VLED_C is 2 pieces instead of 6. KiCad: 0 errors, 0 unconnected, 0 dangling.</span></span></summary><div class="body">
+<p><b>Route:</b> lab experiment <code>pours-1</code>, run
+<code>w3-s1</code>. Same recipe as before, with <code>--planes In1.Cu
+--pour-cost 3</code>, on ultraroute a190e63.</p>
+
+<p><b>Against the previous route:</b></p>
+<ul>
+<li>VLED_C: 56&nbsp;mm&sup2; in 2 pieces (was 32 in 6).</li>
+<li>VLED_R: 154&nbsp;mm&sup2; (was 78).</li>
+<li>3V3: 100&nbsp;mm&sup2; (was 96).</li>
+<li>GND plane: still one piece, 666&nbsp;mm&sup2;.</li>
+<li>Vias: 495 (was 411).</li>
+<li>USB pair: 23.8 / 24.2&nbsp;mm (was 21.3 / 21.3).</li>
+<li>No part moved.</li>
+</ul>
+
+<p><b>Still to review:</b> the VLED nets' 0.15&nbsp;mm track width, set by
+the board's net class. The USB pair also still runs partly uncoupled; that
+fix is queued in ultraroute.</p>
+<div class="row"><figure><img class="rf" src="layout_top.png"><figcaption>front copper, routed</figcaption></figure><figure><img class="rf" src="layout_bottom.png"><figcaption>back copper, routed</figcaption></figure><figure><img class="rf" src="layout_layers.png"><figcaption>every copper layer</figcaption></figure></div></div></details></li>
+<li class="entry"><details><summary><span class="when">Oct&nbsp;27</span><span class="head"><span class="title">Clean route: freerouting leftovers gone, USB pair 21.3 / 21.3 mm, nothing dangling</span><span class="tag" style="color:#9cf;border-color:#9cf44">layout</span><span class="sha nosha">bench</span><span class="lede">route.py lost its last freerouting assists: 8 free-standing locked vias and two overshooting stubs. ultraroute re-routed the board with In1 kept as the ground plane. KiCad: 0 errors, 0 unconnected, 0 dangling; only silk and library warnings remain.</span></span></summary><div class="body">
+<p><b>What was wrong:</b> the router input carried 8 locked vias that no
+track or pad touched: USB_DM/DP, IMU_SDA/SCL/INT1, SWDIO and SWCLK. They were
+freerouting-era assists whose tracks were never locked. ultraroute strips
+unlocked tracks and doesn't join free-standing copper, so the vias dangled on
+every route. Two locked stubs also dangled:</p>
+<ul>
+<li>USB_C_DP's B.Cu run went 0.47&nbsp;mm past J1's B6 pad.</li>
+<li>The VBUS trunk still ended at the tie via's spot from before its
+Aug&nbsp;7 move.</li>
+</ul>
+<p>All of these are fixed in route.py.</p>
+
+<p><b>Route:</b> lab experiment <code>earring-noassist</code>, run
+<code>N-s3</code>, the P-s1 recipe (<code>--planes In1.Cu</code>) on
+ultraroute 802cb3a. Seeds 0&ndash;2 left 1&ndash;2 nets open.</p>
+<ul>
+<li>USB_DM and USB_DP are both 21.3&nbsp;mm.</li>
+<li>In1 carries no signal, and the GND plane is one piece.</li>
+<li>VLED_R is one piece again (78&nbsp;mm&sup2;).</li>
+<li>No part moved.</li>
+</ul>
+
+<p><b>Still to review:</b> In2 carries 480&nbsp;mm of signal. VLED_C fills
+only 32&nbsp;mm&sup2; in 6 pieces, and the VLED nets run 0.15&nbsp;mm
+tracks.</p>
+<div class="row"><figure><img class="rf" src="layout_top.png"><figcaption>front copper, routed</figcaption></figure><figure><img class="rf" src="layout_bottom.png"><figcaption>back copper, routed</figcaption></figure><figure><img class="rf" src="layout_layers.png"><figcaption>every copper layer</figcaption></figure></div></div></details></li>
+<li class="entry"><details><summary><span class="when">Oct&nbsp;27</span><span class="head"><span class="title">Re-routed with the GND plane kept whole: USB 25 mm, In1 signal-free</span><span class="tag" style="color:#9cf;border-color:#9cf44">layout</span><span class="sha nosha">bench</span><span class="lede">ultraroute re-routed the board with differential pairs, no power-net necking, and In1 reserved as the ground plane. KiCad: 0 errors, 0 unconnected, no net differences from the schematic. Button sim still passes 54/54.</span></span></summary><div class="body">
+<p><b>Source:</b> ultraroute lab experiment <code>earring-planes-in1</code>,
+run <code>P-s1</code>.</p>
+<ul>
+<li><b>Recipe:</b> lab <code>general-57</code>'s
+(<code>earring-kicad-locked</code>, locked copper kept, pre-fanout, diff
+pairs, negotiate, rip-up, region plough, tighten) plus <code>--planes
+In1.Cu</code>.</li>
+<li><b>Run:</b> 1 thread, 240&nbsp;s budget. No part moved, so R16 is back at
+its committed spot.</li>
+<li><b>Seeds:</b> 1 and 2 routed with 0 open; seed 0 left VBSENSE
+open.</li>
+</ul>
+
+<p><b>Why reserve In1:</b> the best unreserved run (<code>general-57</code>
+L-s0) still put 297&nbsp;mm of signal on In1, the GND reference plane under
+F.Cu. easy_pcb's routing flow marks plane layers with <code>--planes</code>,
+and the earring had never been routed that way.</p>
+
+<p><b>Result:</b></p>
+<ul>
+<li>In1 carries no signal at all. The GND plane fills as one piece
+(690&nbsp;mm&sup2;, up from three pieces and 582&nbsp;mm&sup2;).</li>
+<li>USB_DM is 25.1&nbsp;mm and USB_DP 24.8&nbsp;mm, matched to 0.3&nbsp;mm,
+mostly on In2 right next to that plane. The 10-26 route had 61.5 and
+34.1&nbsp;mm.</li>
+<li>VSYS's narrowest track is 0.23&nbsp;mm, for 0.1&nbsp;mm.</li>
+<li>The cost: 415 vias (was 323), and more signal on In2.</li>
+</ul>
+
+<p><b>To review:</b> In2's power pours are more cut up. VLED_R fills
+63&nbsp;mm&sup2; (was 178), VLED_C splits into 9 pieces, and 3V3 into 8. Every
+pad still connects, but more of the LED current now rides 0.15&nbsp;mm
+tracks.</p>
+<div class="row"><figure><img class="rf" src="layout_top.png"><figcaption>front copper, routed</figcaption></figure><figure><img class="rf" src="layout_bottom.png"><figcaption>back copper, routed</figcaption></figure><figure><img class="rf" src="layout_layers.png"><figcaption>every copper layer</figcaption></figure></div></div></details></li>
+<li class="entry"><details><summary><span class="when">Oct&nbsp;26</span><span class="head"><span class="title">Fully routed by ultraroute: 0 unconnected, 0 DRC errors (superseded 10-27)</span><span class="tag" style="color:#9cf;border-color:#9cf44">layout</span><span class="sha nosha">bench</span><span class="lede">The GPU autorouter routed the bb22fb7 placement with every locked track and via kept. KiCad's DRC after a zone refill: 0 errors, 0 unconnected, schematic parity clean. The button sim still passes 54/54. Not orderable yet: the USB pair is split round opposite sides of the board.</span></span></summary><div class="body">
+<p><b>How:</b> ultraroute's locked-copper recipe (pre-fanout, negotiate,
+rip-up, nudge, tighten, plough search), six seeds at 240&nbsp;s each on 2
+threads. Seeds 3 and 4 finished at 0 open; the others left 1–2 nets open
+(LIGHT, CHRG, VBSENSE, LEDC_D6). Lab experiment
+<code>earring-reroute-21</code>.</p>
+
+<p><b>Kept: seed 3</b>, 45&nbsp;s, 321 vias, 1354&nbsp;mm of track. Its only
+part move is R16, 0.5&nbsp;mm north (now in place.py). Seed 4 was slightly
+shorter but nudged C26 onto the silk art.</p>
+
+<p><b>Checked against the plan's routing constraints:</b> BTN_EXT runs
+SW2.2&nbsp;→&nbsp;D6.1&nbsp;→&nbsp;R30, and a GND via sits 0.98&nbsp;mm from
+D6.2. Routing added no new DRC warning. The 7 dangling items left are the
+designer's own locked pre-route vias and tracks (18 before routing).</p>
+
+<p><b>Not yet acceptable (gate 7):</b> the router has no notion of a
+differential pair. USB_DM runs about 60&nbsp;mm on In2, all the way round the
+east half of the board. USB_DP runs about 34&nbsp;mm round the west half,
+across In1 and In2 with 8 vias. 324&nbsp;mm of signal also runs on In1, which
+is the GND reference plane under F.Cu. The fix is either a locked USB pre-route
+from J1/R6/R7 to U1 pins 51/52 before routing, or pair support in the router.</p>
+<div class="row"><figure><img class="rf" src="layout_top.png"><figcaption>front copper, routed</figcaption></figure><figure><img class="rf" src="layout_bottom.png"><figcaption>back copper, routed</figcaption></figure><figure><img class="rf" src="layout_layers.png"><figcaption>every copper layer</figcaption></figure></div></div></details></li>
+<li class="entry"><details><summary><span class="when">Oct&nbsp;25</span><span class="head"><span class="title">Room around the CPU: 19 parts moved to the back</span><span class="tag" style="color:#fc6;border-color:#fc644">hardware</span><span class="sha nosha">bench</span><span class="lede">The charger, LDO, flash, one LED switch and the VBUS parts now sit under the cell, all 1.1 mm or less. Front courtyard area near the CPU is roughly halved. DRC 0, still unrouted.</span></span></summary><div class="body">
+<p><b>Why:</b> the front around the RP2350 was the crowded part of the board,
+and the GPU autorouter needs room there to fan out the pins. The lower half of
+the back was nearly empty, because the coin-cell clip that used to fill it is
+gone.</p>
+
+<p><b>What moved</b> (all ≤ 1.1&nbsp;mm, the limit under the 1.5&nbsp;mm foam
+tape):</p>
+<ul>
+<li>QSPI flash U7 (0.6&nbsp;mm), directly under the CPU's flash pins, with its
+cap C25 and the BOOTSEL resistor R3 beside its chip-select pin.</li>
+<li>Charger U2 (0.8&nbsp;mm) with C16/C17/R8, next to the power-path FET Q2.
+D3, R21/R22, C29 and the VBUS-sense divider R19/R20 join it on one VBUS
+node.</li>
+<li>LDO U3 (0.8&nbsp;mm) with C18/C19, by its enable network R17/D2.</li>
+<li>LED-left switch U4 with C20/R10, at the edge by the plane piece it
+feeds.</li>
+</ul>
+
+<p><b>Result:</b> front parts within 10&nbsp;mm of centre: 40 → 26, with
+courtyard area 107 → 57&nbsp;mm². The back keeps a clear patch under the CPU
+for its escape vias. DRC 0 errors. Cell-fit check: no clash, and it now
+fails loudly if a part under the cell has no known height.</p>
+<div class="row"><figure><img class="rf" src="render_place_top.png"><figcaption>front: the CPU's surroundings after the move</figcaption></figure><figure><img class="rf" src="render_place_bottom.png"><figcaption>back: flash under the CPU, charger east, LDO and LED-left switch west</figcaption></figure></div></div></details></li>
+<li class="entry"><details><summary><span class="when">Oct&nbsp;24</span><span class="head"><span class="title">16-bit LEDs in three zones</span><span class="tag" style="color:#fc6;border-color:#fc644">hardware</span><span class="sha nosha">bench</span><span class="lede">The ring is now WS2816C-1313 (16 bits per colour) split into left, right and centre zones that power off independently. Placed, DRC 0, waiting for the GPU autorouter.</span></span></summary><div class="body">
+<p><b>Why:</b> the earring runs very dim, where 8-bit LEDs step visibly. The
+WS2816C has 16 bits per colour plus gamma, and runs down to 3.3&nbsp;V (the
+SK6805 needed 3.7&nbsp;V). It idles at 0.7&nbsp;mA per LED instead of 0.3, so
+the ring is split into three zones that each switch off: left (LED1–18),
+right (LED37→19, entering at the tip), and centre (the inner eight).</p>
+
+<p><b>How:</b> each zone has its own chain, load switch and level shifter, plus
+its own piece of the In2 power plane. A dark zone draws nothing, and it can't
+be back-fed through its data line. The three data lines are adjacent pins
+(GPIO16–18), so one PIO program can clock all three.</p>
+
+<p><b>For the router:</b> the LEDs, USB, button, cell pads, and every part with
+locked copper (MCU, charger, ESD, VREG cluster) are locked. Everything else
+can be nudged.</p>
+<div class="row"><figure><img class="rf" src="render_place_top.png"><figcaption>front: 45 WS2816C on the same ring</figcaption></figure><figure><img class="rf" src="render_place_bottom.png"><figcaption>back: zone switches U9/U10 and shifters Q9/Q10</figcaption></figure></div></div></details></li>
+<li class="entry"><details><summary><span class="when">Oct&nbsp;24</span><span class="head"><span class="title">One button, no hot self-start, ESD-proof edge button</span><span class="tag" style="color:#fc6;border-color:#fc644">hardware</span><span class="tag" style="color:#aaa;border-color:#aaa44">simulation</span><span class="sha nosha">bench</span><span class="lede">The simulated fixes are in the netlist and on the board: SW1 is gone, D2/D3 are silicon, and the edge button has a TVS. 54/54 sim runs pass; DRC 0. <a href='sim/button/'>Report</a>.</span></span></summary><div class="body">
+<p><b>One button.</b> Holding the power button 2.2–10.3&nbsp;s (about 5&nbsp;s
+typical) resets the chip into BOOTSEL. It never erases flash: with USB in, the
+board waits as a drive; on battery, it turns off when you let go. That second
+case is also the hardware force-off for hung firmware. Q6/R29 took SW1's old
+front spot. Everything else (U8 74LVC2G14, Q7, Q8, the timer) is on the back,
+under the cell, ≤&nbsp;1.1&nbsp;mm.</p>
+
+<p><b>Hot self-start fixed.</b> D2 BAT54SW → BAV99W and D3 B5819WS →
+1N4007WS. Off-state EN is now ≤&nbsp;0.03&nbsp;V up to 85&nbsp;°C, where the old
+board reached 2.27&nbsp;V. The cost is VSYS ≈ VBUS − 0.8&nbsp;V on USB.</p>
+
+<p><b>ESD.</b> D6 PESD5V0S1BL clamps at the switch pad, and R30 (1k) keeps
+the strike off D4. At ±8&nbsp;kV, ≤&nbsp;22&nbsp;mA reaches the latch (it was
+~24&nbsp;A) and the strike no longer counts as a press.</p>
+
+<p><b>Independent review fixes.</b> Q4 is now a high-threshold LBSS84WT1G
+(0.8–2.0&nbsp;V instead of the CJ2101's 0.45&nbsp;V), so off-state leakage
+can't switch the latch on when hot, even with a steep threshold tempco
+and extra Q5 leakage. R27 became 4.7k so firmware that leaves GPIO21's
+pull-up on can't creep the timer. C76/R29 became 10n/1M. Q6/R29 moved off
+the silkscreen art.</p>
+
+<p><b>Firmware must change with this board:</b> GPIO21 is active high with no
+pull-up, and the long-press-off must stay at or under 1.5&nbsp;s.</p>
+<div class="row"><figure><img class="rf" src="render_place_bottom.png"><figcaption>back: the new timer cluster above the MCU</figcaption></figure><figure><img class="rf" src="sim/button/plots/tsweep.png"><figcaption>board off, no USB: EN vs temperature, board vs afabd86</figcaption></figure><figure><img class="rf" src="sim/button/plots/esd_neg8kv__board__typ__3.7.png"><figcaption>−8 kV into the button pad: the TVS takes it, the board stays off</figcaption></figure></div></div></details></li>
+<li class="entry"><details><summary><span class="when">Oct&nbsp;24</span><span class="head"><span class="title">Simulating the power button: a one-button BOOTSEL works, and the committed board turns itself on at ~70&nbsp;°C</span><span class="tag" style="color:#fc6;border-color:#fc644">hardware</span><span class="tag" style="color:#aaa;border-color:#aaa44">simulation</span><span class="sha nosha">bench</span><span class="lede">An ngspice testbench built straight from <code>circuit.py</code>, with datasheet corners. It found a real defect before fab. <a href='sim/button/'>Full report</a>.</span></span></summary><div class="body">
+<p><b>Hot self-start, in the committed board.</b> With the board off, reverse
+leakage of D2's BAT54 clamp (~20&nbsp;µA at 85&nbsp;°C) and D3's B5819WS
+(~120&nbsp;µA at 75&nbsp;°C) reaches the LDO's EN pin. EN crosses its
+0.7&nbsp;V minimum at about <b>70&nbsp;°C</b>, so the board starts and the
+firmware latches it on: an earring left in a hot car drains itself. Fixing
+either diode alone isn't enough; with both silicon, EN stays at 0.02&nbsp;V up
+to 85&nbsp;°C. <b>Not fixed yet: needs a decision on D3.</b></p>
+
+<p><b>One button instead of two (proposal).</b> SW1 goes. Holding the power
+button 10&nbsp;s makes a Schmitt-gate timer pulse RUN low and hold QSPI_SS
+down, so the bootrom wakes up into BOOTSEL. It fires 2.1–8.5&nbsp;s into the
+hold across corners. On battery the same hold is a hardware force-off for hung
+firmware, which the current board can't do. With the leak fix, every scenario
+passes at every corner (−20/25/85&nbsp;°C, 3.0/3.7/4.2&nbsp;V cell).</p>
+
+<p><b>Also found, by the independent review:</b> a negative ESD hit on the edge
+button acts like a press and pushes ~24&nbsp;A through D4. It needs a
+bidirectional TVS, in the committed design too.</p>
+
+<p><b>Also:</b> 3D models for every part except the test points, including
+SW2 (B3U) and the LPR302823 cell on its VHB tape. The <a href='#board3d'>3D
+viewer</a> now shows the real back-side stack.</p>
+<div class="row"><figure><img class="rf" src="sim/button/plots/tsweep.png"><figcaption>Board off, no USB: EN vs temperature. Red band = NCP730 EN threshold. Purple = both diodes silicon.</figcaption></figure><figure><img class="rf" src="sim/button/plots/bootsel_usb__board__typ__3.7.png"><figcaption>Hold with USB in: RUN pulse, strap low, BOOTSEL.</figcaption></figure><figure><img class="rf" src="render_cell_iso.png"><figcaption>the cell + 1.5 mm VHB on the back</figcaption></figure></div></div></details></li>
+<li class="entry"><details><summary><span class="when">Oct&nbsp;22</span><span class="head"><span class="title">LiPo instead of the coin cell: LPR302823 round pouch, wire pads, and a soft-latch power button where the slide switch was</span><span class="tag" style="color:#fc6;border-color:#fc644">hardware</span><span class="tag" style="color:#9cf;border-color:#9cf44">layout</span><span class="tag" style="color:#ffd24d;border-color:#ffd24d44">milestone</span><span class="sha nosha">bench</span><span class="lede">140&nbsp;mAh (~120 at 4.2&nbsp;V) against 85, in a 4.7&nbsp;mm stack against 3.8. Placed and DRC-clean, <b>not routed yet</b>: waiting on brief sign-off.</span></span></summary><div class="body">
+<p><b>The cell.</b> LiPol <b>LPR302823</b>: Ø28&nbsp;mm round pouch with one
+flat, PCM inside the outline, 3.0–3.2&nbsp;mm, 140&nbsp;mAh, 70&nbsp;mA max
+charge. It is a 4.35&nbsp;V "HV" cell, but it stays on the 4.20&nbsp;V
+LGS4056H on purpose: its PCM overcharge trip can be as low as 4.305&nbsp;V.
+R8 goes 22k&nbsp;→&nbsp;18k (50&nbsp;mA, 0.36C). The cell is taped to the back
+on 1.5&nbsp;mm VHB over parts no taller than 1.1&nbsp;mm, flat facing the tip,
+and its wires go to two pre-tinned pads, one each side of J1, ≥0.6&nbsp;mm
+from any other copper.</p>
+
+<p><b>The slide switch had to go.</b> Its inner corner sits 9.4&nbsp;mm from
+centre, inside any Ø28 circle. A sweep against real copper found no cell angle
+that cleared both it and J1. It is replaced by an <b>Omron B3U-3000P
+side-push</b> button higher up the left tip edge, plus a <b>soft latch</b>
+(Q4 CJ2101, Q5 BSS138W, D4 BAV70W, R24/R25, C27). Press and the CPU wakes;
+it drives <b>GPIO20 PWR_HOLD</b> to stay on and reads the button on
+<b>GPIO21</b>; a long press turns it off. Off-state drain is ~µA.
+<b>Firmware must now hold PWR_HOLD</b>, or the board turns off when you let go
+of the button.</p>
+
+<p><b>What it frees.</b> BT1's Ø8 GND centre pad and the six-bump hack are
+gone, along with route.py's "no vias inside r&nbsp;4.6" rule. That disc is
+what stranded LIGHT and VBUS_SENSE in rev 2's route.</p>
+
+<p><b>Reviews.</b> Four independent passes (parts, brief, latch circuit,
+placement) caught real problems that are now fixed:</p>
+<ul>
+<li>a cell rotation that only cleared J1 by courtyard, not by copper;</li>
+<li>pads 0.27&nbsp;mm from VLED vias;</li>
+<li>a Schottky in the latch that would have switched the board on by itself
+in a hot car (now a silicon BAV70W);</li>
+<li>a shapely-vs-KiCad rotation-sign mismatch.</li>
+</ul>
+<p>Everything is in <code>design/</code>: intent, brief, decisions, gates
+0/1/2/4/6.</p>
+<div class="row"><figure><img class="rf" src="lipo_fit.svg"><figcaption>Back view: the cell's worst-case envelope against every back-side part, the pads and the button; and the stack height against the coin cell.</figcaption></figure><figure><img class="rf" src="render_place_bottom.png"><figcaption>back, placed (unrouted)</figcaption></figure></div></div></details></li>
+<li class="entry"><details><summary><span class="when">Aug&nbsp;31</span><span class="head"><span class="title">C22363833 would retire the six-bump GND hack — but its land runs off the board, and the only place it fits is on top of J1</span><span class="tag" style="color:#fb8;border-color:#fb844">bom</span><span class="tag" style="color:#fc6;border-color:#fc644">hardware</span><span class="sha nosha">bench</span><span class="lede">A socket carries its own negative contact, so it needs no Ø8 centre pad. The land is 1.19&nbsp;mm too wide, and it is 1.9&nbsp;mm taller.</span></span></summary><div class="body">
+<p>The MY-2032-12-R is a <i>retainer</i>: it clamps the coin against a bare Ø8
+pad on the back, and that pad is the negative terminal. That is the awkward
+requirement on this board — 176 B.Cu track endpoints sit inside r9.5, and 35µm
+of copper under 20µm of mask stands ~25µm proud of a bare pad face, so the rigid
+coin rode on soldermask and never touched copper. Today's answer is a ring of
+six mask-defined solder bumps (<code>gen_footprints.py</code>), which works but
+is a hack standing in for a land we could not give it.</p>
+
+<p>A <b>socket</b> removes the requirement outright: the negative contact is a
+tab inside its own base, so the board only needs two ordinary end pads and the
+copper under the coin becomes irrelevant. <b>C22363833</b> (Lianxin CR2032-BS-6,
+gold, SMT, 11k in stock at $0.19/50) is exactly that part class, and its
+mounting drawing confirms it — <b>two pads, no centre land</b>.</p>
+
+<h4>Read the outline, not the bounding box</h4>
+<p>The first pass of this test drew the part as its <b>31.9&nbsp;×&nbsp;16.0
+bounding rectangle</b>, and that was wrong in a way worth recording. The plastic
+body is only <b>28.8&nbsp;long with C1.5 chamfered corners</b>; the ends that
+reach 31.9 are narrow <b>7.1&nbsp;mm metal solder tabs</b>. Treating the box as
+the body overstated the plastic overhang <b>~5×</b> — 2.50&nbsp;mm claimed
+against <b>0.55&nbsp;mm</b> real, at one chamfer vertex. The other chamfer
+vertex is <i>inside</i> the edge by 0.07&nbsp;mm. Panel 1 and 2 above now draw
+the true outline; grey is metal, red is plastic.</p>
+
+<h4>What actually blocks it</h4>
+<ul>
+<li><b>The land is wider than the board — this is the real one.</b> Pads sit at
+<b>±15.30&nbsp;mm</b>; the round body is <b>R&nbsp;15.25</b>. Pad corners reach
+16.44&nbsp;mm, so a centred part hangs <b>1.19&nbsp;mm</b> past the edge. That
+is metal-tab geometry against board outline: <i>no amount of re-placement moves
+it</i>.</li>
+<li><b>…but rotating it does find a legal land.</b> Sweeping position ×
+rotation turns up <b>2227 placements where both pads sit fully on copper</b> —
+all of them rotated ~70–110° so the land runs down the long tip axis, which is
+35.75&nbsp;mm against the 30.5&nbsp;mm width. The best is
+(+1.75,&nbsp;−2.50)&nbsp;@&nbsp;72°. <b>Every single one puts the body on top of
+J1</b>, the USB-C receptacle — and J1 is not a part placement can move: it is
+pinned by the tip geometry and its 1.3&nbsp;mm mating-face overhang. Those
+placements also push the plastic overhang back up to ~1.9&nbsp;mm.</li>
+<li><b>It sits flat — and this one is soft.</b> The incumbent touches down on
+two 3.0×4.5 feet at ±12.4 and arches over everything between them, which is the
+only reason a back side this crowded works. The BS-6's base covers <b>12 of the
+23 back-side parts</b> (TP1/TP2/R11/C21 completely, plus SW2, Q2, D2, C23, C24,
+R12, R17, TP3). Correcting the outline did <i>not</i> reduce that count — it is
+the 16&nbsp;mm width that catches them, not the ends. But unlike the land, these
+are ordinary passives and test points: <b>re-placement could clear them</b>, so
+this should not be counted as a blocker.</li>
+</ul>
+
+<h4>And it is taller</h4>
+<p><b>5.5&nbsp;mm vs 3.60&nbsp;mm — +1.9&nbsp;mm, 53%.</b> Worse, that 5.5 is
+drawn around a 3.2&nbsp;mm CR2032 and the fitted cell is a 3.6&nbsp;mm
+RJD2032C1. A spring clip splays 0.4&nbsp;mm; a moulded pocket does not. It would
+also push the case's <code>--bat</code> (5.30&nbsp;mm) up rather than let it
+shrink.</p>
+
+<p><b>What this establishes as the real requirement:</b> a self-contained
+two-terminal holder with a land pitch inside <b>±13&nbsp;mm</b> and a height at
+or under ~4&nbsp;mm. <code>parts.yaml</code> already tracks BAT-HLD-001 (±11.43)
+and MPD BC-2003 as near-misses on the clip side; the socket side has not been
+surveyed against those two numbers yet. Diagram from
+<code>scripts/gen_bs6_svg.py</code>, which reads the board live, so the
+collision list cannot drift.</p>
+<div class="row"><figure><img src="bs6_fit.svg"><figcaption>1: the incumbent lands on two feet and bridges the rest. 2: the BS-6 centred — land 1.19mm off the edge. 3: rotated into the only land-legal window, where the body lands on J1. below: the 1.9mm height penalty.</figcaption></figure></div></div></details></li>
+<li class="entry"><details><summary><span class="when">Aug&nbsp;31</span><span class="head"><span class="title">Rev 2 routed to 5 unconnected / 0 errors — and the retry loop is not buying what it claims</span><span class="tag" style="color:#9cf;border-color:#9cf44">layout</span><code class="sha">bdc87fc</code><span class="lede">1371 tracks, 258 vias, zero DRC errors. Five nets stay open, and five of the six seeds returned the same answer.</span></span></summary><div class="body">
+<p>First routed board carrying the rev-2 power path. <b>0 DRC errors</b>, 117
+warnings (60 silk-over-copper, 40 silk overlap, 6 dangling vias — the usual
+crop), and five unconnected nets. The renders and layer stack above are this
+board.</p>
+
+<h4>What is still open</h4>
+<ul>
+<li><code>VBUS_SENSE</code>, U1.41 &rarr; R19.2 — <b>8.2&nbsp;mm cross-board</b></li>
+<li><code>LIGHT</code>, U1.40 &rarr; Q1.2 — <b>7.3&nbsp;mm cross-board</b></li>
+<li><code>VBUS</code> &times;2 — the tip trunk (the 3 segs route.py reported
+blocked by routed copper) and the short branch to the new R19</li>
+<li><code>3V3</code>, a 1.6&nbsp;mm stub at the MCU</li>
+</ul>
+<p>The two long ones share a cause. Both leave the MCU&rsquo;s jammed west pin
+window — pins 40 and 41, at radius <b>3.45</b> and <b>3.51&nbsp;mm</b> — and have
+to reach the east side. The obvious shortcut is a B.Cu hop straight across, but
+BT1 sits on the back with a Ø8 GND pad dead centre, so the back inside r4.0 is
+solid copper and a via wants r&nbsp;&gt;&nbsp;4.4. Both nets therefore
+<i>originate inside the blocked disc</i>: they have to escape radially on F.Cu
+past the coin before the back layer is available at all. That is why the trick
+that works for this board&rsquo;s other stranded nets — one committed
+B-transition via at the pin — does not apply here.</p>
+
+<h4>Six seeds, one sample</h4>
+<pre class="art">attempt 1   route 19 -> finish  5   <- best, kept
+attempt 2   route 30 -> finish 14
+attempt 3   route 30 -> finish 13
+attempt 4   route 30 -> finish 14
+attempt 5   route 30 -> finish 14
+attempt 6   route 30 -> finish 14</pre>
+<p>Attempts 2-6 routed to <b>exactly 30</b> every time. That is not seed
+variance, and the retry unit in build.py is built on the assumption that it is
+(&ldquo;freerouting is seed-dependent, so a failed finish re-rolls the routing&rdquo;).
+Only attempt 1 differed, and the one thing that made it different is that it
+started from a board that had never been through a completed route — the earlier
+run hung in freerouting, so it left pre-routes and zones but no post-route pours,
+keepouts or ring stubs. Attempts 2-6 each started from the previous attempt&rsquo;s
+finished board. <code>wipe()</code> does delete every track and zone, so the
+mechanism is not obvious and <b>I have not proven it</b> — but the pattern is
+strong enough to say the loop cost ~2.5&nbsp;h to produce one real sample, and
+that resetting to the freshly-placed board between attempts is worth testing
+before trusting the next six-attempt run.</p>
+
+<p class="note">Not ordered, not orderable: five open nets. Fab export was
+deliberately skipped for that reason.</p>
+</div></details></li>
+<li class="entry"><details><summary><span class="when">Aug&nbsp;31</span><span class="head"><span class="title">Freerouting hung before pass 1 — a locked polyline, not congestion</span><span class="tag" style="color:#9cf;border-color:#9cf44">layout</span><span class="tag" style="color:#7dd;border-color:#7dd44">tooling</span><code class="sha">c0cd016</code><span class="lede">The first full route since rev 3 never started. Bisected to LED_D3&rsquo;s locked hop; cut to one segment, and the board routes again.</span></span></summary><div class="body">
+<p>Symptom: silent, 100&nbsp;% CPU, <b>nothing in freerouting&rsquo;s own log
+after the settings dump</b>, both 900&nbsp;s tries burned, no SES, twice. The
+static gate was clean — <code>kicad-cli</code> DRC with the
+<code>.kicad_pro</code> beside the board reports 0 errors on the pre-freerouting
+statics — so this was not the known locked-wire-clearance burn.</p>
+
+<p>A hang is deterministic, so the retry loop was just burning 30&nbsp;min an
+attempt. Bisected instead by deleting <code>(wire …)</code> blocks from the DSN
+and probing at <code>-mp 2</code> (~90&nbsp;s each), run concurrently with a
+per-probe <code>-Djava.io.tmpdir</code> so each got its own log. Verdict is
+simply whether <code>Pass #</code> ever appears:</p>
+
+<pre class="art">full hop                 HANG     only CHRG_DONE dropped   HANG
+hop dropped entirely     routes   hop's 3 middle segments  HANG
+segment 2 alone          routes   segments 2 + 3           HANG
+segment 3 alone          routes   segments 1 + 2 + 3       HANG</pre>
+
+<p>So the trigger is a fixed <b>polyline</b> — any two of those segments meeting
+at a vertex is enough. <b>My standing note on this was wrong.</b> It blamed
+&ldquo;fixed wires that start on a component pad&rdquo;, but CHRG_DONE is a
+seven-segment fixed chain landing in U2&nbsp;pad&nbsp;6 and it routes; the VLED
+C32&rarr;C30 link touches a pad at <i>both</i> ends and it routes; and trimming
+LED_D3&rsquo;s two pad-landing segments off while keeping the three middle ones
+still hangs.</p>
+
+<p>The hop keeps its one load-bearing segment, the vertical past SW2&rsquo;s NPTH
+peg. A lone fixed fragment still does the job because freerouting has to reach
+both of its ends — the wire is forced through the corridor and it does the two
+pin escapes itself. All four probe SES files come back with the same LED_D3 wire
+count with or without it. Same shape as the trick that already works for stranded
+nets here: one committed B-transition via, never a locked path.
+<b>Single hints work, locked paths poison.</b></p>
+
+<p>Two things fixed alongside. Both tries timing out left <code>r</code> as
+<code>None</code>, so <code>route.py</code> printed <i>no diagnostic at all</i>
+for the one failure mode that most needs one; it now reads freerouting&rsquo;s log
+and reports the pass count for the current run, calling out &ldquo;hung before
+pass 1&rdquo; explicitly. And worth knowing while reading that log:
+<code>/tmp/freerouting</code> is shared by every project on this machine and
+appends across runs — the 241k <code>PolylineTrace.normalize</code> lines that
+looked like this board live-locking turned out to be a different project&rsquo;s,
+from Aug&nbsp;29.</p>
+</div></details></li>
+<li class="entry"><details><summary><span class="when">Aug&nbsp;31</span><span class="head"><span class="title">Rev 2 power path: split VBATT from VSYS so USB runs the board</span><span class="tag" style="color:#fc6;border-color:#fc644">hardware</span><span class="tag" style="color:#9cf;border-color:#9cf44">layout</span><code class="sha">2e9399c</code><span class="lede">The root fix for &ldquo;no lights at all&rdquo; — the charger&rsquo;s 41&nbsp;mA no longer feeds the running board, so the cell actually charges and the ring lights at any state of charge.</span></span></summary><div class="body">
+<p>Rev 1 hung the LDO input and the LED load switch on <code>VBATT</code> — the
+same node as the charger&rsquo;s BAT pin — so the LGS4056H&rsquo;s ~41&nbsp;mA
+program current was <b>shared with the running system</b>. 17&nbsp;mA of MCU plus
+17.5&nbsp;mA of LED rail left the cell about 6&nbsp;mA, and a flat cell could
+never climb to the SK6805-EC10&rsquo;s 3.7&nbsp;V minimum VDD before someone
+unplugged it. That is a power-path problem, not a firmware one.</p>
+
+<pre class="art">VBUS  --|&gt;|--  VSYS      D3, B5819WS Schottky, ~0.3V at our ~60mA
+VBATT --[Q2]-- VSYS      CJ2101 P-FET, on only when no cable is in
+VSYS  -&gt; U3 (LDO IN), U4 (LED load switch IN), C18, C29
+VBATT -&gt; U2 pin 5 (charger BAT), BT1, C17, SW2   [cell node ONLY]</pre>
+
+<p><b>Q2&rsquo;s orientation is the whole trick:</b> source&nbsp;=&nbsp;VSYS,
+drain&nbsp;=&nbsp;VBATT. A P-FET&rsquo;s body diode conducts drain&rarr;source, so
+this way it points cell&rarr;VSYS. It blocks the 4.7&nbsp;V USB rail from
+back-feeding the cell around the charger — which is exactly what the intuitive
+wiring (source on the battery) would do through the body diode — while still
+letting the cell carry the load through ~0.4&nbsp;V of diode if VSYS sags below
+VBATT, covering the ~200&nbsp;ms of VBUS decay on unplug. The gate is R22
+10k&nbsp;from VBUS against R21 1M&nbsp;to GND: near VBUS with a cable in
+(Vgs&nbsp;+0.25&nbsp;V, hard off), following the dead VBUS node without one. That
+node is not floating — R19/R20 pin it under 0.65&nbsp;V even against R18&rsquo;s
+backfeed — so Vgs is &minus;2.4&nbsp;V at a 3.0&nbsp;V cell and Q2 is fully on.</p>
+
+<p><b>This retires the R8 rework rather than performing it.</b> 22k already gives
+40.9&nbsp;mA, which is exactly the fitted RJD2032C1&rsquo;s rated 40&nbsp;mA, and
+the reason 15k was tempting is gone. So is the hazard that blocked it: with the
+system off the cell, the full program current reaches the cell in
+<i>either</i> switch position.</p>
+
+<p>What else falls out — DONE can finally assert (the cell&rsquo;s current
+actually tapers to ITERM now), VBSENSE reads a true <i>unloaded</i> cell while
+charging, the ring lights on a dead cell, and the board runs with no cell fitted
+at all.</p>
+
+<p><b>The cost is a level shifter, and it is not optional.</b> SK6805 VIH is
+0.7&times;VDD; on the cell that peaked at 2.94&nbsp;V so a 3.3&nbsp;V pad drove
+the ring directly, but on VSYS it is 3.29&nbsp;V typical and 3.5&nbsp;V at the
+5.25&nbsp;V USB ceiling. Q3 (BSS138W) is an open-drain inverter with R23
+1k&nbsp;pulling LED_D0 up to VLED itself, so the swing is a full VLED rail
+whatever VLED is. Only pixel&nbsp;1 needs it — every downstream DI is driven by
+the previous DO. Diode-dropping VSYS into the LED window instead does
+<i>not</i> work: two Schottkys land at 3.8&nbsp;V at the low corner (under the
+floor) and 4.65&nbsp;V at the high one (VIH 3.26&nbsp;V, still failing). The
+window is narrower than the corners, so the level has to move, not the rail.</p>
+
+<p class="warn">⚠ <b>Firmware pairing, rev-2 boards only.</b> The stage inverts,
+so <code>main.cpp</code> needs
+<code>gpio_set_outover(LED_DATA,&nbsp;GPIO_OVERRIDE_INVERT)</code>. The pad
+override sits after the peripheral mux, so the NeoPixel PIO program is untouched.
+<b>Do not flash it to a rev-1 board.</b> Idle is safe either way: PIO idle-low
+&rarr; pad high &rarr; Q3 on &rarr; LED_D0 low, the reset level the ring wants,
+and before the override is set VLED is off (R10 holds LED_EN low) so R23&rsquo;s
+pull-up is dead and the line cannot float.</p>
+
+<p>SW2 deliberately <i>stays</i> on VBATT. On VSYS the R11 divider would read a
+constant 2.35&nbsp;V whenever a cable is in, saying nothing about either the cell
+or the switch; on VBATT all four states stay separable with VBUS_SENSE as the
+cable bit.</p>
+
+<h4>Also in this commit</h4>
+<ul>
+<li><b>BT1&rsquo;s negative contact is now six solder bumps.</b> The first
+assembled board would not hold the cell against the centre pad: 176 B.Cu track
+endpoints sit within r9.5 of it, and 35&nbsp;µm of copper under 20&nbsp;µm of
+mask stands ~25&nbsp;µm <i>proud</i> of a bare pad face, so the rigid coin rode
+on soldermask and never touched copper. Hand-tinning fixed it on the bench.
+Baking that in is not &ldquo;add paste to the Ø8 pad&rdquo; — molten solder on
+one big bare opening has nothing to hold it and levels out ~8&nbsp;µm thick.
+Solder only stands proud if mask dams it. So the centre contact becomes a ring of
+six mask-defined bumps, Ø1.2 openings on r2.8 pasted 1:1, over the same Ø8 copper
+left mask-covered. At a 0.12&nbsp;mm stencil each holds ~0.07&nbsp;mm³ and domes
+~0.12&nbsp;mm, i.e. ~65&nbsp;µm clear of the mask plane. Six on a ring because
+three points define the plane the coin sits on and a single central dome would
+let it rock. The copper does not move, so nothing the router already solved
+changes.</li>
+<li><b>R19/R20 are placed for the first time.</b> The VBUS sense divider reached
+the netlist in <code>619042b</code> but never the board, so both sat at the
+origin and the relaxer scattered them through the MCU decaps — that is where the
+C2/C20/C74/LED45 courtyard overlaps came from.</li>
+<li><b><code>tools/scan_spot.py</code></b>, the pad-polygon placement scanner the
+whole placement came out of, and <code>tools/pad_preview.py</code>, which exists
+because rotation sense is <i>negated</i> on the back side and the only safe way
+to pick an orientation is to place it and read the pads back. The scan found the
+front has exactly <b>six</b> legal SC-70 spots board-wide, all in the south-west
+— which is why Q2 lives on the back annulus and Q3 took the best of the six.</li>
+<li><b>A lesson worth keeping.</b> Locked pre-route geometry <i>moves</i> with
+the footprints it is derived from. R22&rsquo;s coarse-scan spot was legal when
+scanned, but the relaxer settles C16 a hair differently once the new parts are
+fixed, and <code>route.py</code> anchors the locked CHRG_DONE landing loop to
+C16 — the pad ended up 0.1227&nbsp;mm from that track against a 0.127 rule.
+Re-scanned at 0.05&nbsp;mm, 70&nbsp;µm east. All six new passives are now exempt
+from the relaxer for the same reason, and the DRC gate is re-run after every
+placement change.</li>
+</ul>
+<p class="note">Routed the same day — <code>bdc87fc</code>, 0 DRC errors with five
+nets still open. See the newest entry at the top; the live renders and layer
+stack below are that board, not this placement.</p>
+<div class="row"><figure><img class="rf" src="render_place_top.png"><figcaption>placement preview front — Q3/R23 west of the MCU, D3/C29/R21 in the east pocket</figcaption></figure><figure><img class="rf" src="render_place_bottom.png"><figcaption>placement preview back — Q2 on the south-east shoulder, mirroring D2/R17</figcaption></figure></div></div></details></li>
+<li class="entry"><details><summary><span class="when">Aug&nbsp;28</span><span class="head"><span class="title">Case: flush LED pockets, six chonky clip tabs (three a side)</span><span class="tag" style="color:#c9f;border-color:#c9f44">case</span><code class="sha">02ffecf</code><span class="lede">Every LED gets the same flush conical pocket, and the rim drops from ten 4&nbsp;mm stations to six chunky tabs.</span></span></summary><div class="body">
+<p>The diffuser floor loses the eight per-LED bosses over the inner ring; all 45
+pockets are now identical cones (over the raised mid floor the cone just emerges
+shallower, same ceiling everywhere).</p>
+<p>Stations can override lip depth: the 0° front tab runs 0.65&nbsp;mm so it
+clears the BT1 clip-arm courtyard corners at every probe depth. All station
+margins positive, halves stay single valid solids, plug corridor clear. Rear
+engagement up 9.7&nbsp;&rarr;&nbsp;14.5&nbsp;mm³, front
+24.0&nbsp;&rarr;&nbsp;17.1&nbsp;mm³.</p>
+<p><a href="case/preview/">all case views + fit report &rarr;</a></p>
+<div class="row"><figure><img src="case/preview/assembly-front.png"><figcaption>assembled, front — the diffuser face</figcaption></figure><figure><img src="case/preview/section-y.png"><figcaption>section: pockets under the LEDs, cell inside the cup</figcaption></figure></div></div></details></li>
+<li class="entry"><details><summary><span class="when">Aug&nbsp;28</span><span class="head"><span class="title">Bench tools that were living untracked</span><span class="tag" style="color:#7dd;border-color:#7dd44">tooling</span><span class="tag" style="color:#f88;border-color:#f8844">bench</span><code class="sha">00b48b4</code><span class="lede">A live charge plotter, the R8 rework diagrams, and a host USB controller reset.</span></span></summary><div class="body">
+<ul>
+<li><code>tools/charge_monitor.py</code> plots live VBATT against the two lines
+that decide whether the board works: 3.70&nbsp;V (SK6805-EC10 minimum VDD) and
+4.20&nbsp;V full. Strictly read-only — the firmware&rsquo;s command handler takes
+<code>X</code> to wipe stored sessions, so it never writes a byte to the port.</li>
+<li><code>scripts/gen_rework_svg.py</code> draws the rework into
+<code>out/rework/</code>, reading the <b>ordered</b> revision straight out of git
+rather than the working tree — the boards in hand are that revision, and
+<code>hw/earring/a/earring.kicad_pcb</code> can legitimately be mid-generation with every
+footprint stacked at one point.</li>
+<li><code>tools/reset_usb.sh</code> unbinds and rebinds one xhci PCI function to
+power-cycle the port the earring flashes through. Every port on the controller
+blips for a couple of seconds, keyboard included — which is exactly why it is a
+script and not something to type mid-way.</li>
+</ul>
+</div></details></li>
+<li class="entry"><details><summary><span class="when">Aug&nbsp;28</span><span class="head"><span class="title">Firmware: blink the charge arc, and wait for C21 before believing the ADC</span><span class="tag" style="color:#8f8;border-color:#8f844">firmware</span><code class="sha">152c3ca</code><span class="lede">The dithered assembling arc banded on hardware; it now blinks 1&nbsp;s on / 4&nbsp;s off, which also hands four fifths of the LED load back to the charge budget.</span></span></summary><div class="body">
+<p>The arc used to dither spatially — every 50&nbsp;ms a random fraction of the
+dark arc LEDs snapped on — to hold one solid colour at counts too small to fade
+through. On hardware it shimmered rather than reading as a fill. It now simply
+blinks, and the measurement moves to the falling edge: rail down first, then
+sample, so there is no LED load on the cell while measuring.</p>
+<p><b>Boot sensing was reading garbage.</b> VBSENSE comes off a 1M:1M divider
+with C21 = 100&nbsp;nF on the bottom leg, so it rises with &tau;&nbsp;=&nbsp;50&nbsp;ms
+from an <i>empty</i> cap at power-on. A 4.0&nbsp;V cell (68%) decoded as 0–4%
+anywhere in the 60–100&nbsp;ms window, and under ~55&nbsp;ms VBSENSE has not even
+cleared the 1.27&nbsp;V band edge, so the switch position itself decoded wrong.
+Boot now waits to 400&nbsp;ms (8&tau;, residual under 0.1%) and a separate
+8-sample warmup throws away the ADC&rsquo;s first conversions — 500k source
+impedance is far above what the RP2350&rsquo;s sample-and-hold wants.</p>
+</div></details></li>
+<li class="entry"><details><summary><span class="when">Aug&nbsp;28</span><span class="head"><span class="title">Rev 3: USB-or-switch LDO enable, VBUS presence sense</span><span class="tag" style="color:#fc6;border-color:#fc644">hardware</span><code class="sha">619042b</code><span class="lede">Two gaps closed, both about knowing the board is plugged in.</span></span></summary><div class="body">
+<p>SW2 no longer drives the LDO enable directly. Its common becomes SW_ON, and D2
+(BAT54SW, dual <i>series</i> Schottky) ORs two sources into PWR_EN: diode 1
+passes SW_ON, diode 2 clamps EN to VBATT&nbsp;+&nbsp;Vf. <b>The clamp is
+mandatory</b> — the NCP730&rsquo;s abs-max V_EN is (V_IN&nbsp;+&nbsp;0.3), not an
+independent rating, so a bare feed from 5&nbsp;V VBUS would violate it
+essentially always. Net effect: USB boots the chip with the switch off, so
+plugged-in charging can be indicated.</p>
+<p>R19/R20 tap VBUS 10k:10k into ADC1. CHRG and DONE cannot tell
+&ldquo;unplugged&rdquo; from &ldquo;plugged in and <i>finished</i>&rdquo; — when
+the charger terminates, both open-drain pins release and the indicator loses its
+only evidence a cable is attached. Seen on the bench Aug&nbsp;25: cell full at
+4.11&nbsp;V, USB in, chrg=0 done=0, firmware correctly but uselessly back on the
+drip show. The low impedance is the design, not an oversight: with SW2 on and no
+USB, PWR_EN backfeeds through R18 and floats the dead VBUS node, and a
+high-impedance divider would read that as plugged in.</p>
+<p>Placement of D2/R17/R18 came from the first full-board scan against pad
+<i>copper</i>, not just courtyards — SW2&rsquo;s pads stick out past its
+courtyard polygon, and J1&rsquo;s tie pads report <code>GetSize</code>
+0.01&times;0.01 while spanning 1.5&times;1.4&nbsp;mm of real copper, so
+size-based scans sail straight through them.</p>
+</div></details></li>
+<li class="entry"><details><summary><span class="when">Aug&nbsp;28</span><span class="head"><span class="title">Generated TPU clip-on shell — LED diffuser + battery cup</span><span class="tag" style="color:#c9f;border-color:#c9f44">case</span><code class="sha">3528329</code><span class="lede">Two flexible halves, generated from the <b>ordered</b> board (43eadc1) read straight out of git — outline, all 45 LED positions, every courtyard.</span></span></summary><div class="body">
+<p>Front half is a diffuser: a tapered pocket over every LED, 1.10&nbsp;mm of TPU
+between pocket ceiling and a smooth flat outer face. BOOTSEL presses through a
+0.70&nbsp;mm membrane rather than a hole. Rear half is a closed cup over the coin
+cell and clip — the short-protection half.</p>
+<p>Each half locks to the <i>board</i> only, so the rims interleave as a plain
+castellation with nothing protruding. The tip is left clear for the mount plug
+(the earring hangs from a loop soldered to a male USB-C plug that stays in J1),
+and SW2 gets an open thumb scoop in the left flank. Both halves print
+outer-face-down with no supports.</p>
+<p><b>Also fixed here:</b> <code>outline.segs()</code> had the arc sweep as
+2&pi;&nbsp;&minus;&nbsp;2&middot;ang where it should be &pi;&nbsp;+&nbsp;2&middot;ang.
+That overstated the perimeter by 12.2&nbsp;mm and made the sampled polygon
+self-intersect on the left flank, so <code>inside()</code> answered wrongly there
+and LED38 lost its floor-drop boss.</p>
+<div class="row"><figure><img src="case/preview/front-inner-iso.png"><figcaption>front half inside: 45 LED pockets, seat ledge, clip stations</figcaption></figure><figure><img src="case/preview/rear-inner-iso.png"><figcaption>rear cup inside: cell pad, ramped seat ledge, clip fingers</figcaption></figure></div></div></details></li>
+<li class="entry"><details><summary><span class="when">Aug&nbsp;27</span><span class="head"><span class="title">R8 charge-current rework proposed — and blocked</span><span class="tag" style="color:#f88;border-color:#f8844">bench</span><span class="tag" style="color:#fc6;border-color:#fc644">hardware</span><span class="sha nosha">bench</span><span class="lede">22k&nbsp;&rarr;&nbsp;15k to get the cell more than ~6&nbsp;mA. Blocked by SW2-off, and now retired outright by the Aug&nbsp;31 power path.</span></span></summary><div class="body">
+<p>The ordered boards wire the switch straight to the LDO enable, so switched
+<b>off</b> the cell takes the whole program current: 22k&nbsp;=&nbsp;1.0C,
+15k&nbsp;=&nbsp;1.5C on a cell with no published maximum. The rev-2 R17/R18/D2
+network that would have fixed that is not on the fabricated boards.</p>
+<p>I_sys&nbsp;&asymp;&nbsp;17&nbsp;mA was derived by cancelling dQ/dV against two
+measured charge runs. <b>Superseded:</b> splitting VBATT from VSYS removes the
+shared-node problem entirely, so 22k stays.</p>
+<p><a href="rework/">value, budget + rework diagram &rarr;</a></p>
+</div></details></li>
+<li class="entry"><details><summary><span class="when">Aug&nbsp;27</span><span class="head"><span class="title">The fitted cell is an RJD2032C1, not the LIR2032 the schematic names</span><span class="tag" style="color:#f88;border-color:#f8844">bench</span><span class="tag" style="color:#fb8;border-color:#fb844">bom</span><span class="sha nosha">bench</span><span class="lede">85&nbsp;mAh NMC, 3.6&nbsp;mm thick, flat 40&nbsp;mA charge with no published maximum.</span></span></summary><div class="body">
+<p>22k on R8 already gives 40.9&nbsp;mA, i.e. the cell&rsquo;s full rated charge
+current — which is what killed the 15k rework. Internal resistance is
+&le;700&nbsp;m&Omega;, so the firmware&rsquo;s 150&nbsp;mV IR correction in
+<code>chargePct</code> is roughly 5&times; too big; on the rev-2 power path the
+cell is unloaded while charging anyway and the correction should drop to the
+charger&rsquo;s own ~28&nbsp;mV.</p>
+<p>Still to be reconciled in <code>design.yaml</code> and
+<code>circuit.py</code>&rsquo;s BT1 value.</p>
+</div></details></li>
+<li class="entry"><details><summary><span class="when">Aug&nbsp;27</span><span class="head"><span class="title">Why the ring was dark: VLED under the SK6805 floor</span><span class="tag" style="color:#f88;border-color:#f8844">bench</span><span class="sha nosha">bench</span><span class="lede">MCU, USB, IMU, flash, charger and ADC all verified <b>good</b> while the board showed nothing at all.</span></span></summary><div class="body">
+<p>SK6805-EC10 needs 3.7&nbsp;V minimum VDD. VLED is VBATT through the TPS22913,
+and the cell was living at 3.35–3.6&nbsp;V — so the ring could not light, and no
+firmware change would have helped. <b>Check VBATT&nbsp;&ge;&nbsp;3.7&nbsp;V
+before blaming firmware or the ring.</b> This is the finding the Aug&nbsp;31
+power path is the answer to.</p>
+</div></details></li>
+<li class="entry"><details><summary><span class="when">Aug&nbsp;25</span><span class="head"><span class="title">Firmware: halve the power draw, rebuild the charge indicator, log wear</span><span class="tag" style="color:#8f8;border-color:#8f844">firmware</span><code class="sha">d5b0cfa</code><span class="lede">Battery measured ~1&nbsp;h. Three levers: 50&nbsp;MHz, a show/nap duty cycle with VLED cut, and a lazier pattern.</span></span></summary><div class="body">
+<p>clk_sys 150&nbsp;&rarr;&nbsp;50&nbsp;MHz (the awake MCU was ~20&nbsp;mA of the
+budget), and the show now plays ~12&nbsp;s episodes separated by naps with VLED
+cut — 45 idle SK6805 draw ~13.5&nbsp;mA even showing black.</p>
+<p>Nap length is tiered by activity, calibrated from a logged stand/walk/dance
+session worn on the ear. The existing motion envelope separates all three with
+<b>no overlap</b> (standing 25–30, walking 84–159 p10–p90, dancing 491–925), so
+one filtered value drives the rhythm: 25&nbsp;s still / 5&nbsp;s walking /
+2&nbsp;s dancing. Walking had been napped through ~50% of the time — exactly when
+the earring is seen.</p>
+<p><a href="wear/">wear log + activity calibration &rarr;</a></p>
+</div></details></li>
+<li class="entry"><details><summary><span class="when">Aug&nbsp;25</span><span class="head"><span class="title">Board alive: USB, IMU, LEDs and charger all pass</span><span class="tag" style="color:#f88;border-color:#f8844">bench</span><span class="tag" style="color:#ffd24d;border-color:#ffd24d44">milestone</span><code class="sha">ff704e1</code><span class="lede">Fixed by tinning the centre pad and fitting a <i>charged</i> cell.</span></span></summary><div class="body">
+<p>Gotchas worth keeping: a post-flash warm reboot needs an SW2 power cycle; with
+a battery fitted a USB replug is <b>not</b> a reset; and the flaky-USB
+root cause was a discharged cell, so swap in a charged one before blaming a
+board. Test firmware lives in <code>firmware/</code>.</p>
+<p><a href="probe/">multimeter probe map &rarr;</a></p>
+</div></details></li>
+<li class="entry"><details><summary><span class="when">Aug&nbsp;25</span><span class="head"><span class="title">Rev 2 electronics: external flash, MYOUNG clip, ambient light sensor</span><span class="tag" style="color:#fc6;border-color:#fc644">hardware</span><span class="tag" style="color:#fb8;border-color:#fb844">bom</span><code class="sha">81e2a0e</code><span class="lede">RP2350A + external W25Q16JV, BT1 swapped to the flat-foot MYOUNG MY-2032-12-R, and an ALS-PT19-315C on ADC0 by the heart.</span></span></summary><div class="body">
+<p>The battery clip swap matters most: the ordered rev&rsquo;s BT1 lacks the
+Ø3.5/3.6 thru-holes the QIJEY clip needs, so the fabricated boards cannot take
+that part at all. Generator drift against the ordered board was also fixed here —
+fresh builds had become unroutable — along with a shipped-truth via corridor and
+straggler assist vias in <code>route.py</code>.</p>
+</div></details></li>
+<li class="entry"><details><summary><span class="when">Aug&nbsp;8</span><span class="head"><span class="title">ORDER PLACED at JLCPCB</span><span class="tag" style="color:#ffd24d;border-color:#ffd24d44">milestone</span><code class="sha">43eadc1</code><span class="lede">Board fully routed, DRC 0/0. <b>This revision is the hardware in hand.</b></span></span></summary><div class="body">
+<p>Every bench page — the rework diagrams, the TPU case — reads
+<code>43eadc1</code> straight out of git rather than the working tree, because
+the working tree has been on rev 2 and then rev 3 ever since and is not the board
+that exists. A worktree of it is checked out at
+<code>~/pcb/simple_earring_shipped</code>.</p>
+</div></details></li>
+<li class="entry"><details><summary><span class="when">Aug&nbsp;6</span><span class="head"><span class="title">Datasheet review of every chip, then a layout fix pass</span><span class="tag" style="color:#9cf;border-color:#9cf44">layout</span><span class="tag" style="color:#fc6;border-color:#fc644">hardware</span><code class="sha">3543adf</code><span class="lede">Two fatal pinout bugs: the IMU&rsquo;s pins 12/13/14 and the BOOTSEL switch pairing were both wrong.</span></span></summary><div class="body">
+<p>Lesson: verify pin maps against primary datasheets, not against symbols. The
+fix pass that followed healed the 3V3 feed necks, stitched the pours and
+chamfered the corners, landing at DRC 0/0.</p>
+<p><a href="review/">layout review &rarr;</a> &nbsp;·&nbsp;
+<a href="review/fixes.html">fix pass + diffs &rarr;</a></p>
+</div></details></li>
+<li class="entry"><details><summary><span class="when">Aug&nbsp;5</span><span class="head"><span class="title">4-layer stackup, part swaps, generated schematic</span><span class="tag" style="color:#9cf;border-color:#9cf44">layout</span><span class="tag" style="color:#fb8;border-color:#fb844">bom</span><code class="sha">0513be3</code><span class="lede">Dropped 6 layers to 4 for JLC lead time, and made the schematic a generated artifact rather than a hand-drawn one.</span></span></summary><div class="body">
+<p>Part churn along the way, all of it from stock or package checks: RP2354A went
+OOS so the design became RP2350A + external QSPI flash; the TBA-C1010MB LED went
+OOS and became the SK6805-EC10; the crystal became the RP2350-recommended
+ABM8-272-T3; and C25804 turned out to be an <b>0603 on an 0402 land</b> — check
+package, not just value.</p>
+</div></details></li>
+<li class="entry"><details><summary><span class="when">Aug&nbsp;3</span><span class="head"><span class="title">This dashboard, the layer-stack viewer, and the 3D board</span><span class="tag" style="color:#7dd;border-color:#7dd44">tooling</span><code class="sha">25be6fd</code><span class="lede">Generated from <code>render.py</code>, served from <code>out/</code>, auto-refreshing every 15&nbsp;s.</span></span></summary><div class="body">
+<p>The 3D viewer uses TrackballControls rather than Orbit so the board can be
+tumbled continuously end over end with no pole clamp.</p>
+</div></details></li>
+<li class="entry"><details><summary><span class="when">Aug&nbsp;2</span><span class="head"><span class="title">Generated-PCB framework: first fully-routed DRC-clean build</span><span class="tag" style="color:#ffd24d;border-color:#ffd24d44">milestone</span><span class="tag" style="color:#7dd;border-color:#7dd44">tooling</span><code class="sha">f2bb985</code><span class="lede">Outline, placement, routing, DRC, renders and fab exports, all from <code>design.yaml</code> + <code>circuit.py</code>.</span></span></summary><div class="body">
+<p>The teardrop board, USB-C at the tip, perimeter LEDs and an insertion-safe
+back followed within the same day.</p>
+</div></details></li>
+</ol>
+
+<script>
+// only feed images marked live (class="rf") reload; historical shots in
+// collapsed feed entries stay static so expanding one is not a reload storm.
+// The viewer is not reloaded: rebuild it and refresh the page.
+function refresh() {
+  const t = Date.now();
+  for (const img of document.querySelectorAll('img.rf')) {
+    img.src = img.src.split('?')[0] + '?' + t;
+  }
+  document.getElementById('ts').textContent =
+    '(auto-refresh ' + new Date().toLocaleTimeString() + ')';
+}
+setInterval(refresh, 15000);
+refresh();
+
+// the gallery's Front/Back buttons: which side's copper and silk the cards show
+for (const btn of document.querySelectorAll('[data-set-face]')) {
+  btn.addEventListener('click', () => {
+    const face = btn.dataset.setFace;
+    document.body.dataset.face = face;
+    for (const b of document.querySelectorAll('[data-set-face]'))
+      b.setAttribute('aria-pressed', String(b === btn));
+    for (const pill of document.querySelectorAll('[data-face-label]'))
+      pill.textContent = face === 'front' ? 'Front' : 'Back';
+  });
+}
+</script>
+</body></html>
