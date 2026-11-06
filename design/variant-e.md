@@ -44,12 +44,16 @@ the outer ring is clear from LED5 round to LED33. Placed DRC: 0 errors.
 | D + 0.1 mm matrix class (baseline) | 4 | 28–37 | 1–2 | ~610 mm² |
 | **E, step 3** (back unloaded) | 4 | 27–37 | 1–6 | 587–604 |
 | **E, step 3 + 1** (0.1 mm board-wide) | 4 | **15–19** | 0–3 | 574–586 |
+| E, same, 2700 s (seeds 3, 4) | 4 | **9, 7** | 0 | 572–577 |
 | **F, step 3 + 1 + 2** (6 layers) | 6 | **0 on every seed** | 2–7 (connection_width only) | 591–612 |
 
 - **Step 3 alone** cut the matrix opens: SW+CS went from 12–18 to 9–15. But GND opens rose to 4–9, as relocated back
   parts' GND pads found less room to reach the plane. Net gain is small.
 - **Step 1** was the big 4-layer lever. With it, all 6 seeds still hit the 900 s deadline while improving.
-  - Two long runs (seeds 3 and 4, 2700 s) were still running when this was written; their result is below.
+  - **Long runs (2700 s):** seed 4 reached **7 open**, seed 3 reached 9. Both had 0 DRC errors, with In1 at
+    572–577 mm², and both still hit the deadline while improving.
+  - Seed 4's 7 opens: 4 GND pads that didn't reach the plane, 1 CS, USB_C_DP and VBATT. 4 layers is close but not
+    done; the GND opens might take hand-placed stitching vias.
 - **Step 2 routes.** F reached 0 open on all 6 seeds.
   - The first F sweep had one R14 via-in-pad error on every seed: variant A's 6-layer workaround now fails our "no via
     hole in SMD pad" rule. route.py skips that via on the matrix variants.
