@@ -6,6 +6,11 @@ interior octagon. Ø30.5mm teardrop, 4-layer, JLCPCB rules, all parts from LCSC.
 There is an IMU, an ambient light sensor, USB-C charging, and a generated TPU
 clip-on case.
 
+**Project page: <https://sequoia-hope.github.io/simple-earring/>**: every design variant (A, the
+routed WS2816C board, and the B–F matrix-driver study) with board previews, a comparison table, the
+interactive viewer (schematic, PCB layers, 3D) and the design notes. It is the local dashboard
+(`proj up simple_earring`), published with `scripts/publish_pages.py --push`.
+
 The design is *generated*: edit `design.yaml` (shape, LED count, sizes) and
 `scripts/circuit.py` (netlist), then rebuild.
 
@@ -36,6 +41,11 @@ Stages (each is also runnable standalone from `scripts/`):
 The KiCad project is `hw/earring/a/earring.kicad_*` (the Boardroom suite's
 `hw/<board>/<variant>/` layout; `scripts/paths.py` owns the locations). Build products
 land in `out/` (renders, dashboard, `drc.json`, `production/`, `jlcpcb/`).
+
+The dashboard's design gallery reads `design/variants.toml` (card text) and `pcbview.toml` (the
+boards); rebuild the viewer with `scripts/view.sh build pcbview.toml`, rewrite the page with
+`python3 scripts/render.py --index-only`, then publish it to GitHub Pages (the `gh-pages` branch)
+with `python3 scripts/publish_pages.py --push`. The wear log stays local.
 
 ## Boardroom suite
 
