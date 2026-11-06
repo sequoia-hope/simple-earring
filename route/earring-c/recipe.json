@@ -1,5 +1,5 @@
 {
-  "note": "Variant C (AW20198QNR matrix, XL-1615 LEDs) recipe, copied from B's; not run yet.",
+  "note": "Variant C (AW20198QNR matrix, XL-1615 LEDs) recipe, copied from B's. 4-layer sweep 2026-11-05: not routable with the In1 plane kept (design/variant-c.md, Routing).",
   "router": "ultraroute",
   "router_commit": "99bb7ca",
   "lab_experiment": "~/Software/ultraroute-lab/experiments/vled-width-1 (run s0)",
@@ -40,5 +40,13 @@
     "refill zones at 0.2 mm minimum width on the large planes, VREG pours 0.15 (route.py)",
     "kicad-cli pcb drc (build stage drc)"
   ],
-  "result": {}
+  "result": {
+    "date": "2026-11-05",
+    "seeds": "1-6",
+    "timeout": 900,
+    "open": "37-45",
+    "drc_errors": "0-2 connection_width",
+    "without_planes": "seed 1 defaults: 5 open but In1 GND fill 213 of 610 mm2; pour-cost 3/10: 8-15 open, ~220 mm2",
+    "installed": false
+  }
 }

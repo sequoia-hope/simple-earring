@@ -2,8 +2,10 @@
   "schema": 1,
   "board": "earring",
   "phase": 7,
-  "doing": "2026-11-05: variant C started (AW20198QNR driver + XL-1615 LEDs, from round-pendant's low-density parallelogram boards): parts audited, circuit + schematic (77 nets verified), placed with DRC 0 errors; not routed. Variant A stays the gate-7-passed board (DRC 0/0, ultraroute 99bb7ca seed 2).",
-  "needs_user": [],
+  "doing": "2026-11-05: variant C (AW20198QNR + XL-1615) routed on 4 layers: 37-45 open with the In1 GND plane kept; 5-15 open only by cutting the plane to ~1/3. Not routable as placed; needs 6 layers or a matrix/placement change (design/variant-c.md, Routing). Variant A stays the gate-7-passed board (DRC 0/0, ultraroute 99bb7ca seed 2).",
+  "needs_user": [
+    "Variant C won't route on 4 layers with a GND plane: choose 6 layers, an 8x18 map / placement change, or park C"
+  ],
   "checks": {
     "DRC": {
       "result": "0 errors, 0 unconnected, parity 28 (2026-11-03)",
@@ -130,6 +132,11 @@
           "warning": 1
         },
         "report": "design/gates/phase7.md"
+      },
+      "earring-c": {
+        "opens": 37,
+        "drc_ok": false,
+        "last_route": "scratch sweep 2026-11-05, ultraroute 99bb7ca, recipe seeds 1-6 (best seed 1, 37 open); not installed"
       }
     },
     "composer": {

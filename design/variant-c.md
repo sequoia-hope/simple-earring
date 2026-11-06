@@ -53,3 +53,34 @@ should dim with PWM, not SL/GCC. Off stays negligible: 1.3 µA.
 - **Moved parts.** B's moved parts (`MATRIX_MOVED`) keep their B spots.
 - **Placed-board DRC:** 0 errors. The warnings are the same as B's (silk crop, J1 and LED library-mismatch flags).
 - **Not done yet:** gate 6 review, routing (gate 7), and a 3D model for the XL-1615 (pcbview shows bare pads).
+
+## Routing on 4 layers (2026-11-05)
+
+Ultraroute 99bb7ca on the committed placed board (route.py's pre-routes are already on it: 321 open going in). Each
+result was judged by KiCad DRC with the project rules after route.py's 0.2 mm refill. The scratch boards aren't kept;
+the args are below.
+
+| Run | Args | Open | DRC errors | In1 GND fill |
+|---|---|---|---|---|
+| Recipe, seeds 1–6, 900 s | `route/earring-c/recipe.json` (`--planes In1.Cu`) | **37–45** (SW 13–22, CS 5–9, plus 10–15 MCU nets) | 0–2 (connection_width) | 610 mm² (intact) |
+| Defaults, seed 1, ~3,430 s | `--seed 1` only (no `--planes`) | **5** (SW 4, CS 1) | 2 | **213 mm²** |
+| Recipe without `--planes`, pour-cost 3, seed 1, 3,000 s | | 8 (SW 5, CS 2, VBSENSE) | 1 | 244 mm² |
+| Same, pour-cost 10, seed 1 | | 15 | 1 | 219 mm² |
+| Defaults + pour-cost 10, seeds 1 / 2 | | 15 / 11 | 1 / 0 | 219 / 216 mm² |
+
+- **With the GND plane kept (`--planes In1.Cu`), C doesn't route.** It does beat B on 4 layers (48–55 open), but only
+  narrowly.
+  - The opens cluster at U11's west SW pins (x ≈ −13.1), which sit under the ring LEDs, and on the 9 SW lines that run
+    the full ring.
+  - The SW lines crowd out MCU nets: USB_DM, SWDIO, CHRG and the driver's I²C.
+- **Letting the router use In1 gets close (5 open), but only by spending the GND plane.**
+  - 43 nets and ~570 mm of track go onto In1, leaving about a third of the plane.
+  - That plane is the reference under the USB pair and the RP2350's regulator loop (variant A's whole layer plan rests
+    on it).
+  - Raising `--pour-cost` doesn't keep it: every run that's allowed onto In1 ends near 220 mm² and leaves more open.
+  - So it's not a 4-layer board with a plane, and not acceptable as is.
+- **Conclusion:** as placed, variant C needs either 6 layers (B reached 8–10 open there) or a matrix change that unloads
+  the ring. The candidates:
+  - an 8 SW × 18 CS map;
+  - CS arcs + SW bus moved inboard;
+  - the driver moved off the ring's west edge.
