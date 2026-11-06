@@ -1,0 +1,175 @@
+{
+    "$schema": "https://schemas.kicad.org/drc.v1.json",
+    "coordinate_units": "mm",
+    "date": "2026-11-06T02:12:17-0800",
+    "included_severities": [
+        "error"
+    ],
+    "kicad_version": "9.0.8",
+    "schematic_parity": [],
+    "source": "judged.kicad_pcb",
+    "unconnected_items": [
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Pad 20 [CS11] of U11 on B.Cu",
+                    "pos": {
+                        "x": 102.35,
+                        "y": 92.55
+                    },
+                    "uuid": "9dfc4856-c60a-4f70-8787-660635d5dec4"
+                },
+                {
+                    "description": "Pad 3 [CS11] of LED31 on F.Cu",
+                    "pos": {
+                        "x": 108.345557,
+                        "y": 89.742669
+                    },
+                    "uuid": "d5f59ca0-e77f-46c0-a0bd-4a827a7ff8c2"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Zone 'gnd_back' [GND] on B.Cu, priority 0",
+                    "pos": {
+                        "x": 112.455223,
+                        "y": 91.731389
+                    },
+                    "uuid": "ed1211b3-8b68-4f1d-bcd3-244c56aa5bc4"
+                },
+                {
+                    "description": "Zone 'gnd_front' [GND] on F.Cu, priority 0",
+                    "pos": {
+                        "x": 112.455223,
+                        "y": 91.731389
+                    },
+                    "uuid": "0ecf7672-609f-4e72-843d-aed8c39f83fa"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Zone 'gnd_front' [GND] on F.Cu, priority 0",
+                    "pos": {
+                        "x": 112.455223,
+                        "y": 91.731389
+                    },
+                    "uuid": "0ecf7672-609f-4e72-843d-aed8c39f83fa"
+                },
+                {
+                    "description": "Zone 'gnd_front' [GND] on F.Cu, priority 0",
+                    "pos": {
+                        "x": 112.455223,
+                        "y": 91.731389
+                    },
+                    "uuid": "0ecf7672-609f-4e72-843d-aed8c39f83fa"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Zone 'gnd_back' [GND] on B.Cu, priority 0",
+                    "pos": {
+                        "x": 112.455223,
+                        "y": 91.731389
+                    },
+                    "uuid": "ed1211b3-8b68-4f1d-bcd3-244c56aa5bc4"
+                },
+                {
+                    "description": "Zone 'gnd_front' [GND] on F.Cu, priority 0",
+                    "pos": {
+                        "x": 112.455223,
+                        "y": 91.731389
+                    },
+                    "uuid": "0ecf7672-609f-4e72-843d-aed8c39f83fa"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Zone 'gnd_back' [GND] on B.Cu, priority 0",
+                    "pos": {
+                        "x": 112.455223,
+                        "y": 91.731389
+                    },
+                    "uuid": "ed1211b3-8b68-4f1d-bcd3-244c56aa5bc4"
+                },
+                {
+                    "description": "Zone 'gnd_front' [GND] on F.Cu, priority 0",
+                    "pos": {
+                        "x": 112.455223,
+                        "y": 91.731389
+                    },
+                    "uuid": "0ecf7672-609f-4e72-843d-aed8c39f83fa"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Pad 1 [USB_C_DP] of R6 on F.Cu",
+                    "pos": {
+                        "x": 104.25,
+                        "y": 105.76
+                    },
+                    "uuid": "ea62f674-f626-4051-a000-b0b16545d39e"
+                },
+                {
+                    "description": "Pad B6 [USB_C_DP] of J1 on B.Cu",
+                    "pos": {
+                        "x": 100.75,
+                        "y": 85.88
+                    },
+                    "uuid": "ee3f44a6-467b-43d5-9676-8bf687af8525"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        },
+        {
+            "description": "Missing connection between items",
+            "items": [
+                {
+                    "description": "Pad 1 [VBATT] of R24 on F.Cu",
+                    "pos": {
+                        "x": 92.99,
+                        "y": 91.0
+                    },
+                    "uuid": "760374c0-3b48-4d89-aec1-0242d0018e6a"
+                },
+                {
+                    "description": "Pad 1 [VBATT] of BT1 on B.Cu",
+                    "pos": {
+                        "x": 106.0,
+                        "y": 84.0
+                    },
+                    "uuid": "df8674f4-6533-4a1e-a0ec-9224e0a40658"
+                }
+            ],
+            "severity": "error",
+            "type": "unconnected_items"
+        }
+    ],
+    "violations": []
+}

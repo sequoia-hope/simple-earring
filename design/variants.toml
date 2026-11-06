@@ -1,0 +1,157 @@
+# variants.toml -- what the dashboard's design gallery says about each board.
+#
+# render.py (write_index) reads this with pcbview.toml: the board files and viewer pages come
+# from pcbview.toml (matched on `id`), the words on each card come from here. Thumbnails are
+# the viewer's own layer plots (out/viewer/<id>/layers/*.svg), so a board shows on the page
+# only once `scripts/view.sh build pcbview.toml` has built it.
+#
+# badge kinds: "ok" (green), "probe" (amber: a study or partial result), "" (grey).
+
+title = "simple_earring"
+eyebrow = "RP2350A LED earring · Ø30.5 mm teardrop"
+lede = """A 30.5 mm teardrop earring with 45 RGB LEDs on two rings round an RP2350A, a LiPo cell on the
+back and one button. Variant A (45 WS2816C pixels in three switched zones) is routed and DRC-clean.
+Variants B&ndash;F study driving plain RGB LEDs from a matrix driver instead, as round-pendant does:
+cheaper LEDs and about $3 less per board, but 180 more LED pins to route in the same space."""
+
+[[family]]
+key = "pixels"
+title = "Pixel chain: WS2816C"
+sub = """The board of record. 45 WS2816C-1313 addressable pixels on a daisy chain, split into three zones
+(left, right, centre), each with its own load switch, level shifter and In2 supply pour."""
+tag = "4 layers · 45 WS2816C · routed"
+
+[[family]]
+key = "matrix"
+title = "Matrix driver: plain RGB LEDs"
+sub = """The same 45 LEDs as a 9 SW &times; 15 CS matrix. B uses round-pendant's IS31FL3741A and the 1 mm
+XL-1010. C swaps in the cheaper AW20198QNR and the 1.6 &times; 1.5 mm XL-1615. D, E and F keep the
+LEDs, the centred MCU, the button and USB fixed, and move everything else to make room for routing."""
+tag = "AW20198QNR / IS31FL3741A · 9 × 15 matrix · placed"
+
+[[family]]
+key = "routes"
+title = "Best routes so far"
+sub = """Router trials of the matrix boards (ultraroute 99bb7ca, the recipe in route/earring-*/recipe.json),
+judged by KiCad 9 DRC after a refill, with the In1 GND plane kept whole. Not installed in hw/: the
+6-or-4-layer decision is still open."""
+tag = "ultraroute · KiCad 9 DRC"
+
+[[board]]
+id = "earring-a"
+family = "pixels"
+title = "A: WS2816C zones"
+badge = "Routed · 0 DRC"
+kind = "ok"
+specs = ["4 layers", "45× WS2816C-1313", "3 switched zones", "381 vias"]
+desc = """The gate-7-passed board: 0 DRC errors, 0 unconnected (ultraroute seed 2, 2026-11-03). RP2350A and
+LEDs on the front, flash, charger, LDO and power path on the back under the cell."""
+docs = [{ href = "docs/phase7.html", label = "Gate 7" }]
+layers = "4L"
+leds = "45× WS2816C"
+driver = "built into each pixel"
+result = "0 open · 0 DRC"
+cost = "—"
+
+[[board]]
+id = "earring-b"
+family = "matrix"
+title = "B: IS31FL3741A + XL-1010"
+badge = "Not routable yet"
+kind = "probe"
+specs = ["6 layers (trial)", "45× XL-1010", "QFN-60 7×7", "+$0.1 vs A"]
+desc = """The first matrix board, after round-pendant: one IS31FL3741A on the back and 1 mm LEDs at 45° to
+the ring. 48&ndash;55 open on 4 layers and 8&ndash;10 on 6, so the driver and LED were swapped for C."""
+docs = [{ href = "docs/variant-b-matrix.html", label = "Notes" }]
+layers = "6L trial"
+leds = "45× XL-1010RGB"
+driver = "IS31FL3741A (QFN-60)"
+result = "8–10 open (6L)"
+cost = "+$0.1"
+
+[[board]]
+id = "earring-c"
+family = "matrix"
+title = "C: AW20198QNR + XL-1615"
+badge = "37–45 open on 4L"
+kind = "probe"
+specs = ["4 layers", "45× XL-1615", "QFN-40 5×5", "−$3.0 vs A"]
+desc = """Round-pendant's low-density parts: the AW20198QNR (half the quiescent current) and the larger,
+cheaper XL-1615 set square to the ring. The driver sits under LEDs 8&ndash;10; 37&ndash;45 open with the
+GND plane kept."""
+docs = [{ href = "docs/variant-c.html", label = "Notes" }]
+layers = "4L"
+leds = "45× XL-1615RGBC"
+driver = "AW20198QNR (QFN-40)"
+result = "37–45 open"
+cost = "−$3.0"
+
+[[board]]
+id = "earring-d"
+family = "matrix"
+title = "D: driver off the LEDs"
+badge = "28–37 open on 4L"
+kind = "probe"
+specs = ["4 layers", "45× XL-1615", "driver at the tip", "−$3.0 vs A"]
+desc = """C with the driver moved to the only back pocket clear of every LED, south of USB-C; the USB ESD
+chip, series resistors and BOOTSEL timer moved to make room. 28&ndash;37 open with a 0.1 mm matrix class."""
+docs = [{ href = "docs/variant-d.html", label = "Notes" }]
+layers = "4L"
+leds = "45× XL-1615RGBC"
+driver = "AW20198QNR, tip pocket"
+result = "28–37 open"
+cost = "−$3.0"
+
+[[board]]
+id = "earring-e"
+family = "matrix"
+title = "E: back unloaded, 0.1 mm"
+badge = "7 open at 45 min"
+kind = "probe"
+specs = ["4 layers", "0.10 mm rules", "23 parts moved", "−$3.0 vs A"]
+desc = """D with 23 back parts moved off the LEDs' via room (the charger to the front), 1 mm test pads and
+0.10 mm rules board-wide. 15&ndash;19 open in 15 minutes; 7 with 45 minutes (see the route card)."""
+docs = [{ href = "docs/variant-e.html", label = "Notes" }]
+layers = "4L"
+leds = "45× XL-1615RGBC"
+driver = "AW20198QNR, tip pocket"
+result = "15–19 open (7 at 45 min)"
+cost = "−$3.0"
+
+[[board]]
+id = "earring-f"
+family = "matrix"
+title = "F: E on 6 layers"
+badge = "0 open on every seed"
+kind = "ok"
+specs = ["6 layers", "0.10 mm rules", "same placement as E", "−$3.0 vs A + 6L"]
+desc = """Variant E with two more signal layers. Routes to 0 open on all six seeds in 15 minutes; the best
+seeds leave two narrow-neck DRC errors to clean up. The placed board; the route is on the card below."""
+docs = [{ href = "docs/variant-e.html", label = "Notes" }]
+layers = "6L"
+leds = "45× XL-1615RGBC"
+driver = "AW20198QNR, tip pocket"
+result = "0 open · 2 necks"
+cost = "−$3.0 + 6L"
+
+[[board]]
+id = "earring-f-route"
+family = "routes"
+title = "F routed: seed 3, 6 layers"
+badge = "0 open · 2 DRC"
+kind = "ok"
+specs = ["6 layers", "384 vias", "2,265 tracks", "15 min"]
+desc = """Every connection made, GND plane whole. Two DRC errors left, both necks: where U1 pin 15's IMU_SCL
+escape meets its via, and a sliver of the In2 3V3 disc. Small hand fixes before a gate-7 review."""
+docs = [{ href = "docs/variant-e.html", label = "Notes" }]
+
+[[board]]
+id = "earring-e-route"
+family = "routes"
+title = "E routed: seed 4, 4 layers"
+badge = "7 open · 0 DRC"
+kind = "probe"
+specs = ["4 layers", "433 vias", "2,537 tracks", "45 min"]
+desc = """The closest 4-layer result: 0 DRC errors and the plane intact, still improving when time ran out.
+Open: 4 GND pour islands on F.Cu/B.Cu (stitching vias should join them), CS11 to LED31, USB D+ and VBATT."""
+docs = [{ href = "docs/variant-e.html", label = "Notes" }]

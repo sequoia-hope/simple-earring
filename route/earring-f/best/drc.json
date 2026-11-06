@@ -1,0 +1,52 @@
+{
+    "$schema": "https://schemas.kicad.org/drc.v1.json",
+    "coordinate_units": "mm",
+    "date": "2026-11-06T01:43:29-0800",
+    "included_severities": [
+        "error"
+    ],
+    "kicad_version": "9.0.8",
+    "schematic_parity": [],
+    "source": "judged.kicad_pcb",
+    "unconnected_items": [],
+    "violations": [
+        {
+            "description": "Copper connection too narrow (rule 'JLC min connection width' minimum connection width 0.0900 mm; actual 0.0133 mm) (F.Cu)",
+            "items": [
+                {
+                    "description": "Pad 15 [IMU_SCL] of U1 on F.Cu",
+                    "pos": {
+                        "x": 103.4375,
+                        "y": 96.7
+                    },
+                    "uuid": "f4a89b92-eef4-4219-bc34-9f5d72e3d770"
+                },
+                {
+                    "description": "Via [IMU_SCL] on F.Cu - B.Cu",
+                    "pos": {
+                        "x": 104.07,
+                        "y": 96.59
+                    },
+                    "uuid": "ce3b5626-162a-4ce1-aab1-53c0183c41bb"
+                }
+            ],
+            "severity": "error",
+            "type": "connection_width"
+        },
+        {
+            "description": "Copper connection too narrow (rule 'JLC min connection width' minimum connection width 0.0900 mm; actual 0.0293 mm) (In2.Cu)",
+            "items": [
+                {
+                    "description": "Zone 'p3v3_disc' [3V3] on In2.Cu, priority 2",
+                    "pos": {
+                        "x": 108.95,
+                        "y": 100.0
+                    },
+                    "uuid": "62586751-3ede-46e1-a323-0d6ade7a11eb"
+                }
+            ],
+            "severity": "error",
+            "type": "connection_width"
+        }
+    ]
+}

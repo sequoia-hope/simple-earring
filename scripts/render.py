@@ -1225,35 +1225,360 @@ def _status_html():
     return " &nbsp;·&nbsp; ".join(bits)
 
 
-INDEX_HTML = """<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>simple_earring</title>
+# ------------------------------------------------------------- gallery ----
+# The design gallery at the top of the page: one card per board in pcbview.toml
+# that design/variants.toml describes, grouped by family, then a comparison
+# table. Thumbnails are the viewer's layer plots, stacked; the Front/Back
+# buttons swap which side's copper and silk show.
+
+# markdown notes copied into out/docs/ as HTML, so the cards and the docs list
+# can link them (the server serves out/ only)
+DOCS = [
+    ("design/variant-b-matrix.md", "Variant B: matrix study", "IS31FL3741A, cost, battery"),
+    ("design/variant-c.md", "Variant C: AW20198QNR + XL-1615", "parts swap, 4-layer sweeps"),
+    ("design/variant-d.md", "Variant D: driver off the LEDs", "the tip pocket"),
+    ("design/variant-e.md", "Variants E and F", "unloaded back, 0.1 mm, 6 layers"),
+    ("design/decisions.md", "Decision log", "every non-obvious call"),
+    ("design/intent.md", "Design intent", "phase 0"),
+    ("design/gates/phase7.md", "Gate 7: routing review", "variant A"),
+    ("design/ultraroute-requests.md", "ultraroute requests", "router bugs and asks"),
+    ("docs/PLAN.md", "Plan of record", "firmware and hardware plan"),
+]
+
+PAGES = [
+    ("viewer/", "Board viewer", "every board: SCH, PCB, 3D"),
+    ("case/preview/", "TPU case", "fits the ordered rev"),
+    ("wear/", "Wear log", "activity thresholds"),
+    ("probe/", "Probe map", "bring-up test points"),
+    ("review/", "Layout review", "Aug 6"),
+    ("review/fixes.html", "Fix pass", "Aug 6"),
+    ("rework/", "R8 rework", "retired"),
+    ("earring-schematic.pdf", "Schematic PDF", "variant A"),
+]
+
+
+def _write_docs():
+    """out/docs/<stem>.html for each DOCS entry that exists; returns the
+    (href, title, sub) rows for the ones written."""
+    import html
+    try:
+        import markdown
+    except ImportError:
+        return []
+    dest = ROOT / "out" / "docs"
+    dest.mkdir(parents=True, exist_ok=True)
+    rows = []
+    for src, title, sub in DOCS:
+        p = ROOT / src
+        if not p.exists():
+            continue
+        body = markdown.markdown(p.read_text(), extensions=["tables", "fenced_code"])
+        (dest / f"{p.stem}.html").write_text(
+            DOC_HTML.replace("{{TITLE}}", html.escape(title))
+                    .replace("{{SRC}}", src).replace("{{BODY}}", body))
+        rows.append((f"docs/{p.stem}.html", title, sub))
+    return rows
+
+
+def _gallery_data():
+    """(variants.toml, {board id: pcbview.toml entry}); None if either is missing."""
+    import tomllib
+    try:
+        meta = tomllib.loads((ROOT / "design" / "variants.toml").read_text())
+        pv = tomllib.loads((ROOT / "pcbview.toml").read_text())
+    except (OSError, tomllib.TOMLDecodeError) as e:
+        print(f"gallery: {e}", file=sys.stderr)
+        return None
+    return meta, {b["id"]: b for b in pv.get("boards", [])}
+
+
+def _card_html(b):
+    import html
+    base = f"viewer/{b['id']}"
+    lay = ROOT / "out" / base / "layers"
+    built = (lay / "body.svg").exists()
+
+    def img(name, cls=""):
+        if not (lay / name).exists():
+            return ""
+        c = f' class="{cls}"' if cls else ""
+        return f'<img{c} src="{base}/layers/{name}" alt="" loading="lazy">'
+
+    thumb = (img("body.svg") + img("f.svg", "front-layer")
+             + img("silk_f.svg", "front-layer") + img("b.svg", "back-layer")
+             + img("silk_b.svg", "back-layer") + img("edge.svg")) if built else (
+        '<span class="unbuilt">not in the viewer yet: '
+        'scripts/view.sh build pcbview.toml</span>')
+    kind = b.get("kind", "")
+    links = [f'<a href="{base}.html#copper">PCB</a>',
+             f'<a href="{base}.html#board3d">3D</a>',
+             f'<a href="{base}.html#schematic">Schematic</a>']
+    links += [f'<a href="{d["href"]}">{d["label"]}</a>' for d in b.get("docs", [])]
+    specs = "".join(f"<span>{html.escape(s)}</span>" for s in b.get("specs", []))
+    return f"""
+    <article class="vcard">
+      <a class="thumb" href="{base}.html" aria-label="Open {html.escape(b['title'])} in the viewer">
+        {thumb}<span class="face-pill" data-face-label>Front</span>
+      </a>
+      <div class="vbody">
+        <div class="vtop">
+          <h3 class="vtitle"><a href="{base}.html">{b['title']}</a></h3>
+          <span class="badge {kind}">{b.get('badge', '')}</span>
+        </div>
+        <div class="vspecs">{specs}</div>
+        <p class="vdesc">{b.get('desc', '')}</p>
+        <div class="vlinks">{''.join(links)}</div>
+      </div>
+    </article>"""
+
+
+def _gallery_html(doc_rows):
+    """The hero, the family sections, the comparison table and the docs."""
+    import json
+    data = _gallery_data()
+    if data is None:
+        return ""
+    meta, pv = data
+    boards = [b for b in meta.get("board", []) if b["id"] in pv]
+    needs = doing = ""
+    try:
+        st = json.loads((ROOT / "design" / "status.json").read_text())
+        if st.get("needs_user"):
+            needs = ('<div class="callout"><b>Needs you</b><ul>'
+                     + "".join(f"<li>{n}</li>" for n in st["needs_user"])
+                     + "</ul></div>")
+        doing = st.get("doing", "")
+    except (OSError, ValueError):
+        pass
+
+    out = [f"""
+<header class="hero">
+  <div class="hero-top">
+    <div>
+      <p class="eyebrow">{meta.get('eyebrow', '')}</p>
+      <h1>{meta.get('title', 'simple_earring')} <span id="ts"></span></h1>
+      <p class="hero-lede">{meta.get('lede', '')}</p>
+    </div>
+    <div class="toolbar">
+      <div class="seg" role="group" aria-label="Board preview face">
+        <button type="button" data-set-face="front" aria-pressed="true">Front (LEDs)</button>
+        <button type="button" data-set-face="back" aria-pressed="false">Back (parts)</button>
+      </div>
+      <a class="btn primary" href="viewer/">All boards in the viewer &rarr;</a>
+    </div>
+  </div>
+  {f'<p class="doing"><b>Now</b> {doing}</p>' if doing else ''}
+  {needs}
+</header>"""]
+
+    for fam in meta.get("family", []):
+        cards = [b for b in boards if b.get("family") == fam["key"]]
+        if not cards:
+            continue
+        out.append(f"""
+<section class="fam" aria-labelledby="fam-{fam['key']}">
+  <div class="sec-head">
+    <div>
+      <h2 id="fam-{fam['key']}">{fam['title']}</h2>
+      <p class="sec-sub">{fam.get('sub', '')}</p>
+    </div>
+    <span class="sec-tag">{fam.get('tag', '')}</span>
+  </div>
+  <div class="grid">{''.join(_card_html(b) for b in cards)}</div>
+</section>""")
+
+    rows = "".join(
+        f'<tr><td><a href="viewer/{b["id"]}.html"><b>{b["title"]}</b></a></td>'
+        f'<td>{b["layers"]}</td><td>{b["leds"]}</td><td>{b["driver"]}</td>'
+        f'<td>{b["result"]}</td><td>{b["cost"]}</td></tr>'
+        for b in boards if "layers" in b)
+    docs = "".join(f'<li><a href="{h}">{t}</a><small>{s}</small></li>'
+                   for h, t, s in doc_rows)
+    pages = "".join(f'<li><a href="{h}">{t}</a><small>{s}</small></li>'
+                    for h, t, s in PAGES if (ROOT / "out" / h).exists())
+    out.append(f"""
+<section class="fam" aria-labelledby="sec-compare">
+  <div class="card">
+    <h3 id="sec-compare">Comparison</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Variant</th><th>Layers</th><th>LEDs</th><th>Driver</th>
+        <th>Best route</th><th>Parts vs A</th></tr></thead>
+      <tbody>{rows}</tbody>
+    </table></div>
+  </div>
+  <div class="cols">
+    <div class="card"><h3>Design notes</h3><ul class="doc-list">{docs}</ul></div>
+    <div class="card"><h3>Pages</h3><ul class="doc-list">{pages}</ul></div>
+  </div>
+</section>""")
+    return "\n".join(out)
+
+
+DOC_HTML = """<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
 <style>
-  :root { --bg:#1a1a1e; --card:#26262e; --line:#33333c; }
-  body { background:var(--bg); color:#ddd; font-family:sans-serif; margin:0;
-         padding:1rem 1rem 4rem; }
-  a { color:#8bf; }
-  body > h1 { font-size:1.15rem; font-weight:600; margin:0 0 .5rem; }
-  body > h2 { font-size:.95rem; font-weight:600; color:#bbb; margin:1.8rem 0 .6rem;
-       border-bottom:1px solid var(--line); padding-bottom:.3rem; }
-  .entry h4 { font-size:.85rem; color:#cfcfd6; margin:1rem 0 .35rem; }
+  :root { color-scheme: dark; }
+  body { background:#0d1015; color:#d9dee6; margin:0; padding:1.5rem 16px 4rem;
+         font:15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:860px; margin:0 auto; }
+  a { color:#5b9bff; }
+  h1, h2, h3 { color:#e6eaf0; line-height:1.25; }
+  h1 { font-size:1.6rem; } h2 { font-size:1.2rem; margin-top:2rem;
+       border-bottom:1px solid #262d38; padding-bottom:.3rem; }
+  code { background:#202632; border:1px solid #262d38; border-radius:5px;
+         padding:.05em .3em; font-size:.88em; }
+  pre { background:#161b22; border:1px solid #262d38; border-radius:8px;
+        padding:.7rem .9rem; overflow-x:auto; }
+  pre code { background:none; border:0; padding:0; }
+  table { border-collapse:collapse; font-size:.88rem; display:block; overflow-x:auto; }
+  th, td { border:1px solid #262d38; padding:.35rem .6rem; text-align:left; vertical-align:top; }
+  th { background:#161b22; }
+  .back { font-size:.85rem; color:#8c96a6; }
+</style></head><body><main>
+<p class="back"><a href="../index.html">&larr; Dashboard</a> &middot; <code>{{SRC}}</code></p>
+{{BODY}}
+</main></body></html>
+"""
+
+
+INDEX_HTML = """<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>simple_earring</title>
+<style>
+  /* round-pendant's dark palette; the page is dark-only (the feed's colours
+     assume it). viewer.css reads --card, --accent, --canvas and the rest. */
+  :root { color-scheme:dark;
+    --bg:#0d1015; --card:#161b22; --canvas:#090c10; --line:#262d38; --fg:#e6eaf0;
+    --muted:#8c96a6; --accent:#5b9bff; --up:#35c07d; --warn:#dfa543;
+    --chip:#202632; --btn-bg:#212733; --btn-hover:#2b3342; }
+  * { box-sizing:border-box; }
+  body { background:var(--bg); color:#d9dee6; margin:0 auto; max-width:1240px;
+         padding:0 20px 4rem;
+         font:15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         -webkit-font-smoothing:antialiased; }
+  @media (max-width:600px) { body { padding:0 16px 3rem; } }
+  a { color:var(--accent); }
+  body > h2 { font-size:1.05rem; font-weight:650; color:var(--fg); margin:2.2rem 0 .7rem;
+       border-bottom:1px solid var(--line); padding-bottom:.35rem; }
+  #ts { color:var(--muted); font-size:.8rem; font-weight:400; letter-spacing:0; }
+
+  /* ---- hero ---- */
+  header.hero { padding:2rem 0 1.3rem; border-bottom:1px solid var(--line); margin-bottom:1.8rem; }
+  .hero-top { display:flex; justify-content:space-between; align-items:flex-start;
+              gap:1rem; flex-wrap:wrap; }
+  .eyebrow { font-size:.75rem; font-weight:650; text-transform:uppercase; letter-spacing:.09em;
+             color:var(--muted); margin:0 0 .35rem; }
+  header.hero h1 { font-size:clamp(1.5rem, 2.8vw, 2rem); margin:0; letter-spacing:-.02em;
+                   line-height:1.2; color:var(--fg); }
+  .hero-lede { color:var(--muted); max-width:80ch; margin:.7rem 0 0; font-size:.96rem; }
+  .toolbar { display:flex; align-items:center; gap:.55rem; flex-wrap:wrap; margin-top:.2rem; }
+  .seg { display:inline-flex; background:var(--chip); border:1px solid var(--line);
+         border-radius:8px; padding:2px; gap:2px; }
+  .seg button { font:inherit; font-size:.8rem; font-weight:600; color:var(--muted);
+                background:transparent; border:0; border-radius:6px; padding:.32rem .7rem;
+                cursor:pointer; }
+  .seg button[aria-pressed="true"] { background:var(--card); color:var(--fg);
+                                     box-shadow:0 1px 2px rgba(0,0,0,.4); }
+  .btn { display:inline-flex; align-items:center; font-size:.82rem; font-weight:600;
+         padding:.42rem .8rem; border-radius:8px; border:1px solid var(--line);
+         background:var(--card); color:var(--fg); text-decoration:none; white-space:nowrap; }
+  .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .btn:hover { filter:brightness(1.1); }
+  .doing { color:#c4cad4; font-size:.88rem; max-width:100ch; margin:1rem 0 0; }
+  .doing b, .callout b { color:var(--fg); margin-right:.35rem; }
+  .callout { margin-top:.8rem; border:1px solid color-mix(in srgb, var(--warn) 45%, var(--line));
+             background:color-mix(in srgb, var(--warn) 9%, var(--card)); border-radius:10px;
+             padding:.6rem .9rem; font-size:.88rem; color:#e9dcc4; }
+  .callout ul { margin:.3rem 0 0; padding-left:1.1rem; }
+
+  /* ---- families and cards ---- */
+  section.fam { margin-bottom:2.3rem; }
+  .sec-head { display:flex; justify-content:space-between; align-items:baseline;
+              gap:.8rem; flex-wrap:wrap; margin-bottom:.95rem; }
+  .sec-head h2 { font-size:1.15rem; margin:0; letter-spacing:-.01em; color:var(--fg); }
+  .sec-sub { color:var(--muted); font-size:.88rem; margin:.2rem 0 0; max-width:86ch; }
+  .sec-tag { font-size:.75rem; font-weight:600; color:var(--muted); background:var(--chip);
+             border:1px solid var(--line); border-radius:999px; padding:.18rem .65rem;
+             white-space:nowrap; }
+  .grid { display:grid; gap:1rem; grid-template-columns:repeat(auto-fill, minmax(290px, 1fr)); }
+  .vcard { display:flex; flex-direction:column; background:var(--card);
+           border:1px solid var(--line); border-radius:12px; overflow:hidden;
+           transition:border-color .15s; }
+  .vcard:hover { border-color:color-mix(in srgb, var(--accent) 65%, var(--line)); }
+  .thumb { position:relative; aspect-ratio:1 / 1; background:var(--canvas);
+           border-bottom:1px solid var(--line); display:block; overflow:hidden; }
+  .thumb img { position:absolute; inset:5%; width:90%; height:90%; object-fit:contain;
+               transition:opacity .15s; }
+  .thumb .unbuilt { position:absolute; inset:0; display:grid; place-items:center;
+                    padding:1rem; text-align:center; color:var(--muted); font-size:.8rem; }
+  body[data-face="front"] .thumb img.back-layer { opacity:0; }
+  body[data-face="back"] .thumb img.front-layer { opacity:0; }
+  .face-pill { position:absolute; bottom:8px; right:9px; font-size:.68rem; font-weight:600;
+               letter-spacing:.04em; text-transform:uppercase; padding:.12rem .45rem;
+               border-radius:5px; background:rgba(15,19,25,.78); color:#cbd5e1;
+               border:1px solid rgba(255,255,255,.12); }
+  .vbody { padding:.9rem 1rem 1rem; display:flex; flex-direction:column; gap:.45rem; flex:1; }
+  .vtop { display:flex; justify-content:space-between; align-items:flex-start; gap:.5rem; }
+  .vtitle { font-size:.98rem; font-weight:650; margin:0; line-height:1.3; }
+  .vtitle a { color:var(--fg); text-decoration:none; }
+  .vtitle a:hover { color:var(--accent); }
+  .badge { flex:none; font-size:.7rem; font-weight:650; padding:.14rem .5rem;
+           border-radius:999px; border:1px solid var(--line); background:var(--chip);
+           color:var(--muted); white-space:nowrap; }
+  .badge.ok { background:color-mix(in srgb, var(--up) 15%, var(--card)); color:var(--up);
+              border-color:color-mix(in srgb, var(--up) 38%, var(--line)); }
+  .badge.probe { background:color-mix(in srgb, var(--warn) 15%, var(--card)); color:var(--warn);
+                 border-color:color-mix(in srgb, var(--warn) 38%, var(--line)); }
+  .vspecs { font-size:.79rem; color:var(--muted); font-variant-numeric:tabular-nums;
+            display:flex; flex-wrap:wrap; gap:.25rem .55rem; }
+  .vspecs span::after { content:"·"; margin-left:.55rem; opacity:.55; }
+  .vspecs span:last-child::after { content:""; margin:0; }
+  .vdesc { font-size:.85rem; color:var(--muted); margin:0; flex:1; line-height:1.5; }
+  .vlinks { display:flex; gap:.4rem; margin-top:.35rem; flex-wrap:wrap; }
+  .vlinks a { font-size:.76rem; font-weight:600; padding:.26rem .6rem; border-radius:6px;
+              background:var(--btn-bg); color:var(--fg); border:1px solid var(--line);
+              text-decoration:none; }
+  .vlinks a:hover { background:var(--accent); border-color:var(--accent); color:#fff; }
+
+  /* ---- comparison and docs ---- */
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
+          padding:1rem 1.2rem; }
+  .card h3 { font-size:.78rem; margin:0 0 .75rem; text-transform:uppercase;
+             letter-spacing:.08em; color:var(--muted); font-weight:650; }
+  .table-wrap { overflow-x:auto; }
+  .card table { width:100%; border-collapse:collapse; font-size:.85rem;
+                font-variant-numeric:tabular-nums; }
+  .card th, .card td { text-align:left; padding:.5rem .65rem; border-bottom:1px solid var(--line);
+                       white-space:nowrap; }
+  .card th { color:var(--muted); font-weight:600; font-size:.74rem; text-transform:uppercase;
+             letter-spacing:.05em; }
+  .card tr:last-child td { border-bottom:0; }
+  .card td a { color:var(--fg); text-decoration:none; }
+  .card td a:hover { color:var(--accent); }
+  .cols { display:grid; gap:1rem; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));
+          margin-top:1rem; }
+  .doc-list { list-style:none; padding:0; margin:0; display:grid; gap:.45rem; font-size:.88rem; }
+  .doc-list li { display:flex; justify-content:space-between; gap:.75rem; align-items:baseline; }
+  .doc-list a { text-decoration:none; }
+  .doc-list small { color:var(--muted); font-size:.78rem; text-align:right; }
+
   .row { display:flex; flex-wrap:wrap; gap:1rem; }
   .row figure { margin:0; }
   .row figcaption { text-align:center; padding:.3rem; color:#aaa; font-size:.85rem;
                max-width:min(46vw,900px); }
   .row img { max-width:min(46vw,900px); height:auto; border-radius:8px;
         background:var(--card); }
-  #ts { color:#777; font-size:.8rem; font-weight:400; }
-  .nav { display:flex; flex-wrap:wrap; gap:.45rem; font-size:.85rem;
-         margin:.5rem 0 .8rem; }
-  .nav a { text-decoration:none; border:1px solid var(--line); border-radius:999px;
-           padding:.18rem .6rem; background:var(--card); }
   .status { background:var(--card); border:1px solid var(--line);
-            border-radius:8px; padding:.5rem .8rem; font-size:.85rem;
+            border-radius:10px; padding:.6rem .9rem; font-size:.85rem;
             color:#bbb; margin-bottom:.6rem; }
   .status .good { color:#8f8; } .status .bad { color:#f88; }
   .status .dim { color:#777; }
 
   /* ---- feed ---- */
+  .entry h4 { font-size:.85rem; color:#cfcfd6; margin:1rem 0 .35rem; }
   ol.feed { list-style:none; margin:0; padding:0; }
   .entry { border-left:2px solid var(--line); padding:0 0 0 .9rem;
            margin:0 0 .1rem; position:relative; }
@@ -1307,25 +1632,11 @@ INDEX_HTML = """<!DOCTYPE html>
      elements and shared class names (h1, h4, img, .warn) are scoped to the
      page's own parts so they don't leak into it */
   section.vw { margin-bottom:1rem; }
-</style></head><body>
+</style></head><body data-face="front">
 
-<h1>simple_earring <span id="ts"></span></h1>
-<div class="nav">
-  <a href="#status">status ↓</a>
-  <a href="#feed">updates ↓</a>
-  <a href="viewer/">viewer full page</a>
-  <a href="case/preview/" style="color:#c9f">TPU case</a>
-  <a href="rework/" style="color:#a88">R8 rework (retired)</a>
-  <a href="wear/" style="color:#9cf">wear log</a>
-  <a href="probe/" style="color:#f88">probe map</a>
-  <a href="review/" style="color:#fc6">layout review</a>
-  <a href="review/fixes.html" style="color:#8f8">fix pass</a>
-  <a href="earring.svg">schematic SVG</a>
-  <a href="earring-schematic.pdf">PDF</a>
-</div>
+{{GALLERY}}
 
-<!-- the board viewer first: the page is mostly looked at for the board -->
-<div id="board"></div>
+<h2 id="board">Variant A in the viewer</h2>
 {{VIEWER}}
 <div class="hint" style="margin:-.4rem 0 1.2rem">
   board viewer by pcbview from the board on disk
@@ -1355,6 +1666,18 @@ function refresh() {
 }
 setInterval(refresh, 15000);
 refresh();
+
+// the gallery's Front/Back buttons: which side's copper and silk the cards show
+for (const btn of document.querySelectorAll('[data-set-face]')) {
+  btn.addEventListener('click', () => {
+    const face = btn.dataset.setFace;
+    document.body.dataset.face = face;
+    for (const b of document.querySelectorAll('[data-set-face]'))
+      b.setAttribute('aria-pressed', String(b === btn));
+    for (const pill of document.querySelectorAll('[data-face-label]'))
+      pill.textContent = face === 'front' ? 'Front' : 'Back';
+  });
+}
 </script>
 </body></html>
 """
@@ -1546,7 +1869,8 @@ def write_index():
     # percent signs ("20-50%", "+50% over spec") and every one of them would
     # have to be doubled
     page = INDEX_HTML
-    for key, val in (("FEED", _feed_html()), ("STATUS", _status_html()),
+    for key, val in (("GALLERY", _gallery_html(_write_docs())),
+                     ("FEED", _feed_html()), ("STATUS", _status_html()),
                      ("VIEWER_BUILT", _viewer_built()),
                      ("VIEWER", _viewer_block(index))):
         page = page.replace("{{%s}}" % key, val)
