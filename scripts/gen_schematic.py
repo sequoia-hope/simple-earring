@@ -1003,8 +1003,25 @@ IC_SIDES = {
                   56, 57, 58, 59, 60, 1, 2, 3, 4, 5, 6])],
         "t": [("15", "PVCC"), ("25", "PVCC"), ("14", "AVCC")],
         "b": [("12", "GND"), ("36", "GND"), ("55", "GND"), ("61", "GND(EP)")]},
+    # Variant C. AW20198QNR (U11), pin map circuit.py AW_SW_PIN /
+    # AW_CS_PIN: bus and control on the left, the matrix lines on the right.
+    "matrix_driver_aw": {
+        "l": [("28", "SDA"), ("27", "SCL"), ("26", "EN"), None,
+              ("29", "ISET"), ("25", "AD0"), ("24", "AD1"), None,
+              ("30", "SYNC")],
+        "r": [(str(n), f"SW{k}") for k, n in
+              ((1, 6), (2, 4), (3, 7), (4, 3), (5, 8), (6, 2), (7, 9),
+               (8, 1), (9, 10), (10, 40), (11, 11))] + [None]
+             + [(str(n), f"CS{k}") for k, n in zip(
+                 range(1, 19), [39, 38, 37, 36, 35, 34, 33, 32, 31,
+                                21, 20, 19, 18, 17, 15, 14, 13, 12])],
+        "t": [("5", "PVCC"), ("22", "VCC")],
+        "b": [("23", "GND"), ("16", "PGND"), ("41", "GND(EP)")]},
     # XL-1010RGB-YG: pad 3 common anode on top, cathodes R/G/B below.
     "rgb_led": {"t": [("3", "A")], "b": [("1", "R"), ("2", "G"), ("4", "B")]},
+    # XL-1615RGBC-RF: pad 2 common anode on top, cathodes R/G/B below.
+    "rgb_led_1615": {"t": [("2", "A")],
+                     "b": [("1", "R"), ("3", "G"), ("4", "B")]},
     # 74LVC2G14 (U8): 1A -> 1Y feeds 2A -> 2Y. 1Y and 2A sit next to each
     # other on the right so the LONG_N link is a two-pin bracket, and 2Y
     # leaves below it.
@@ -2265,13 +2282,104 @@ def blk_driver(s, cir, bk, x, y):
     return u
 
 
+def blk_driver_aw(s, cir, bk, x, y):
+    """Variant C: the AW20198QNR, its I2C0/EN to the MCU and REXT. (x, y) is
+    U11's centre. The matrix lines leave on the right as labels that the
+    matrix block picks up; unused SW/CS pins are NC."""
+    s.begin("LED matrix driver — AW20198QNR (variant C)")
+    hw, hh = s.defs["matrix_driver_aw"].extent
+    u = put(s, cir, "U11", x, y, hide_value=True, ref_off=(-hw, -hh - 9.0))
+    pins = cir.components["U11"].pins
+    # PVCC and VCC up to one VSYS rail (ds note 2: the same supply)
+    yr = u["5"][1] - 7.62
+    for p in ("5", "22"):
+        bk.take("U11", p, "VSYS")
+        s.wire(u[p], (u[p][0], yr))
+    s.wire((u["5"][0], yr), (u["22"][0], yr))
+    s.wire((u["5"][0], yr), (u["5"][0], yr - 3.81))
+    s.junction((u["5"][0], yr))
+    s.rail("VSYS", (u["5"][0], yr - 3.81))
+    # grounds joined under the chip
+    gnd = ("23", "16", "41")
+    yg = u["23"][1] + 3.81
+    for p in gnd:
+        bk.take("U11", p, "GND")
+        s.wire(u[p], (u[p][0], yg))
+    s.wire((u[gnd[0]][0], yg), (u[gnd[-1]][0], yg))
+    for p in gnd[1:-1]:
+        s.junction((u[p][0], yg))
+    s.wire((u[gnd[-1]][0], yg), (u[gnd[-1]][0], yg + 3.81))
+    s.junction((u[gnd[-1]][0], yg))
+    s.rail("GND", (u[gnd[-1]][0], yg + 3.81))
+    # left: bus + EN. Pull-ups as their own row above the chip, each joined
+    # by its net label (see blk_driver).
+    xl = u["28"][0] - 48.26
+    for p, net in (("28", "DRV_SDA"), ("27", "DRV_SCL")):
+        bk.take("U11", p, net)
+        s.wire(u[p], (xl, u[p][1]))
+        s.glabel(net, (xl, u[p][1]), rot=180, just="right")
+    for k, (p, rref) in enumerate((("28", "R38"), ("27", "R39"))):
+        net = cir.components[rref].pins["1"]
+        s.label(net, (u[p][0] - 7.62, u[p][1]), size=1.0)
+        xr = u["28"][0] - 40.64 + 10.16 * k
+        yb = yr - 20.32
+        r = put(s, cir, rref, xr, yb - 3.81, rot=180)
+        bk.take(rref, "1", net)
+        bk.take(rref, "2", "3V3")
+        s.wire(r["1"], (xr, yb + 2.54))
+        s.label(net, (xr, yb + 2.54), rot=270, size=1.0)
+        s.wire(r["2"], (xr, r["2"][1] - 3.81))
+        s.rail("3V3", (xr, r["2"][1] - 3.81))
+    # EN: from the MCU, 100n to GND (ds Figure 1 C5); the 1M pull-down is inside
+    bk.take("U11", "26", "DRV_EN")
+    s.wire(u["26"], (xl, u["26"][1]))
+    s.glabel("DRV_EN", (xl, u["26"][1]), rot=180, just="right")
+    xs = u["26"][0] - 30.48
+    s.junction((xs, u["26"][1]))
+    vdrop(s, cir, bk, "C87", xs, u["26"][1], "GND")
+    # ISET (REXT) and the address straps
+    bk.take("U11", "29", "DRV_ISET")
+    xi = u["29"][0] - 15.24
+    s.wire(u["29"], (xi, u["29"][1]))
+    s.label("DRV_ISET", (u["29"][0] - 8.89, u["29"][1]), size=0.9)
+    vdrop(s, cir, bk, "R35", xi, u["29"][1], "GND")
+    xa = u["25"][0] - 3.81
+    for p in ("25", "24"):
+        bk.take("U11", p, "GND")
+        s.wire(u[p], (xa, u[p][1]))
+    s.wire((xa, u["25"][1]), (xa, u["24"][1] + 3.81))
+    s.junction((xa, u["24"][1]))
+    s.rail("GND", (xa, u["24"][1] + 3.81))
+    # right: matrix lines as labels; unused pins (SYNC too) NC
+    for p, net in pins.items():
+        if ("U11", p) in bk.seen:
+            continue
+        if net == "":
+            bk.take("U11", p, "")
+            s.nc(u[p])
+        elif net.startswith(("SW", "CS")):
+            bk.take("U11", p, net)
+            s.wire(u[p], (u[p][0] + 5.08, u[p][1]))
+            s.label(net, (u[p][0] + 5.08, u[p][1]), size=1.0)
+    s.note("AD0/AD1 to GND: I2C address 0x20. EN's internal 1M pull-down "
+           "holds the driver in standby (1.3uA) until firmware raises GPIO18. "
+           "REXT sets Imax = 400 V / REXT; GCC and per-LED SL set the dim "
+           "range (design/parts/aw20198qnr.md).",
+           x - hw - 20.32, y + hh + 15.24, 70.0)
+    s.end()
+    return u
+
+
 def blk_matrix(s, cir, bk, design, x, y, pitch=22.86, rowh=27.94):
     """Variant B: the LEDs as their SW x CS grid. One row per SW line (its
     anodes on one wire), three CS labels under each LED."""
-    from circuit import led_matrix
+    from circuit import led_matrix, RGB_LEDS
     lm = led_matrix(design)
+    led = RGB_LEDS[design["leds"].get("part", "rgb_led")]
+    pa = str(led["pin"]["A"])
+    pk = [str(led["pin"][c]) for c in "RGB"]
     nsw = max(sw for sw, _ in lm.values())
-    s.begin(f"LED matrix — {len(lm)} x XL-1010RGB, {nsw} SW x "
+    s.begin(f"LED matrix — {len(lm)} x {led['value']}, {nsw} SW x "
             f"{3 * design['leds']['matrix']['per_sw']} CS")
     rows = {}
     for i, (sw, cs) in sorted(lm.items()):
@@ -2282,12 +2390,12 @@ def blk_matrix(s, cir, bk, design, x, y, pitch=22.86, rowh=27.94):
             ref = f"LED{i}"
             xi = x + k * pitch
             p = put(s, cir, ref, xi, cy, hide_value=True, ref_off=(3.0, -6.5))
-            ya = p["3"][1] - 3.81
-            bk.take(ref, "3", f"SW{sw}")
-            s.wire(p["3"], (p["3"][0], ya))
+            ya = p[pa][1] - 3.81
+            bk.take(ref, pa, f"SW{sw}")
+            s.wire(p[pa], (p[pa][0], ya))
             if k < len(leds) - 1:   # the row wire starts left of LED 0
-                s.junction((p["3"][0], ya))
-            for pin, c in zip(("1", "2", "4"), cs):
+                s.junction((p[pa][0], ya))
+            for pin, c in zip(pk, cs):
                 bk.take(ref, pin, f"CS{c}")
                 s.wire(p[pin], (p[pin][0], p[pin][1] + 3.81))
                 s.label(f"CS{c}", (p[pin][0], p[pin][1] + 3.81), rot=270,
@@ -2365,7 +2473,14 @@ def build_sheet(design, cir):
                        and 30 <= int(r[1:]) < 75
                        and cir.components[r].pins.get("1") == rail),
                       key=lambda r: int(r[1:]))  # C75+ are not ring caps
-    if matrix:
+    if matrix and cir.components["U11"].value == "AW20198QNR":
+        blk_driver_aw(s, cir, bk, 250.0, 440.0)
+        blk_bank(s, cir, bk, "Driver supply — 1u + 100n at PVCC and at VCC, "
+                 "bulk on VSYS", ["C80", "C81", "C82", "C83", "C86"],
+                 310.0, 330.0, "VSYS", pitch=11.43,
+                 note="at U11's PVCC (5) and VCC (22) pins")
+        blk_matrix(s, cir, bk, design, 42.0, 336.0)
+    elif matrix:
         blk_driver(s, cir, bk, 250.0, 440.0)
         blk_bank(s, cir, bk, "Driver supply — 1u + 100n per PVCC/AVCC pin, "
                  "bulk on VSYS", ["C80", "C81", "C82", "C83", "C84", "C85",

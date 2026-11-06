@@ -152,6 +152,14 @@ MATRIX = {
     "R35": (-8.75, -5.25, 0, True), "R36": (-1.00, -7.25, 0, True), "R37": (6.50, 0.50, 0, True), "R38": (-3.50, -9.50, 0, True), "R39": (-7.50, -9.75, 0, True),
 }
 
+# Variant C: the AW20198QNR (QFN-40 5 x 5) and its support parts, same form
+# as MATRIX. None = parked off-board until scanned.
+MATRIX_AW = {
+    "U11": (-10.75, 0.75, 0, True),
+    "C80": (-14.25, -1.00, 90, True), "C81": (-14.25, 1.00, 90, True), "C82": (-8.50, -2.75, 0, True), "C83": (-7.25, -0.75, 90, True), "C86": (-11.25, 4.50, 0, True),
+    "C87": (-6.75, 0.75, 0, True), "R35": (-7.25, 2.25, 90, True), "R38": (-6.00, 2.25, 90, True), "R39": (-8.50, 4.25, 0, True),
+}
+
 
 def mm(v):
     return pcbnew.FromMM(v)
@@ -260,9 +268,21 @@ def main():
     if matrix:
         # Variant B: no data chain to follow, so one quarter-turn for the
         # whole ring (design.b.yaml leds.matrix.led_k), chosen for routing.
+        # led_angle: the LED's square to the tangent (0) or diagonal (45, as
+        # the WS2816C chain sits). Variant C's 1.6 x 1.5 mm XL-1615 at 2.44 mm
+        # pitch only clears JLC's 0.15 mm pad gap square-on.
         k = design["leds"]["matrix"].get("led_k", 0)
+        base = design["leds"]["matrix"].get("led_angle", 45.0)
+        legs = [(sx * 4.33, sy) for sx in (-1, 1) for sy in (-14.88, -19.06)]
         for i in range(1, n + 1):
-            place(fps[f"LED{i}"], *pts[i - 1], rot=(45.0 + 90.0 * k - pthetas[i - 1]))
+            rot = base + 90.0 * k - pthetas[i - 1]
+            if design["leds"]["matrix"].get("led_angle") is not None and any(
+                    math.hypot(pts[i - 1][0] - lx, pts[i - 1][1] - ly) < 3.2
+                    for lx, ly in legs):
+                # Beside a USB shell leg (1.2 x 2.0 oval): square to the
+                # board, so the pads sit in the 2.28 mm slot between the legs.
+                rot = 90.0 * round(rot / 90.0)
+            place(fps[f"LED{i}"], *pts[i - 1], rot=rot)
         ks = {"all": k}
     for z, chain in ({} if matrix else led_zones(design)).items():
         best = None
@@ -678,7 +698,8 @@ def main():
                 place(fps[ref], -30 - 4 * (i % 6), -20 + 4 * (i // 6), back=True)
             else:
                 place(fps[ref], *spot[:3], back=spot[3])
-    for i, (ref, spot) in enumerate(MATRIX.items()):
+    aw = "U11" in fps and fps["U11"].GetValue() == "AW20198QNR"
+    for i, (ref, spot) in enumerate((MATRIX_AW if aw else MATRIX).items()):
         if ref not in fps:
             continue
         if spot is None:
@@ -705,7 +726,7 @@ def resolve_overlaps(board, fps, max_iter=300):
     # board, and a relaxer nudge silently invalidates that (R20's scanned
     # spot was legal until relaxation slid it 0.8mm into R16).
     EXEMPT = {"R4", "R5", "R8", "C11", "C12", "R13", "C22",
-              "R19", "R20", "R21", "R22", "R23", "C29"} | set(ONEBTN) | set(ZONES) | set(BACK) | set(MATRIX) | set(MATRIX_MOVED)
+              "R19", "R20", "R21", "R22", "R23", "C29"} | set(ONEBTN) | set(ZONES) | set(BACK) | set(MATRIX) | set(MATRIX_AW) | set(MATRIX_MOVED)
 
     def movable(ref):
         if ref in EXEMPT:

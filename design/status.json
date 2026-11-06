@@ -2,7 +2,7 @@
   "schema": 1,
   "board": "earring",
   "phase": 7,
-  "doing": "2026-11-03: gate 7 PASSED. Parts are off the silk art (the name moved west of U1, with the user's OK); the RP2350 core supply follows the official layout; DRC 0/0 on ultraroute 99bb7ca seed 2. The dashboard shows the pcbview viewer (battery in 3D).",
+  "doing": "2026-11-05: variant C started (AW20198QNR driver + XL-1615 LEDs, from round-pendant's low-density parallelogram boards): parts audited, circuit + schematic (77 nets verified), placed with DRC 0 errors; not routed. Variant A stays the gate-7-passed board (DRC 0/0, ultraroute 99bb7ca seed 2).",
   "needs_user": [],
   "checks": {
     "DRC": {
@@ -44,6 +44,16 @@
       "result": "no part, pad or silk on the name, URL or other art",
       "ok": true,
       "gate": 6
+    },
+    "variant C placement": {
+      "result": "0 DRC errors, placed-board only (2026-11-05)",
+      "ok": true,
+      "gate": 6
+    },
+    "variant C schematic netlist": {
+      "result": "77 nets match circuit.py (gen_schematic.py round-trip)",
+      "ok": true,
+      "gate": 2
     }
   },
   "gates": {
@@ -100,6 +110,10 @@
     {
       "title": "ultraroute requests",
       "href": "design/ultraroute-requests.md"
+    },
+    {
+      "title": "variant C (AW20198 + XL-1615)",
+      "href": "design/variant-c.md"
     }
   ],
   "apps": {
@@ -126,5 +140,5 @@
       }
     }
   },
-  "updated": "2026-11-03T12:00:00-08:00"
+  "updated": "2026-11-05T19:30:00-08:00"
 }

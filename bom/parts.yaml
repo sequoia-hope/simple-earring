@@ -489,3 +489,15 @@ rgb_led:
   lcsc: C965834
   footprint: LED_XL-1010RGB
   verified: pending      # 2026-11-03: JLC 12,478 stock, $0.031@100; audit design/parts/xl-1010rgb.md
+
+# ---- variant C (AW20198QNR matrix + XL-1615 LEDs, from round-pendant's parallelogram family) ----
+matrix_driver_aw:
+  mpn: AW20198QNR
+  lcsc: C5137654
+  footprint: QFN-40-1EP_5x5mm_P0.4mm_EP3.4x3.4mm
+  verified: pending      # 2026-11-05: JLC 6,055 stock, normal, ~$0.78-0.89@10; audit design/parts/aw20198qnr.md
+rgb_led_1615:
+  mpn: XL-1615RGBC-RF
+  lcsc: C965840
+  footprint: LED_XL-1615RGBC
+  verified: pending      # 2026-11-05: JLC 718,328 stock, normal, ~$0.014-0.016; audit design/parts/xl-1615rgbc.md

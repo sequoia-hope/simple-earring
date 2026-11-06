@@ -225,8 +225,11 @@ def build_circuit(design=None):
         # (LED_EN_R/C) come free.
         u1[GPIO[GP_LED_DATA_C]] = "DRV_SDA"
         u1[GPIO[GP_LED_DATA_R]] = "DRV_SCL"
-        u1[GPIO[GP_LED_DATA]] = "DRV_SDB"
-        u1[GPIO[GP_LED_EN]] = "DRV_INTB"
+        if matrix_driver(design)["value"] == "AW20198QNR":
+            u1[GPIO[GP_LED_DATA]] = "DRV_EN"   # no INTB: GPIO1 comes free
+        else:
+            u1[GPIO[GP_LED_DATA]] = "DRV_SDB"
+            u1[GPIO[GP_LED_EN]] = "DRV_INTB"
     else:
         u1[GPIO[GP_LED_DATA]] = "LED_DATA_L"  # -> Q3 gate, NOT the ring directly
         u1[GPIO[GP_LED_DATA_R]] = "LED_DATA_R"
@@ -791,8 +794,34 @@ DRV_CS_PIN = dict(zip(range(1, 40),
                       [26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 37, 38, 39, 40,
                        41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54,
                        56, 57, 58, 59, 60, 1, 2, 3, 4, 5, 6]))
+# AW20198QNR QFN-40 pin map (Awinic ds V1.3 p.2-3, design/parts/aw20198qnr.md):
+# the SW lines interleave down the west side (SW10/SW11 at the corners), CS1-9
+# run along the north, CS10-14 up the south-east, CS15-18 along the south-west.
+AW_SW_PIN = {1: 6, 2: 4, 3: 7, 4: 3, 5: 8, 6: 2, 7: 9, 8: 1, 9: 10, 10: 40, 11: 11}
+AW_CS_PIN = dict(zip(range(1, 19),
+                     [39, 38, 37, 36, 35, 34, 33, 32, 31,
+                      21, 20, 19, 18, 17, 15, 14, 13, 12]))
+# design.<v>.yaml leds.matrix.driver -> bom part, value, SW/CS pins, matrix size
+DRIVERS = {
+    "is31fl3741a": {"part": "matrix_driver", "value": "IS31FL3741A",
+                    "sw": DRV_SW_PIN, "cs": DRV_CS_PIN},
+    "aw20198": {"part": "matrix_driver_aw", "value": "AW20198QNR",
+                "sw": AW_SW_PIN, "cs": AW_CS_PIN},
+}
 # XL-1010RGB-YG (XINGLIGHT ds p.8): pad 3 is the common anode, 1 R, 2 G, 4 B.
 RGB_PIN = {"A": 3, "R": 1, "G": 2, "B": 4}
+# design.<v>.yaml leds.part -> value and pads. XL-1615RGBC-RF (ds p.8): pad 2
+# is the common anode, 1 R, 3 G, 4 B -- NOT the XL-1010's order.
+RGB_LEDS = {
+    "rgb_led": {"value": "XL-1010RGB", "pin": RGB_PIN},
+    "rgb_led_1615": {"value": "XL-1615RGBC",
+                     "pin": {"A": 2, "R": 1, "G": 3, "B": 4}},
+}
+
+
+def matrix_driver(design):
+    """The DRIVERS entry this variant uses (IS31FL3741A unless it says)."""
+    return DRIVERS[design["leds"]["matrix"].get("driver", "is31fl3741a")]
 
 
 def led_matrix(design):
@@ -822,37 +851,60 @@ def led_matrix(design):
 
 
 def add_matrix(c, design):
-    """Variant B: one IS31FL3741A driving the LEDs as a SW x CS matrix."""
+    """Variant B+: one matrix driver driving the LEDs as a SW x CS matrix."""
     m = design["leds"]["matrix"]
+    drv = matrix_driver(design)
     used_cs = 3 * m["per_sw"]
-    pins = {
-        9: "DRV_SDA", 10: "DRV_SCL", 7: "DRV_INTB", 11: "DRV_SDB",
-        13: "DRV_ISET", 8: "GND",            # ADDR to GND: address 0x30
-        15: "VSYS", 25: "VSYS", 14: "VSYS",  # PVCC, PVCC, AVCC
-        12: "GND", 36: "GND", 55: "GND", 61: "GND",  # 61 = exposed pad
-    }
-    for i, pin in DRV_SW_PIN.items():
+    if drv["value"] == "AW20198QNR":
+        pins = {
+            28: "DRV_SDA", 27: "DRV_SCL", 26: "DRV_EN",
+            29: "DRV_ISET", 30: "",              # SYNC: 1M pull-down inside
+            24: "GND", 25: "GND",                # AD1, AD0 to GND: address 0x20
+            5: "VSYS", 22: "VSYS",               # PVCC, VCC (same rail, ds note 2)
+            16: "GND", 23: "GND", 41: "GND",     # PGND, GND, exposed pad
+        }
+    else:
+        pins = {
+            9: "DRV_SDA", 10: "DRV_SCL", 7: "DRV_INTB", 11: "DRV_SDB",
+            13: "DRV_ISET", 8: "GND",            # ADDR to GND: address 0x30
+            15: "VSYS", 25: "VSYS", 14: "VSYS",  # PVCC, PVCC, AVCC
+            12: "GND", 36: "GND", 55: "GND", 61: "GND",  # 61 = exposed pad
+        }
+    for i, pin in drv["sw"].items():
         pins[pin] = f"SW{i}" if i <= m["sw"] else ""
-    for i, pin in DRV_CS_PIN.items():
+    for i, pin in drv["cs"].items():
         pins[pin] = f"CS{i}" if i <= used_cs else ""
-    c.add("U11", "matrix_driver", "IS31FL3741A", pins)
-    # Support parts, ds Figure 2: 1u + 100n at each PVCC and at AVCC, bulk
-    # on PVCC, RISET, SDB RC to GND, INTB pull-up, I2C0 pull-ups.
-    for cref, val, part in (("C80", "1u", "c_1u"), ("C81", "100n", "c_100n"),
-                            ("C82", "1u", "c_1u"), ("C83", "100n", "c_100n"),
-                            ("C84", "1u", "c_1u"), ("C85", "100n", "c_100n"),
-                            ("C86", m["bulk"], m["bulk_part"])):
-        c.add(cref, part, val, {1: "VSYS", 2: "GND"})
-    c.add("R35", m["riset_part"], m["riset"], {1: "DRV_ISET", 2: "GND"})
-    c.add("R36", "r_100k", "100k", {1: "DRV_SDB", 2: "GND"})   # off at boot
-    c.add("C87", "c_100n", "100n", {1: "DRV_SDB", 2: "GND"})
-    c.add("R37", "r_100k", "100k", {1: "DRV_INTB", 2: "3V3"})
+    c.add("U11", drv["part"], drv["value"], pins)
+    if drv["value"] == "AW20198QNR":
+        # ds Figure 1 / p.35: 1u + 0.1u at PVCC and at VCC, bulk on PVCC,
+        # REXT on ISET, a cap on EN; I2C pull-ups. No INTB pin, and EN has
+        # its own 1M pull-down (ds p.3), so the IS31's R36/R37 have no job.
+        for cref, val, part in (("C80", "1u", "c_1u"), ("C81", "100n", "c_100n"),
+                                ("C82", "1u", "c_1u"), ("C83", "100n", "c_100n"),
+                                ("C86", m["bulk"], m["bulk_part"])):
+            c.add(cref, part, val, {1: "VSYS", 2: "GND"})
+        c.add("R35", m["riset_part"], m["riset"], {1: "DRV_ISET", 2: "GND"})
+        c.add("C87", "c_100n", "100n", {1: "DRV_EN", 2: "GND"})
+    else:
+        # Support parts, ds Figure 2: 1u + 100n at each PVCC and at AVCC, bulk
+        # on PVCC, RISET, SDB RC to GND, INTB pull-up, I2C0 pull-ups.
+        for cref, val, part in (("C80", "1u", "c_1u"), ("C81", "100n", "c_100n"),
+                                ("C82", "1u", "c_1u"), ("C83", "100n", "c_100n"),
+                                ("C84", "1u", "c_1u"), ("C85", "100n", "c_100n"),
+                                ("C86", m["bulk"], m["bulk_part"])):
+            c.add(cref, part, val, {1: "VSYS", 2: "GND"})
+        c.add("R35", m["riset_part"], m["riset"], {1: "DRV_ISET", 2: "GND"})
+        c.add("R36", "r_100k", "100k", {1: "DRV_SDB", 2: "GND"})   # off at boot
+        c.add("C87", "c_100n", "100n", {1: "DRV_SDB", 2: "GND"})
+        c.add("R37", "r_100k", "100k", {1: "DRV_INTB", 2: "3V3"})
     c.add("R38", m["i2c_pullup_part"], m["i2c_pullup"], {1: "DRV_SDA", 2: "3V3"})
     c.add("R39", m["i2c_pullup_part"], m["i2c_pullup"], {1: "DRV_SCL", 2: "3V3"})
+    led = RGB_LEDS[design["leds"].get("part", "rgb_led")]
+    lp = led["pin"]
     for i, (sw, (r, g, b)) in led_matrix(design).items():
-        c.add(f"LED{i}", "rgb_led", "XL-1010RGB",
-              {RGB_PIN["A"]: f"SW{sw}", RGB_PIN["R"]: f"CS{r}",
-               RGB_PIN["G"]: f"CS{g}", RGB_PIN["B"]: f"CS{b}"})
+        c.add(f"LED{i}", design["leds"].get("part", "rgb_led"), led["value"],
+              {lp["A"]: f"SW{sw}", lp["R"]: f"CS{r}",
+               lp["G"]: f"CS{g}", lp["B"]: f"CS{b}"})
 
 
 if __name__ == "__main__":

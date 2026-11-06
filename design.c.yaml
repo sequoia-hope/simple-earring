@@ -1,0 +1,25 @@
+# Variant C overlay: merged over design.yaml when EARRING_VARIANT=c
+# (python3 build.py --variant c). Variant B with round-pendant's low-density
+# parallelogram parts: the AW20198QNR (QFN-40 5x5, 18 CS x 11 SW) in place of
+# the IS31FL3741A, and the XL-1615RGBC-RF (1.6 x 1.5 mm) in place of the
+# XL-1010. design/variant-c.md has the why.
+leds:
+  drive: matrix          # one AW20198QNR (U11) driving plain RGB LEDs
+  part: rgb_led_1615     # XL-1615RGBC-RF, common anode on pad 2
+  matrix:
+    driver: aw20198      # circuit.py DRIVERS
+    sw: 9                # SW lines scanned (GCR.SWSEL = 1000) -> duty 0.0984
+    per_sw: 5            # LEDs per SW line -> 15 of the 18 CS lines used
+    bus: sw              # 9-line SW bus round the ring, CS triplets local
+                         # to 9-LED arcs (as variant B's best map)
+    bus_rings: false
+    led_angle: 0         # square to the tangent: at 45 deg the 1.6 x 1.5 mm
+                         # bodies leave ~0.1 mm pad to pad at 2.44 mm pitch
+    riset: 47k           # REXT: Imax = 400/47k = 8.5 mA (design/parts/aw20198qnr.md)
+    riset_part: r_47k
+    bulk: 10u            # PVCC bulk
+    bulk_part: c_10u_0603
+    i2c_pullup: 4.7k     # I2C0, 400 kHz (ds p.11: 4.7k for 400 kHz)
+    i2c_pullup_part: r_4k7
+board:
+  layers: 4              # the 4-layer target; B only got to 8-10 open on 6

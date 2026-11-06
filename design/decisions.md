@@ -592,3 +592,21 @@ The user asked for parts off their name (front) and off the repo URL (back).
 ## 2026-11-03: route reproducibility
 
 Ultraroute traced a non-reproducing seed to the board file's item order, which feeds its connection order. gen_board.py and place.py create items with random KiCad UUIDs, and KiCad saves sorted by UUID, so every board/place regeneration reshuffles the file. route.py already seeds UUIDs (eee01cd). Next: seed them in gen_board/place too, then re-sweep, optionally with ultraroute's `--cpu-clock` (main cd0a82a) to remove wall-clock load dependence. Until then the recipe's seed holds only for the committed board.
+
+## 2026-11-05 — variant C: AW20198QNR driver and XL-1615 LEDs
+
+The user asked to adopt round-pendant's low-density parallelogram driver and its larger LED for the matrix work. That
+became a new variant, C, so B (IS31FL3741A + XL-1010) stays as the user last saw it. `design/variant-c.md` has the
+comparison.
+- **Datasheets re-read for both parts.**
+  - The AW20198 pin map matches round-pendant's audit.
+  - Its land pattern does not: p.38 gives 0.50 mm pads, where round-pendant's footprint used 0.60 mm. So our footprint
+    is written from p.38.
+  - The XL-1615's anode is pad 2, not pad 3 as on the XL-1010. `circuit.py` now keys the pad map by LED part.
+- **REXT 47 k (8.51 mA peak).** That's within 5 % of B's current, and full white is 113 mA, so it stays under the cell's
+  140 mA even with a firmware bug. Rejected: 39 k (10.3 mA), which would help the weak red but breaks the cell budget.
+- **R36 and R37 dropped.** The AW20198 has an internal 1 MΩ EN pull-down and no INTB pin.
+- **LEDs square to the ring tangent.** At B's 45° the 1.6 mm parts leave ~0.1 mm pad to pad, under JLC's 0.15 mm. The four
+  LEDs beside J1's shell legs snap to the nearest 90° to fit the 2.28 mm slot between the legs.
+- **Same 9 × 15 matrix map as B.** That keeps the driver swap the only variable. Alternative: 8 SW × 18 CS (an 8-line bus,
+  1/8 duty), to try if 4-layer routing falls short.

@@ -57,3 +57,10 @@ rotate = [0, 0, -90]
 path = "/usr/share/kicad/demos/royalblue54L_feather/lib/3dmodels/Connector_USB.3dshapes/USB_C_Receptacle_HRO_TYPE-C-31-M-12.STEP"
 offset = [0, -1.42, 0]
 rotate = [0, 0, 0]
+
+[[boards]]
+id = "earring-c"
+name = "earring, variant C (AW20198QNR matrix, XL-1615 LEDs)"
+pcb = "hw/earring/c/earring.kicad_pcb"
+sch = "hw/earring/c/earring.kicad_sch"
+note = "From variant B: round-pendant's low-density driver (AW20198QNR, QFN-40 5x5) and the 1.6 x 1.5 mm XL-1615RGBC LED, 45 LEDs on a 9 SW x 15 CS matrix. Placed, not routed (2026-11-05). design/variant-c.md."
