@@ -11,8 +11,9 @@ Paths in EXCLUDE never go, and links to anything left out are dropped from the c
 pages so the site has no dead links. Don't hold data back on a guess that it's private:
 ask the user.
 
-gh-pages holds only the site (one commit per publish, on top of the last), the way
-round-pendant publishes. Run `python3 scripts/render.py --index-only` and rebuild the
+gh-pages holds only the site (one commit per publish, on top of the last) plus the
+deploy workflow (scripts/pages-deploy.yml, copied in as .github/workflows/pages.yml):
+Pages builds from GitHub Actions, not the legacy branch builder, which hung on this repo. Run `python3 scripts/render.py --index-only` and rebuild the
 viewer first; this copies what is on disk.
 """
 import re
@@ -93,6 +94,9 @@ def assemble():
                 dropped.append(f"{rel}: {m.group(1)}")
         page.write_text(n)
     (SITE / ".nojekyll").write_text("")
+    wf = SITE / ".github" / "workflows"
+    wf.mkdir(parents=True)
+    shutil.copy2(ROOT / "scripts" / "pages-deploy.yml", wf / "pages.yml")
     size = sum(f.stat().st_size for f in SITE.rglob("*") if f.is_file())
     print(f"site: {SITE.relative_to(ROOT)}, {len(list(SITE.rglob('*')))} entries, "
           f"{size / 1e6:.1f} MB")

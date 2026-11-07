@@ -1,0 +1,30 @@
+# GitHub Pages deploy for the gh-pages branch. publish_pages.py copies this file into the
+# site as .github/workflows/pages.yml on every publish (a push runs the workflow file on the
+# pushed branch, so it has to live on gh-pages). upload-pages-artifact leaves .github out of
+# the site.
+name: Deploy Pages
+on:
+  push:
+    branches: [gh-pages]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deploy
+        uses: actions/deploy-pages@v4
