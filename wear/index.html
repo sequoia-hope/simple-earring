@@ -1,0 +1,58 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>earring wear log — stand / walk / dance</title>
+<style>
+  body { font: 15px/1.55 system-ui, sans-serif; margin: 0 auto; padding: 24px;
+         max-width: 1200px; color: #1b2733; background: #fff; }
+  h1 { font-size: 21px; margin: 0 0 4px; }
+  .sub { color: #667; margin-bottom: 20px; }
+  img { width: 100%; height: auto; border: 1px solid #dde3ea; border-radius: 6px; }
+  table { border-collapse: collapse; margin: 18px 0; font-size: 14px; }
+  th, td { padding: 6px 14px 6px 0; text-align: left; border-bottom: 1px solid #eef1f5; }
+  th { color: #667; font-weight: 600; }
+  code { background: #f3f5f8; padding: 1px 5px; border-radius: 3px; font-size: 13px; }
+  .note { background: #f7f9fc; border-left: 3px solid #4a7fb5; padding: 10px 14px;
+          margin: 18px 0; }
+  .warn { border-left-color: #c0392b; }
+</style>
+
+<h1>simple_earring — wear log, session w0002</h1>
+<div class="sub">Aug 25 2026 · worn on the ear · stand / walk / dance, ~50 s each ·
+  1389 records at 10 Hz · <a href="w0002.csv">w0002.csv</a> ·
+  <a href="w0001.csv">w0001.csv</a> (29 s handling)</div>
+
+<img src="wear-w0002.png" alt="wear log plots">
+
+<h2>Measured per activity</h2>
+<table>
+  <tr><th>activity</th><th>motion (p10–p90)</th><th>jolt_max median / p90</th>
+      <th>steps found</th><th>dark (nap)</th></tr>
+  <tr><td>standing</td><td>25 – 30</td><td>26 / 35</td><td>0</td><td>75%</td></tr>
+  <tr><td>walking</td><td>84 – 159</td><td>66 / 281</td><td>30 (0.6/s)</td><td>51%</td></tr>
+  <tr><td>dancing</td><td>491 – 925</td><td>582 / 1371</td><td>98 (2.0/s)</td><td>18%</td></tr>
+</table>
+
+<div class="note">
+  <strong>The classifier is free.</strong> The existing <code>motion</code>
+  envelope separates all three activities with no overlap whatsoever — walking's
+  p90 is 159, dancing's p10 is 491. Thresholds now in firmware:
+  <code>MOTION_WALK = 50</code>, <code>MOTION_DANCE = 350</code>.
+</div>
+
+<div class="note warn">
+  <strong>Bug the log exposed:</strong> on a flat cell the charge gauge computed
+  0% → a zero-length arc → a completely <em>dark</em> board while charging.
+  Fixed: the arc is floored at two lit pixels, so "charging" always shows.
+</div>
+
+<h2>Changes this data drove</h2>
+<ul>
+  <li><code>STEP_JOLT</code> 140 → 90 — the old threshold caught ~0.6 steps/s of
+      real ~1.8/s walking; standing sits at 26 median, so 90 keeps ~3× margin.</li>
+  <li>Nap length is now tiered by activity instead of one moving/at-rest flag:
+      still 25 s, walking 5 s, dancing 2 s. Walking was being napped through
+      ~50% of the time — exactly when people see it.</li>
+  <li>A nap started while still now shortens if you start moving mid-nap.</li>
+  <li>Log rate steps 10 Hz → 1 Hz after 3 minutes so a full battery run-down
+      fits the partition.</li>
+</ul>
