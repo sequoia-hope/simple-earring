@@ -1,10 +1,15 @@
 # simple_earring
 
-Co-designed LED earring: RP2350A + external QSPI flash, a rechargeable 2032 coin
-cell, and 45 SK6805-EC10 addressable RGB LEDs around the periphery and in an
-interior octagon. Ø30.5mm teardrop, 4-layer, JLCPCB rules, all parts from LCSC.
-There is an IMU, an ambient light sensor, USB-C charging, and a generated TPU
-clip-on case.
+Co-designed LED earring: a Ø30.5 mm teardrop, 4-layer board with an RP2350A and external QSPI
+flash in the middle and 45 RGB LEDs on two rings round it (37 on the outer ring, 8 inside). It runs
+from a small LiPo cell (LPR302823) on the back and charges over USB-C. One button does both power
+(a soft latch) and BOOTSEL. There is also an IMU, an ambient light sensor and a generated TPU clip-on
+case. JLCPCB rules, all parts from LCSC.
+
+The current board (rev 3, variant A) uses 45 WS2816C-1313 addressable pixels split into three
+switched zones. Variants B–F study a cheaper build that drives plain RGB LEDs (XL-1615) from a
+matrix driver (AW20198QNR), about $3 less per board. It routes on 6 layers; 4 layers is down to a few
+open connections.
 
 **Project page: <https://sequoia-hope.github.io/simple-earring/>**: every design variant (A, the
 routed WS2816C board, and the B–F matrix-driver study) with board previews, a comparison table, the
@@ -14,11 +19,11 @@ interactive viewer (schematic, PCB layers, 3D) and the design notes. It is the l
 The design is *generated*: edit `design.yaml` (shape, LED count, sizes) and
 `scripts/circuit.py` (netlist), then rebuild.
 
-**Status:** rev 1 was ordered and assembled and works — it lives in a separate
-worktree at `~/pcb/simple_earring_shipped` (commit `43eadc1`). This tree is
-rev 3 (LiPo, one-button BOOTSEL, WS2816C zones), routed with ultraroute to
-0 DRC errors / 0 unconnected; gate 7 review still open. See `docs/PLAN.md` for the plan of record and the running
-dashboard feed for the narrative.
+**Status:** rev 1 (SK6805-EC10 LEDs, 2032 coin cell) was ordered, assembled and works. It lives in a
+separate worktree at `~/pcb/simple_earring_shipped` (commit `43eadc1`). This tree is rev 3: variant A
+is routed with ultraroute to 0 DRC errors / 0 unconnected and has passed gate 7. The matrix variants
+are placed; the 4- or 6-layer decision for them is open. See `docs/PLAN.md` for the plan of record
+and the project page's feed for the narrative.
 
 ## Pipeline
 
@@ -45,7 +50,7 @@ land in `out/` (renders, dashboard, `drc.json`, `production/`, `jlcpcb/`).
 The dashboard's design gallery reads `design/variants.toml` (card text) and `pcbview.toml` (the
 boards); rebuild the viewer with `scripts/view.sh build pcbview.toml`, rewrite the page with
 `python3 scripts/render.py --index-only`, then publish it to GitHub Pages (the `gh-pages` branch)
-with `python3 scripts/publish_pages.py --push`. The wear log stays local.
+with `python3 scripts/publish_pages.py --push`.
 
 ## Boardroom suite
 

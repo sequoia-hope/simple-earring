@@ -4,11 +4,12 @@
   scripts/publish_pages.py            assemble build/pages/ and show what would go
   scripts/publish_pages.py --push     also commit it to the gh-pages branch and push
 
-The site is out/ as `proj up simple_earring` serves it, minus what isn't meant to be
-public: only out/viewer/ and out/docs/ are copied whole; everything else is copied only
-if the dashboard (or a page it links) references it, found by following local src/href
-links from index.html. EXCLUDE never goes, and links to anything left out are dropped
-from the copied pages so the site has no dead links.
+The site is out/ as `proj up simple_earring` serves it, minus scratch files: out/viewer/
+and out/docs/ are copied whole; everything else is copied only if the dashboard (or a
+page it links) references it, found by following local src/href links from index.html.
+Paths in EXCLUDE never go, and links to anything left out are dropped from the copied
+pages so the site has no dead links. Don't hold data back on a guess that it's private:
+ask the user.
 
 gh-pages holds only the site (one commit per publish, on top of the last), the way
 round-pendant publishes. Run `python3 scripts/render.py --index-only` and rebuild the
@@ -24,8 +25,8 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "out"
 SITE = ROOT / "build" / "pages"
 WHOLE = ["viewer", "docs"]
-# the wear log is personal activity data (bench CSVs of wearing the earring)
-EXCLUDE = ["wear"]
+# nothing is held back today; add an out/-relative path here to keep it off the public site
+EXCLUDE = []
 REF = re.compile(r'(?:src|href)="([^"]+)"')
 
 
