@@ -12,7 +12,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 SCRATCH = Path(__file__).resolve().parent
-OUT = Path("/home/sequoia/pcb/simple_earring/out/probe")
+OUT = SCRATCH.parent.parent / "out" / "probe"   # <repo>/out/probe
 OUT.mkdir(parents=True, exist_ok=True)
 
 cal = json.load(open(SCRATCH / "cal.json"))
